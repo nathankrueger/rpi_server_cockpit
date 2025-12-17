@@ -3,12 +3,20 @@ import subprocess
 import socket
 import psutil
 import time
+import threading
+import uuid
+from collections import defaultdict
 
 app = Flask(__name__)
 
 # Configuration constants - CHANGE THESE AS NEEDED
 NETWORK_INTERFACE = 'wlan0'  # Network interface to monitor
 DISK_MOUNT_POINT = '/'       # Disk mount point to monitor
+
+# Store running automation processes and their output
+running_automations = {}
+automation_outputs = defaultdict(str)
+automation_lock = threading.Lock()
 
 # Optional callbacks for service control actions
 def on_service_start(service_name):
@@ -264,6 +272,94 @@ def control(service):
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
     
     return jsonify({'success': success, 'error': error})
+
+@app.route('/api/automation/<automation_name>', methods=['POST'])
+def run_automation(automation_name):
+    """Run an automation script in the background."""
+    # Map automation names to their script files
+    automation_scripts = {
+        'sync_music': './sync_music.sh'
+    }
+    
+    if automation_name not in automation_scripts:
+        return jsonify({'success': False, 'error': 'Invalid automation'}), 400
+    
+    script_path = automation_scripts[automation_name]
+    job_id = str(uuid.uuid4())
+    
+    def run_script():
+        try:
+            # Initialize the job info immediately
+            with automation_lock:
+                running_automations[job_id] = {
+                    'name': automation_name,
+                    'running': True,
+                    'return_code': None
+                }
+                automation_outputs[job_id] = ''
+            
+            process = subprocess.Popen(
+                ['/bin/bash', script_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            with automation_lock:
+                running_automations[job_id]['process'] = process
+            
+            # Read output line by line
+            for line in process.stdout:
+                with automation_lock:
+                    automation_outputs[job_id] += line
+            
+            process.wait()
+            
+            with automation_lock:
+                running_automations[job_id]['running'] = False
+                running_automations[job_id]['return_code'] = process.returncode
+                
+        except Exception as e:
+            with automation_lock:
+                automation_outputs[job_id] += f"\n\nERROR: {str(e)}\n"
+                if job_id in running_automations:
+                    running_automations[job_id]['running'] = False
+                    running_automations[job_id]['return_code'] = -1
+    
+    # Start the script in a background thread
+    thread = threading.Thread(target=run_script, daemon=True)
+    thread.start()
+    
+    # Give it a tiny moment to initialize
+    time.sleep(0.1)
+    
+    return jsonify({
+        'success': True,
+        'job_id': job_id,
+        'message': f'{automation_name} started'
+    })
+
+@app.route('/api/automation/<automation_name>/status/<job_id>')
+def get_automation_status(automation_name, job_id):
+    """Get the current status and output of a running automation."""
+    with automation_lock:
+        if job_id not in running_automations:
+            return jsonify({
+                'success': False,
+                'error': 'Job not found'
+            }), 404
+        
+        job_info = running_automations[job_id]
+        output = automation_outputs[job_id]
+        
+        return jsonify({
+            'success': True,
+            'running': job_info['running'],
+            'output': output,
+            'return_code': job_info.get('return_code', None)
+        })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
