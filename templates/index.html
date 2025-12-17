@@ -12,23 +12,45 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Courier New', monospace;
+            background: #000;
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Matrix background */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.3;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            position: relative;
+            z-index: 1;
         }
         
         h1 {
-            color: white;
+            color: #00ff41;
             text-align: center;
             margin-bottom: 30px;
             font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41;
+            letter-spacing: 3px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41; }
+            to { text-shadow: 0 0 20px #00ff41, 0 0 30px #00ff41, 0 0 40px #00ff41; }
         }
         
         .dashboard {
@@ -38,15 +60,37 @@
         }
         
         .service-card {
-            background: white;
-            border-radius: 15px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
             padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: transform 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, transparent, #00ff41, transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
+            border-radius: 10px;
         }
         
         .service-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
+        }
+        
+        .service-card:hover::before {
+            opacity: 0.5;
         }
         
         .service-header {
@@ -59,36 +103,68 @@
         .service-name {
             font-size: 1.4em;
             font-weight: bold;
-            color: #333;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+            letter-spacing: 2px;
         }
         
         .status-indicator {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
             transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
         }
         
         .status-indicator.green {
-            background-color: #10b981;
-            box-shadow: 0 0 15px #10b981;
+            background-color: #00ff41;
+            box-shadow: 0 0 15px #00ff41, inset 0 0 5px #00ff41;
+        }
+        
+        .status-indicator.green::after {
+            background-color: #00ff41;
         }
         
         .status-indicator.red {
-            background-color: #ef4444;
-            box-shadow: 0 0 15px #ef4444;
+            background-color: #ff0000;
+            box-shadow: 0 0 15px #ff0000, inset 0 0 5px #ff0000;
+        }
+        
+        .status-indicator.red::after {
+            background-color: #ff0000;
         }
         
         .status-indicator.yellow {
-            background-color: #f59e0b;
-            box-shadow: 0 0 15px #f59e0b;
+            background-color: #ffff00;
+            box-shadow: 0 0 15px #ffff00, inset 0 0 5px #ffff00;
+        }
+        
+        .status-indicator.yellow::after {
+            background-color: #ffff00;
         }
         
         .status-text {
             font-size: 0.9em;
-            color: #666;
+            color: #00ff41;
             margin-bottom: 15px;
+            text-shadow: 0 0 3px #00ff41;
         }
         
         .toggle-container {
@@ -99,21 +175,26 @@
         
         .toggle-label {
             font-size: 0.9em;
-            color: #666;
+            color: #00ff41;
+            text-shadow: 0 0 3px #00ff41;
         }
         
         .toggle-switch {
             position: relative;
             width: 60px;
             height: 30px;
-            background-color: #ccc;
+            background-color: rgba(255, 0, 0, 0.3);
+            border: 1px solid #ff0000;
             border-radius: 30px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
+            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.5);
         }
         
         .toggle-switch.active {
-            background-color: #10b981;
+            background-color: rgba(0, 255, 65, 0.3);
+            border-color: #00ff41;
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.5), 0 0 10px #00ff41;
         }
         
         .toggle-switch.disabled {
@@ -127,14 +208,16 @@
             left: 3px;
             width: 24px;
             height: 24px;
-            background-color: white;
+            background-color: #ff0000;
             border-radius: 50%;
-            transition: transform 0.3s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            box-shadow: 0 0 10px #ff0000;
         }
         
         .toggle-switch.active .toggle-slider {
             transform: translateX(30px);
+            background-color: #00ff41;
+            box-shadow: 0 0 10px #00ff41;
         }
         
         .internet-card {
@@ -151,6 +234,75 @@
             margin-left: 15px;
         }
         
+        /* System stats section */
+        .system-stats {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+        
+        .stat-title {
+            font-size: 1.1em;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+            margin-bottom: 15px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            color: #00ff41;
+            text-align: center;
+            text-shadow: 0 0 10px #00ff41;
+            margin-bottom: 10px;
+        }
+        
+        .stat-detail {
+            font-size: 0.8em;
+            color: #00ff41;
+            text-align: center;
+            opacity: 0.7;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff41, #00aa2b);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px #00ff41;
+        }
+        
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #ffff00, #cccc00);
+            box-shadow: 0 0 10px #ffff00;
+        }
+        
+        .progress-fill.danger {
+            background: linear-gradient(90deg, #ff0000, #cc0000);
+            box-shadow: 0 0 10px #ff0000;
+        }
+        
         .refresh-btn {
             position: fixed;
             bottom: 30px;
@@ -158,16 +310,19 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background-color: white;
-            border: none;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #00ff41;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
             cursor: pointer;
             font-size: 1.5em;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            color: #00ff41;
         }
         
         .refresh-btn:hover {
             transform: scale(1.1) rotate(180deg);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.8);
         }
         
         .refresh-btn:active {
@@ -178,22 +333,43 @@
             opacity: 0.6;
             pointer-events: none;
         }
+        
+        /* Scanline effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 65, 0.03) 0px,
+                transparent 1px,
+                transparent 2px,
+                rgba(0, 255, 65, 0.03) 3px
+            );
+            pointer-events: none;
+            z-index: 2;
+        }
     </style>
 </head>
 <body>
+    <canvas id="matrix-canvas"></canvas>
+    
     <div class="container">
-        <h1>🥧 Raspberry Pi Dashboard</h1>
+        <h1>pi5server status</h1>
         
         <div class="dashboard">
             <!-- Tailscale Service -->
             <div class="service-card">
                 <div class="service-header">
-                    <span class="service-name">Tailscale</span>
+                    <span class="service-name">TAILSCALE</span>
                     <div class="status-indicator" id="tailscaled-indicator"></div>
                 </div>
-                <div class="status-text" id="tailscaled-status">Checking...</div>
+                <div class="status-text" id="tailscaled-status">INITIALIZING...</div>
                 <div class="toggle-container">
-                    <span class="toggle-label">Service Control</span>
+                    <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="tailscaled-toggle" onclick="toggleService('tailscaled')">
                         <div class="toggle-slider"></div>
                     </div>
@@ -203,12 +379,12 @@
             <!-- MiniDLNA Service -->
             <div class="service-card">
                 <div class="service-header">
-                    <span class="service-name">MiniDLNA</span>
+                    <span class="service-name">MINIDLNA</span>
                     <div class="status-indicator" id="minidlnad-indicator"></div>
                 </div>
-                <div class="status-text" id="minidlnad-status">Checking...</div>
+                <div class="status-text" id="minidlnad-status">INITIALIZING...</div>
                 <div class="toggle-container">
-                    <span class="toggle-label">Service Control</span>
+                    <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="minidlnad-toggle" onclick="toggleService('minidlnad')">
                         <div class="toggle-slider"></div>
                     </div>
@@ -218,12 +394,12 @@
             <!-- Samba Service -->
             <div class="service-card">
                 <div class="service-header">
-                    <span class="service-name">Samba (SMB)</span>
+                    <span class="service-name">SAMBA</span>
                     <div class="status-indicator" id="smbd-indicator"></div>
                 </div>
-                <div class="status-text" id="smbd-status">Checking...</div>
+                <div class="status-text" id="smbd-status">INITIALIZING...</div>
                 <div class="toggle-container">
-                    <span class="toggle-label">Service Control</span>
+                    <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="smbd-toggle" onclick="toggleService('smbd')">
                         <div class="toggle-slider"></div>
                     </div>
@@ -233,12 +409,12 @@
             <!-- qBittorrent Service -->
             <div class="service-card">
                 <div class="service-header">
-                    <span class="service-name">qBittorrent</span>
+                    <span class="service-name">QBITTORRENT</span>
                     <div class="status-indicator" id="qbittorrent-indicator"></div>
                 </div>
-                <div class="status-text" id="qbittorrent-status">Checking...</div>
+                <div class="status-text" id="qbittorrent-status">INITIALIZING...</div>
                 <div class="toggle-container">
-                    <span class="toggle-label">Service Control</span>
+                    <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="qbittorrent-toggle" onclick="toggleService('qbittorrent')">
                         <div class="toggle-slider"></div>
                     </div>
@@ -248,17 +424,113 @@
             <!-- Internet Connectivity -->
             <div class="service-card internet-card">
                 <div class="service-header">
-                    <span class="service-name">Internet Connectivity</span>
+                    <span class="service-name">INTERNET STATUS</span>
                     <div class="status-indicator" id="internet-indicator"></div>
                 </div>
-                <div class="status-text" id="internet-status" style="text-align: center;">Checking...</div>
+                <div class="status-text" id="internet-status" style="text-align: center;">CHECKING CONNECTION...</div>
+            </div>
+        </div>
+        
+        <!-- System Statistics -->
+        <div class="system-stats">
+            <!-- CPU Stats -->
+            <div class="stat-card">
+                <div class="stat-title">CPU USAGE</div>
+                <div class="stat-value" id="cpu-value">--</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-progress"></div>
+                </div>
+            </div>
+            
+            <!-- RAM Stats -->
+            <div class="stat-card">
+                <div class="stat-title">RAM USAGE</div>
+                <div class="stat-value" id="ram-value">--</div>
+                <div class="stat-detail" id="ram-detail">-- / -- GB</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ram-progress"></div>
+                </div>
+            </div>
+            
+            <!-- Disk Stats -->
+            <div class="stat-card">
+                <div class="stat-title">DISK SPACE</div>
+                <div class="stat-value" id="disk-value">--</div>
+                <div class="stat-detail" id="disk-detail">-- GB FREE / -- GB TOTAL</div>
+                <div class="stat-detail" id="disk-mount" style="margin-top: 5px;">MOUNT: --</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-progress"></div>
+                </div>
+            </div>
+            
+            <!-- Network Stats -->
+            <div class="stat-card">
+                <div class="stat-title">NETWORK SPEED</div>
+                <div class="stat-detail" id="network-interface" style="margin-bottom: 10px;">INTERFACE: --</div>
+                <div style="display: flex; justify-content: space-around; margin-top: 10px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px;">↑ UPLOAD</div>
+                        <div class="stat-value" style="font-size: 1.5em;" id="upload-value">--</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px;">↓ DOWNLOAD</div>
+                        <div class="stat-value" style="font-size: 1.5em;" id="download-value">--</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
-    <button class="refresh-btn" onclick="updateStatus()" title="Refresh Status">🔄</button>
+    <button class="refresh-btn" onclick="updateStatus()" title="Refresh Status">⟳</button>
     
     <script>
+        // Matrix rain effect
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const nums = '0123456789';
+        const alphabet = katakana + latin + nums;
+        
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        
+        const rainDrops = [];
+        
+        for (let x = 0; x < columns; x++) {
+            rainDrops[x] = 1;
+        }
+        
+        const draw = () => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+            
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+                
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+        
+        setInterval(draw, 30);
+        
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // Service status functions
         async function updateStatus() {
             try {
                 const response = await fetch('/api/status');
@@ -274,6 +546,51 @@
             }
         }
         
+        async function updateSystemStats() {
+            try {
+                const response = await fetch('/api/system');
+                const stats = await response.json();
+                
+                // Update CPU
+                document.getElementById('cpu-value').textContent = stats.cpu_percent + '%';
+                updateProgressBar('cpu-progress', stats.cpu_percent);
+                
+                // Update RAM
+                document.getElementById('ram-value').textContent = stats.ram_percent + '%';
+                document.getElementById('ram-detail').textContent = 
+                    `${stats.ram_used_gb} / ${stats.ram_total_gb} GB`;
+                updateProgressBar('ram-progress', stats.ram_percent);
+                
+                // Update Disk
+                document.getElementById('disk-value').textContent = stats.disk_percent + '%';
+                document.getElementById('disk-detail').textContent = 
+                    `${stats.disk_free_gb} GB FREE / ${stats.disk_total_gb} GB TOTAL`;
+                document.getElementById('disk-mount').textContent = `MOUNT: ${stats.disk_mount}`;
+                updateProgressBar('disk-progress', stats.disk_percent);
+                
+                // Update Network
+                document.getElementById('network-interface').textContent = 
+                    `INTERFACE: ${stats.network_interface}`;
+                document.getElementById('upload-value').textContent = stats.upload_mbps + ' Mbps';
+                document.getElementById('download-value').textContent = stats.download_mbps + ' Mbps';
+            } catch (error) {
+                console.error('Error fetching system stats:', error);
+            }
+        }
+        
+        function updateProgressBar(id, percent) {
+            const progressBar = document.getElementById(id);
+            progressBar.style.width = percent + '%';
+            
+            // Change color based on usage
+            progressBar.className = 'progress-fill';
+            if (percent >= 90) {
+                progressBar.classList.add('danger');
+            } else if (percent >= 75) {
+                progressBar.classList.add('warning');
+            }
+        }
+        
         function updateServiceUI(service, isRunning) {
             const indicator = document.getElementById(`${service}-indicator`);
             const statusText = document.getElementById(`${service}-status`);
@@ -281,11 +598,11 @@
             
             if (isRunning) {
                 indicator.className = 'status-indicator green';
-                statusText.textContent = 'Running';
+                statusText.textContent = 'ONLINE';
                 toggle.classList.add('active');
             } else {
                 indicator.className = 'status-indicator red';
-                statusText.textContent = 'Stopped';
+                statusText.textContent = 'OFFLINE';
                 toggle.classList.remove('active');
             }
         }
@@ -296,10 +613,10 @@
             
             if (isConnected) {
                 indicator.className = 'status-indicator green';
-                statusText.textContent = 'Connected';
+                statusText.textContent = 'CONNECTED';
             } else {
                 indicator.className = 'status-indicator red';
-                statusText.textContent = 'Disconnected';
+                statusText.textContent = 'DISCONNECTED';
             }
         }
         
@@ -327,10 +644,10 @@
                 if (result.success) {
                     setTimeout(updateStatus, 1000);
                 } else {
-                    alert(`Failed to ${action} ${service}: ${result.error}`);
+                    alert(`SYSTEM ERROR: Failed to ${action} ${service}\n${result.error}`);
                 }
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                alert(`CRITICAL ERROR: ${error.message}`);
             } finally {
                 toggle.classList.remove('disabled');
             }
@@ -338,7 +655,9 @@
         
         // Update status every 5 seconds
         updateStatus();
+        updateSystemStats();
         setInterval(updateStatus, 5000);
+        setInterval(updateSystemStats, 2000);  // Update system stats more frequently
     </script>
 </body>
 </html>
