@@ -1,0 +1,16 @@
+Please write me a website whose backend is Python.  I've used Flask in the past, but as an embedded SW engineer web programming is not my forte.
+I intend for this website to be a cockpit / dashboard for my raspberry pi media server / NAS.
+
+I'd like to collaborate on how this website should look and what features it will have.
+
+To start, I want a dashboard that shows the status of running processes / services on my raspberry Pi.
+
+I want stop-light like indicators for the status of the following:
+* tailscaled (is it running or not, provide a slider (an on off) to enable it / disable it
+* minidlnad (is it running or not, provide a slider (an on off) to enable it / disable it
+* smbd (is it running or not, provide a slider (an on off) to enable it / disable it
+* qbittorrent-nox
+	* this is not a daemon, however I run it as part of cron upon reboot.  I want a status indicator showing if a process by this name is running or not
+* internet connectivity -- I'm not sure the best method, maybe something like pinging google.com, and if that fails try pinging amazon.com.
+
+Please provide optional callbacks for the on / off methods of starting / stopping each service.  I will eventually add a callback to light an LED or similar.

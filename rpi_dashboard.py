@@ -265,33 +265,5 @@ def control(service):
     
     return jsonify({'success': success, 'error': error})
 
-# @app.route('/api/service/details/<service>')
-# def get_service_details(service):
-#     """Get detailed status for a systemd service."""
-#     valid_services = ['tailscaled', 'minidlnad', 'smbd']
-    
-#     if service not in valid_services:
-#         return jsonify({'success': False, 'error': 'Invalid service'}), 400
-    
-#     try:
-#         result = subprocess.run(
-#             ['systemctl', 'status', service],
-#             capture_output=True,
-#             text=True,
-#             timeout=5
-#         )
-#         # Return the full output regardless of return code
-#         return jsonify({
-#             'success': True,
-#             'output': result.stdout,
-#             'service': service
-#         })
-#     except Exception as e:
-#         return jsonify({
-#             'success': False,
-#             'error': str(e),
-#             'service': service
-#         })
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
