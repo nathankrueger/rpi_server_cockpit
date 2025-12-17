@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .service-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .service-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .service-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .status-indicator.green {
+            background-color: #10b981;
+            box-shadow: 0 0 15px #10b981;
+        }
+        
+        .status-indicator.red {
+            background-color: #ef4444;
+            box-shadow: 0 0 15px #ef4444;
+        }
+        
+        .status-indicator.yellow {
+            background-color: #f59e0b;
+            box-shadow: 0 0 15px #f59e0b;
+        }
+        
+        .status-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .toggle-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background-color: #ccc;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background-color: #10b981;
+        }
+        
+        .toggle-switch.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(30px);
+        }
+        
+        .internet-card {
+            grid-column: 1 / -1;
+        }
+        
+        .internet-card .service-header {
+            justify-content: center;
+        }
+        
+        .internet-card .status-indicator {
+            width: 30px;
+            height: 30px;
+            margin-left: 15px;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: white;
+            border: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: transform 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1) rotate(180deg);
+        }
+        
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🥧 Raspberry Pi Dashboard</h1>
+        
+        <div class="dashboard">
+            <!-- Tailscale Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">Tailscale</span>
+                    <div class="status-indicator" id="tailscaled-indicator"></div>
+                </div>
+                <div class="status-text" id="tailscaled-status">Checking...</div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Service Control</span>
+                    <div class="toggle-switch" id="tailscaled-toggle" onclick="toggleService('tailscaled')">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MiniDLNA Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">MiniDLNA</span>
+                    <div class="status-indicator" id="minidlnad-indicator"></div>
+                </div>
+                <div class="status-text" id="minidlnad-status">Checking...</div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Service Control</span>
+                    <div class="toggle-switch" id="minidlnad-toggle" onclick="toggleService('minidlnad')">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Samba Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">Samba (SMB)</span>
+                    <div class="status-indicator" id="smbd-indicator"></div>
+                </div>
+                <div class="status-text" id="smbd-status">Checking...</div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Service Control</span>
+                    <div class="toggle-switch" id="smbd-toggle" onclick="toggleService('smbd')">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- qBittorrent Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">qBittorrent</span>
+                    <div class="status-indicator" id="qbittorrent-indicator"></div>
+                </div>
+                <div class="status-text" id="qbittorrent-status">Checking...</div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Service Control</span>
+                    <div class="toggle-switch" id="qbittorrent-toggle" onclick="toggleService('qbittorrent')">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Internet Connectivity -->
+            <div class="service-card internet-card">
+                <div class="service-header">
+                    <span class="service-name">Internet Connectivity</span>
+                    <div class="status-indicator" id="internet-indicator"></div>
+                </div>
+                <div class="status-text" id="internet-status" style="text-align: center;">Checking...</div>
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="updateStatus()" title="Refresh Status">🔄</button>
+    
+    <script>
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                updateServiceUI('tailscaled', status.tailscaled);
+                updateServiceUI('minidlnad', status.minidlnad);
+                updateServiceUI('smbd', status.smbd);
+                updateServiceUI('qbittorrent', status.qbittorrent);
+                updateInternetUI(status.internet);
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+        
+        function updateServiceUI(service, isRunning) {
+            const indicator = document.getElementById(`${service}-indicator`);
+            const statusText = document.getElementById(`${service}-status`);
+            const toggle = document.getElementById(`${service}-toggle`);
+            
+            if (isRunning) {
+                indicator.className = 'status-indicator green';
+                statusText.textContent = 'Running';
+                toggle.classList.add('active');
+            } else {
+                indicator.className = 'status-indicator red';
+                statusText.textContent = 'Stopped';
+                toggle.classList.remove('active');
+            }
+        }
+        
+        function updateInternetUI(isConnected) {
+            const indicator = document.getElementById('internet-indicator');
+            const statusText = document.getElementById('internet-status');
+            
+            if (isConnected) {
+                indicator.className = 'status-indicator green';
+                statusText.textContent = 'Connected';
+            } else {
+                indicator.className = 'status-indicator red';
+                statusText.textContent = 'Disconnected';
+            }
+        }
+        
+        async function toggleService(service) {
+            const toggle = document.getElementById(`${service}-toggle`);
+            
+            if (toggle.classList.contains('disabled')) return;
+            
+            const isActive = toggle.classList.contains('active');
+            const action = isActive ? 'stop' : 'start';
+            
+            toggle.classList.add('disabled');
+            
+            try {
+                const response = await fetch(`/api/control/${service}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: action })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    setTimeout(updateStatus, 1000);
+                } else {
+                    alert(`Failed to ${action} ${service}: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                toggle.classList.remove('disabled');
+            }
+        }
+        
+        // Update status every 5 seconds
+        updateStatus();
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>
