@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 import subprocess
+import socket
 import psutil
 import time
 
@@ -119,6 +120,30 @@ def get_system_stats():
         stats['network_interface'] = NETWORK_INTERFACE
         print(f"Error reading network stats: {e}")
     
+    # Get hostname and IP address
+    try:
+        stats['hostname'] = socket.gethostname()
+        # Try to get IP for the specified interface
+        addrs = psutil.net_if_addrs().get(NETWORK_INTERFACE, [])
+        ipv4_addr = next((addr.address for addr in addrs if addr.family == socket.AF_INET), 'N/A')
+        stats['ip_address'] = ipv4_addr
+    except Exception as e:
+        stats['hostname'] = 'Unknown'
+        stats['ip_address'] = 'N/A'
+        print(f"Error reading hostname/IP: {e}")
+    
+    # Get system uptime
+    try:
+        boot_time = psutil.boot_time()
+        uptime_seconds = time.time() - boot_time
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
+        minutes = int((uptime_seconds % 3600) // 60)
+        stats['uptime'] = f"{days}d {hours}h {minutes}m"
+    except Exception as e:
+        stats['uptime'] = 'Unknown'
+        print(f"Error reading uptime: {e}")
+    
     return stats
 
 def control_service(service_name, action):
@@ -190,6 +215,36 @@ def get_system():
     """Get system statistics."""
     return jsonify(get_system_stats())
 
+@app.route('/api/service/details/<service>')
+def get_service_details(service):
+    """Get detailed status for a systemd service."""
+    valid_services = ['tailscaled', 'minidlnad', 'smbd']
+    internal_names = {'minidlnad':'minidlna'}
+    
+    if service not in valid_services:
+        return jsonify({'success': False, 'error': 'Invalid service'}), 400
+    
+    try:
+        service_name = service if service not in internal_names else internal_names[service]
+        result = subprocess.run(
+            ['systemctl', 'status', service_name],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        # Return the full output regardless of return code
+        return jsonify({
+            'success': True,
+            'output': result.stdout,
+            'service': service
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'service': service
+        })
+
 @app.route('/api/control/<service>', methods=['POST'])
 def control(service):
     """Control a service (start/stop)."""
@@ -200,10 +255,8 @@ def control(service):
         return jsonify({'success': False, 'error': 'Invalid action'}), 400
     
     valid_services = ['tailscaled', 'minidlnad', 'smbd']
-    internal_names = {'minidlnad':'minidlna'}
     
     if service in valid_services:
-        service = service if service not in internal_names else internal_names[service]
         success, error = control_service(service, action)
     elif service == 'qbittorrent':
         success, error = control_qbittorrent(action)
@@ -211,6 +264,34 @@ def control(service):
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
     
     return jsonify({'success': success, 'error': error})
+
+# @app.route('/api/service/details/<service>')
+# def get_service_details(service):
+#     """Get detailed status for a systemd service."""
+#     valid_services = ['tailscaled', 'minidlnad', 'smbd']
+    
+#     if service not in valid_services:
+#         return jsonify({'success': False, 'error': 'Invalid service'}), 400
+    
+#     try:
+#         result = subprocess.run(
+#             ['systemctl', 'status', service],
+#             capture_output=True,
+#             text=True,
+#             timeout=5
+#         )
+#         # Return the full output regardless of return code
+#         return jsonify({
+#             'success': True,
+#             'output': result.stdout,
+#             'service': service
+#         })
+#     except Exception as e:
+#         return jsonify({
+#             'success': False,
+#             'error': str(e),
+#             'service': service
+#         })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

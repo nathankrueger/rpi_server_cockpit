@@ -171,12 +171,31 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 10px;
         }
         
         .toggle-label {
             font-size: 0.9em;
             color: #00ff41;
             text-shadow: 0 0 3px #00ff41;
+        }
+        
+        .details-btn {
+            padding: 5px 10px;
+            background: rgba(0, 255, 65, 0.2);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            color: #00ff41;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 3px #00ff41;
+        }
+        
+        .details-btn:hover {
+            background: rgba(0, 255, 65, 0.4);
+            box-shadow: 0 0 10px #00ff41;
         }
         
         .toggle-switch {
@@ -303,6 +322,77 @@
             box-shadow: 0 0 10px #ff0000;
         }
         
+        /* Modal for service details */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background: #000;
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            margin: 5% auto;
+            padding: 30px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.5);
+            position: relative;
+        }
+        
+        .modal-header {
+            color: #00ff41;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff41;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #00ff41;
+            font-size: 2em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            text-shadow: 0 0 20px #00ff41;
+            transform: scale(1.2);
+        }
+        
+        .modal-output {
+            background: rgba(0, 20, 0, 0.5);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 15px;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 50vh;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        
         .refresh-btn {
             position: fixed;
             bottom: 30px;
@@ -332,6 +422,30 @@
         .loading {
             opacity: 0.6;
             pointer-events: none;
+        }
+        
+        /* Horizontal separator */
+        .matrix-separator {
+            grid-column: 1 / -1;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ff41, transparent);
+            margin: 20px 0;
+            box-shadow: 0 0 10px #00ff41;
+            position: relative;
+        }
+        
+        .matrix-separator::before {
+            content: '▼▼▼ SYSTEM STATISTICS ▼▼▼';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            padding: 0 20px;
+            color: #00ff41;
+            font-size: 0.9em;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #00ff41;
         }
         
         /* Scanline effect */
@@ -369,6 +483,7 @@
                 </div>
                 <div class="status-text" id="tailscaled-status">INITIALIZING...</div>
                 <div class="toggle-container">
+                    <button class="details-btn" onclick="showServiceDetails('tailscaled')">DETAILS</button>
                     <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="tailscaled-toggle" onclick="toggleService('tailscaled')">
                         <div class="toggle-slider"></div>
@@ -384,6 +499,7 @@
                 </div>
                 <div class="status-text" id="minidlnad-status">INITIALIZING...</div>
                 <div class="toggle-container">
+                    <button class="details-btn" onclick="showServiceDetails('minidlnad')">DETAILS</button>
                     <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="minidlnad-toggle" onclick="toggleService('minidlnad')">
                         <div class="toggle-slider"></div>
@@ -399,6 +515,7 @@
                 </div>
                 <div class="status-text" id="smbd-status">INITIALIZING...</div>
                 <div class="toggle-container">
+                    <button class="details-btn" onclick="showServiceDetails('smbd')">DETAILS</button>
                     <span class="toggle-label">CONTROL</span>
                     <div class="toggle-switch" id="smbd-toggle" onclick="toggleService('smbd')">
                         <div class="toggle-slider"></div>
@@ -421,14 +538,8 @@
                 </div>
             </div>
             
-            <!-- Internet Connectivity -->
-            <div class="service-card internet-card">
-                <div class="service-header">
-                    <span class="service-name">INTERNET STATUS</span>
-                    <div class="status-indicator" id="internet-indicator"></div>
-                </div>
-                <div class="status-text" id="internet-status" style="text-align: center;">CHECKING CONNECTION...</div>
-            </div>
+            <!-- Matrix Separator -->
+            <div class="matrix-separator"></div>
         </div>
         
         <!-- System Statistics -->
@@ -478,6 +589,33 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Network Status with Internet Indicator -->
+            <div class="stat-card">
+                <div class="stat-title">NETWORK STATUS</div>
+                <div style="display: flex; align-items: center; justify-content: center; margin: 15px 0;">
+                    <span style="font-size: 0.9em; color: #00ff41; margin-right: 10px;">INTERNET:</span>
+                    <div class="status-indicator" id="internet-indicator-stat"></div>
+                    <span id="internet-status-stat" style="font-size: 0.9em; color: #00ff41; margin-left: 10px;">CHECKING...</span>
+                </div>
+                <div class="stat-detail" id="hostname-detail" style="margin-top: 10px;">HOSTNAME: --</div>
+                <div class="stat-detail" id="ip-detail" style="margin-top: 5px;">IP ADDRESS: --</div>
+            </div>
+            
+            <!-- System Uptime -->
+            <div class="stat-card">
+                <div class="stat-title">SYSTEM UPTIME</div>
+                <div class="stat-value" id="uptime-value" style="font-size: 1.5em;">--</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for service details -->
+    <div id="serviceModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <div class="modal-header" id="modal-title">SERVICE DETAILS</div>
+            <div class="modal-output" id="modal-output">Loading...</div>
         </div>
     </div>
     
@@ -523,7 +661,7 @@
             }
         };
         
-        setInterval(draw, 30);
+        setInterval(draw, 120);
         
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
@@ -573,8 +711,50 @@
                     `INTERFACE: ${stats.network_interface}`;
                 document.getElementById('upload-value').textContent = stats.upload_mbps + ' Mbps';
                 document.getElementById('download-value').textContent = stats.download_mbps + ' Mbps';
+                
+                // Update Network Status (hostname and IP)
+                document.getElementById('hostname-detail').textContent = `HOSTNAME: ${stats.hostname}`;
+                document.getElementById('ip-detail').textContent = `IP ADDRESS: ${stats.ip_address}`;
+                
+                // Update Uptime
+                document.getElementById('uptime-value').textContent = stats.uptime;
             } catch (error) {
                 console.error('Error fetching system stats:', error);
+            }
+        }
+        
+        async function showServiceDetails(service) {
+            const modal = document.getElementById('serviceModal');
+            const title = document.getElementById('modal-title');
+            const output = document.getElementById('modal-output');
+            
+            title.textContent = `${service.toUpperCase()} STATUS`;
+            output.textContent = 'Loading...';
+            modal.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/api/service/details/${service}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    output.textContent = data.output;
+                } else {
+                    output.textContent = `ERROR: ${data.error}`;
+                }
+            } catch (error) {
+                output.textContent = `ERROR: Failed to fetch service details\n${error.message}`;
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('serviceModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('serviceModal');
+            if (event.target == modal) {
+                closeModal();
             }
         }
         
@@ -608,8 +788,9 @@
         }
         
         function updateInternetUI(isConnected) {
-            const indicator = document.getElementById('internet-indicator');
-            const statusText = document.getElementById('internet-status');
+            // Update the internet status indicator in Network Status box
+            const indicator = document.getElementById('internet-indicator-stat');
+            const statusText = document.getElementById('internet-status-stat');
             
             if (isConnected) {
                 indicator.className = 'status-indicator green';
