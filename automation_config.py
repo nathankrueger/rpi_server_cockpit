@@ -39,13 +39,7 @@ AUTOMATIONS = [
 AUTOMATION_MAP = {auto['name']: auto for auto in AUTOMATIONS}
 
 def get_automation_config(automation_name):
-    """Get configuration for a specific automation."""
     return AUTOMATION_MAP.get(automation_name)
 
 def get_all_automations():
-    """Get all automation configurations."""
     return AUTOMATIONS
-
-def validate_automation(automation_name):
-    """Check if an automation exists."""
-    return automation_name in AUTOMATION_MAP

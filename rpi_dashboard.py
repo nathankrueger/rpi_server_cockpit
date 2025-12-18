@@ -8,7 +8,7 @@ import threading
 import uuid
 import os
 import eventlet
-from automation_config import get_all_automations, get_automation_config, validate_automation
+from automation_config import get_all_automations, get_automation_config
 
 # Determine async mode based on environment
 DEBUG_MODE = os.environ.get('DEBUG_MODE') == '1'
