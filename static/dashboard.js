@@ -44,7 +44,8 @@ const draw = () => {
     }
 };
 
-setInterval(draw, 120);
+// Matrix animation interval - will be set in init()
+let matrixInterval = null;
 
 window.addEventListener('resize', () => {
     initMatrix();
@@ -213,12 +214,8 @@ function closeModal() {
     document.getElementById('serviceModal').style.display = 'none';
 }
 
-// Close modal when clicking outside of it
-window.onclick = function(event) {
-    const modal = document.getElementById('serviceModal');
-    if (event.target == modal) {
-        closeModal();
-    }
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
 }
 
 function updateProgressBar(id, percent) {
@@ -568,14 +565,80 @@ function restoreCollapsedStates() {
     });
 }
 
+// Settings modal functions
+function openSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    const statusUpdateRate = document.getElementById('status-update-rate');
+    const systemStatsUpdateRate = document.getElementById('system-stats-update-rate');
+    const matrixAnimationRate = document.getElementById('matrix-animation-rate');
+
+    // Load saved settings or use defaults
+    statusUpdateRate.value = localStorage.getItem('statusUpdateRate') || 5000;
+    systemStatsUpdateRate.value = localStorage.getItem('systemStatsUpdateRate') || 2000;
+    matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
+
+    modal.style.display = 'block';
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+function saveSettings() {
+    const statusUpdateRate = parseInt(document.getElementById('status-update-rate').value);
+    const systemStatsUpdateRate = parseInt(document.getElementById('system-stats-update-rate').value);
+    const matrixAnimationRate = parseInt(document.getElementById('matrix-animation-rate').value);
+
+    // Validate inputs
+    if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 60000) {
+        alert('ERROR: Status update rate must be between 1000 and 60000 ms');
+        return;
+    }
+
+    if (isNaN(systemStatsUpdateRate) || systemStatsUpdateRate < 100 || systemStatsUpdateRate > 60000) {
+        alert('ERROR: System statistics update rate must be between 1000 and 60000 ms');
+        return;
+    }
+
+    if (isNaN(matrixAnimationRate) || matrixAnimationRate < 10 || matrixAnimationRate > 1000) {
+        alert('ERROR: Matrix animation rate must be between 50 and 1000 ms');
+        return;
+    }
+
+    // Save to localStorage
+    localStorage.setItem('statusUpdateRate', statusUpdateRate);
+    localStorage.setItem('systemStatsUpdateRate', systemStatsUpdateRate);
+    localStorage.setItem('matrixAnimationRate', matrixAnimationRate);
+
+    // Close modal
+    closeSettingsModal();
+
+    // Show confirmation and reload
+    alert('Settings saved! Page will reload to apply changes.');
+    location.reload();
+}
+
 // Initialize the page
 async function init() {
     restoreCollapsedStates();
     await loadAutomations();
+
+    // Load settings from localStorage or use defaults
+    const statusUpdateRate = parseInt(localStorage.getItem('statusUpdateRate')) || 3000;
+    const systemStatsUpdateRate = parseInt(localStorage.getItem('systemStatsUpdateRate')) || 1000;
+    const matrixAnimationRate = parseInt(localStorage.getItem('matrixAnimationRate')) || 120;
+
+    // Start matrix animation with configured rate
+    if (matrixInterval) {
+        clearInterval(matrixInterval);
+    }
+    matrixInterval = setInterval(draw, matrixAnimationRate);
+
+    // Start status updates with configured rate
     updateStatus();
     updateSystemStats();
-    setInterval(updateStatus, 5000);
-    setInterval(updateSystemStats, 2000);
+    setInterval(updateStatus, statusUpdateRate);
+    setInterval(updateSystemStats, systemStatsUpdateRate);
 }
 
 // Run initialization when DOM is ready

@@ -32,6 +32,12 @@ AUTOMATIONS = [
         'display_name': 'STRESS TEST',
         'script_path': './automation_scripts/make_heat.sh',
         'button_text': 'GO'
+    },
+    {
+        'name': 'proc_list',
+        'display_name': 'PROCESS LIST',
+        'script_path': './automation_scripts/proc_list.sh',
+        'button_text': 'LIST PROCESSES'
     }
 ]
 

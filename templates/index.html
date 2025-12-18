@@ -175,6 +175,36 @@
         </div>
     </div>
 
+    <!-- Modal for settings -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeSettingsModal()">&times;</span>
+            <div class="modal-header">SETTINGS</div>
+            <div class="settings-container">
+                <div class="setting-item">
+                    <label for="status-update-rate">SERVICE STATUS UPDATE RATE (MS)</label>
+                    <input type="number" id="status-update-rate" min="1000" max="60000" step="1000" value="5000">
+                    <div class="setting-hint">Default: 5000ms (5 seconds)</div>
+                </div>
+                <div class="setting-item">
+                    <label for="system-stats-update-rate">SYSTEM STATISTICS UPDATE RATE (MS)</label>
+                    <input type="number" id="system-stats-update-rate" min="100" max="60000" step="100" value="2000">
+                    <div class="setting-hint">Default: 2000ms (2 seconds)</div>
+                </div>
+                <div class="setting-item">
+                    <label for="matrix-animation-rate">MATRIX ANIMATION RATE (MS)</label>
+                    <input type="number" id="matrix-animation-rate" min="10" max="1000" step="10" value="120">
+                    <div class="setting-hint">Default: 120ms</div>
+                </div>
+                <div class="settings-buttons">
+                    <button class="details-btn" onclick="saveSettings()">SAVE</button>
+                    <button class="details-btn cancel" onclick="closeSettingsModal()">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
     <button class="refresh-btn" onclick="location.reload()" title="Refresh Page">⟳</button>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>

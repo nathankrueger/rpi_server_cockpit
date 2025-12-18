@@ -30,6 +30,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
 # Configuration constants - CHANGE THESE AS NEEDED
 NETWORK_INTERFACE = 'wlan0'  # Network interface to monitor
 DISK_MOUNT_POINT = '/'       # Disk mount point to monitor
+NETWORK_MONITOR_INTERVAL = 0.1  # Network speed monitoring interval in seconds (100ms)
 
 # Store automation state server-side - dynamically initialized from config
 # Structure: {automation_name: {'job_id': str, 'running': bool, 'output': str, 'return_code': int, 'process': subprocess.Popen}}
@@ -38,6 +39,15 @@ automation_state = {
     for auto in get_all_automations()
 }
 automation_lock = threading.Lock()
+
+# Cached network speed stats (updated by background thread)
+network_stats_cache = {
+    'upload_mbps': 0.0,
+    'download_mbps': 0.0,
+    'network_interface': NETWORK_INTERFACE,
+    'last_update': None
+}
+network_stats_lock = threading.Lock()
 
 def broadcast_automation_state(automation_name, incremental_output=None):
     """Broadcast automation state to all connected clients.
@@ -112,7 +122,7 @@ def check_process_running(process_name):
 def check_internet_connectivity():
     """Check internet connectivity by pinging google.com, fallback to amazon.com."""
     hosts = ['8.8.8.8', '1.1.1.1']  # Google DNS and Cloudflare DNS
-    
+
     for host in hosts:
         try:
             result = subprocess.run(
@@ -125,6 +135,39 @@ def check_internet_connectivity():
         except Exception:
             continue
     return False
+
+def network_speed_monitor():
+    """Background thread that continuously monitors network speed.
+    Updates the network_stats_cache every NETWORK_MONITOR_INTERVAL seconds.
+    """
+    print(f"Network speed monitor started (interval: {NETWORK_MONITOR_INTERVAL}s)")
+
+    while True:
+        try:
+            net_io_start = psutil.net_io_counters(pernic=True).get(NETWORK_INTERFACE)
+            if net_io_start:
+                time.sleep(NETWORK_MONITOR_INTERVAL)
+                net_io_end = psutil.net_io_counters(pernic=True).get(NETWORK_INTERFACE)
+
+                # Calculate bytes per interval
+                upload_bytes = net_io_end.bytes_sent - net_io_start.bytes_sent
+                download_bytes = net_io_end.bytes_recv - net_io_start.bytes_recv
+
+                # Convert to Mbps (bytes per interval -> bytes per second -> Mbps)
+                upload_mbps = round((upload_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2), 2)
+                download_mbps = round((download_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2), 2)
+
+                # Update cache with thread safety
+                with network_stats_lock:
+                    network_stats_cache['upload_mbps'] = upload_mbps
+                    network_stats_cache['download_mbps'] = download_mbps
+                    network_stats_cache['last_update'] = time.time()
+            else:
+                # Interface not found, sleep and retry
+                time.sleep(NETWORK_MONITOR_INTERVAL)
+        except Exception as e:
+            print(f"Error in network speed monitor: {e}")
+            time.sleep(NETWORK_MONITOR_INTERVAL)
 
 def get_system_stats():
     """Get CPU, RAM, disk, and network statistics."""
@@ -183,30 +226,11 @@ def get_system_stats():
         stats['disk_mount'] = DISK_MOUNT_POINT
         print(f"Error reading disk stats: {e}")
     
-    # Network Speed for specified interface
-    try:
-        net_io_start = psutil.net_io_counters(pernic=True).get(NETWORK_INTERFACE)
-        if net_io_start:
-            time.sleep(1)  # Wait 1 second to measure speed
-            net_io_end = psutil.net_io_counters(pernic=True).get(NETWORK_INTERFACE)
-            
-            # Calculate bytes per second
-            upload_speed = (net_io_end.bytes_sent - net_io_start.bytes_sent)
-            download_speed = (net_io_end.bytes_recv - net_io_start.bytes_recv)
-            
-            # Convert to Mbps
-            stats['upload_mbps'] = round(upload_speed * 8 / (1024**2), 2)
-            stats['download_mbps'] = round(download_speed * 8 / (1024**2), 2)
-            stats['network_interface'] = NETWORK_INTERFACE
-        else:
-            stats['upload_mbps'] = 0
-            stats['download_mbps'] = 0
-            stats['network_interface'] = NETWORK_INTERFACE
-    except Exception as e:
-        stats['upload_mbps'] = 0
-        stats['download_mbps'] = 0
-        stats['network_interface'] = NETWORK_INTERFACE
-        print(f"Error reading network stats: {e}")
+    # Network Speed - read from cache (updated by background thread)
+    with network_stats_lock:
+        stats['upload_mbps'] = network_stats_cache['upload_mbps']
+        stats['download_mbps'] = network_stats_cache['download_mbps']
+        stats['network_interface'] = network_stats_cache['network_interface']
     
     # Get hostname and IP address
     try:
@@ -558,6 +582,11 @@ def handle_request_state(data):
                 'automation': automation_name,
                 'state': state
             })
+
+# Start the network speed monitor thread
+# This daemon thread runs in the background and updates network stats cache
+network_monitor_thread = threading.Thread(target=network_speed_monitor, daemon=True)
+network_monitor_thread.start()
 
 # Create a WSGI application wrapper for gunicorn
 # This allows gunicorn to serve the Flask-SocketIO app

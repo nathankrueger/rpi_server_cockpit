@@ -432,6 +432,32 @@ h1 {
     transform: scale(0.95);
 }
 
+.settings-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 110px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(0, 20, 0, 0.9);
+    border: 2px solid #00ff41;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+    cursor: pointer;
+    font-size: 1.5em;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    color: #00ff41;
+}
+
+.settings-btn:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.8);
+}
+
+.settings-btn:active {
+    transform: scale(0.95);
+}
+
 .loading {
     opacity: 0.6;
     pointer-events: none;
@@ -515,6 +541,63 @@ h1 {
     opacity: 0;
     margin: 0;
     padding: 0;
+}
+
+/* Settings modal styles */
+.settings-container {
+    padding: 10px 0;
+}
+
+.setting-item {
+    margin-bottom: 25px;
+}
+
+.setting-item label {
+    display: block;
+    color: #00ff41;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    text-shadow: 0 0 5px #00ff41;
+    letter-spacing: 1px;
+}
+
+.setting-item input[type="number"] {
+    width: 100%;
+    background: rgba(0, 20, 0, 0.5);
+    border: 1px solid #00ff41;
+    border-radius: 5px;
+    padding: 10px;
+    color: #00ff41;
+    font-family: 'Courier New', monospace;
+    font-size: 1em;
+    box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.2);
+    transition: all 0.3s;
+}
+
+.setting-item input[type="number"]:focus {
+    outline: none;
+    border-color: #00ff41;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.5), inset 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.setting-hint {
+    font-size: 0.75em;
+    color: #00ff41;
+    opacity: 0.6;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.settings-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.settings-buttons .details-btn {
+    padding: 10px 25px;
+    font-size: 1em;
 }
 
 /* Scanline effect */
