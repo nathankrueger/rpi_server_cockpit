@@ -564,6 +564,38 @@
                 </div>
             </div>
             
+            <!-- Reboot Automation -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">REBOOT</span>
+                    <div class="status-indicator yellow" id="reboot-indicator"></div>
+                </div>
+                <div class="status-text" id="reboot-status">READY</div>
+                <div class="toggle-container">
+                    <button class="details-btn" onclick="runAutomation('reboot')" id="reboot-btn">REBOOT</button>
+                </div>
+                <div class="automation-output" id="reboot-output" style="display: none;">
+                    <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px; text-shadow: 0 0 3px #00ff41;">OUTPUT:</div>
+                    <div class="modal-output" style="max-height: 150px; font-size: 0.75em;" id="reboot-output-text"></div>
+                </div>
+            </div>
+            
+            <!-- Update OS Automation -->
+            <div class="service-card">
+                <div class="service-header">
+                    <span class="service-name">UPDATE OS</span>
+                    <div class="status-indicator yellow" id="update_os-indicator"></div>
+                </div>
+                <div class="status-text" id="update_os-status">READY</div>
+                <div class="toggle-container">
+                    <button class="details-btn" onclick="runAutomation('update_os')" id="update_os-btn">UPDATE</button>
+                </div>
+                <div class="automation-output" id="update_os-output" style="display: none;">
+                    <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px; text-shadow: 0 0 3px #00ff41;">OUTPUT:</div>
+                    <div class="modal-output" style="max-height: 150px; font-size: 0.75em;" id="update_os-output-text"></div>
+                </div>
+            </div>
+            
             <!-- Statistics Separator -->
             <div class="matrix-separator separator-stats"></div>
         </div>

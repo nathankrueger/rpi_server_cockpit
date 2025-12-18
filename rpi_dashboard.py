@@ -278,7 +278,9 @@ def run_automation(automation_name):
     """Run an automation script in the background."""
     # Map automation names to their script files
     automation_scripts = {
-        'sync_music': './sync_music.sh'
+        'sync_music': './automation_scripts/sync_music.sh',
+        'reboot': './automation_scripts/reboot.sh',
+        'update_os': './automation_scripts/update_os.sh'
     }
     
     if automation_name not in automation_scripts:
