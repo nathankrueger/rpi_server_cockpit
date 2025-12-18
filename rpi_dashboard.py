@@ -363,5 +363,53 @@ def get_automation_status(automation_name, job_id):
             'return_code': job_info.get('return_code', None)
         })
 
+@app.route('/api/automation/<automation_name>/cancel/<job_id>', methods=['POST'])
+def cancel_automation(automation_name, job_id):
+    """Cancel a running automation."""
+    with automation_lock:
+        if job_id not in running_automations:
+            return jsonify({
+                'success': False,
+                'error': 'Job not found'
+            }), 404
+        
+        job_info = running_automations[job_id]
+        
+        if not job_info['running']:
+            return jsonify({
+                'success': False,
+                'error': 'Job already completed'
+            })
+        
+        # Try to kill the process
+        try:
+            if 'process' in job_info:
+                process = job_info['process']
+                process.terminate()
+                # Give it a moment to terminate gracefully
+                time.sleep(0.5)
+                if process.poll() is None:
+                    # Force kill if still running
+                    process.kill()
+                
+                automation_outputs[job_id] += "\n\n=== CANCELLED BY USER ===\n"
+                job_info['running'] = False
+                job_info['return_code'] = -999  # Special code for cancelled
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Job cancelled'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Process not found'
+                })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

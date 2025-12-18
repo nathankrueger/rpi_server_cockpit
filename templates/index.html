@@ -60,7 +60,7 @@
         }
         
         .service-card {
-            background: rgba(0, 20, 0, 0.9);
+            background: rgba(40, 40, 50, 0.95);
             border: 2px solid #00ff41;
             border-radius: 10px;
             padding: 25px;
@@ -198,6 +198,18 @@
             box-shadow: 0 0 10px #00ff41;
         }
         
+        .details-btn.cancel {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #ff0000;
+            color: #ff0000;
+            text-shadow: 0 0 3px #ff0000;
+        }
+        
+        .details-btn.cancel:hover {
+            background: rgba(255, 0, 0, 0.4);
+            box-shadow: 0 0 10px #ff0000;
+        }
+        
         .toggle-switch {
             position: relative;
             width: 60px;
@@ -249,7 +261,7 @@
         }
         
         .stat-card {
-            background: rgba(0, 20, 0, 0.9);
+            background: rgba(40, 40, 50, 0.95);
             border: 2px solid #00ff41;
             border-radius: 10px;
             padding: 20px;
@@ -905,6 +917,12 @@
             const outputDiv = document.getElementById(`${automationName}-output`);
             const outputText = document.getElementById(`${automationName}-output-text`);
             
+            // Check if this is a cancel action
+            if (btn.classList.contains('cancel')) {
+                await cancelAutomation(automationName);
+                return;
+            }
+            
             // Debug: Check if elements exist
             console.log('Elements found:', {
                 btn: btn,
@@ -922,9 +940,9 @@
             
             // Disable button and update UI
             btn.disabled = true;
-            btn.textContent = 'RUNNING...';
+            btn.textContent = 'STARTING...';
             indicator.className = 'status-indicator yellow';
-            statusText.textContent = 'RUNNING...';
+            statusText.textContent = 'STARTING...';
             
             // Show output window and clear previous output
             outputDiv.style.display = 'block';
@@ -959,7 +977,7 @@
                     statusText.textContent = 'FAILED TO START';
                     outputText.textContent = 'ERROR: ' + (result.error || 'Unknown error');
                     btn.disabled = false;
-                    btn.textContent = 'RUN SYNC';
+                    btn.textContent = getButtonText(automationName);
                     return;
                 }
                 
@@ -969,6 +987,13 @@
                 
                 const jobId = result.job_id;
                 console.log('Job started with ID:', jobId);
+                
+                // Store job ID and change button to cancel
+                btn.dataset.jobId = jobId;
+                btn.disabled = false;
+                btn.textContent = 'CANCEL';
+                btn.classList.add('cancel');
+                statusText.textContent = 'RUNNING...';
                 
                 // Poll for output every 2 seconds
                 const pollInterval = setInterval(async () => {
@@ -986,16 +1011,23 @@
                             if (!statusData.running) {
                                 clearInterval(pollInterval);
                                 
+                                // Reset button
+                                btn.classList.remove('cancel');
+                                btn.textContent = getButtonText(automationName);
+                                delete btn.dataset.jobId;
+                                
                                 if (statusData.return_code === 0) {
                                     indicator.className = 'status-indicator green';
                                     statusText.textContent = 'COMPLETED';
+                                } else if (statusData.return_code === -999) {
+                                    indicator.className = 'status-indicator yellow';
+                                    statusText.textContent = 'CANCELLED';
                                 } else {
                                     indicator.className = 'status-indicator red';
                                     statusText.textContent = 'FAILED';
                                 }
                                 
                                 btn.disabled = false;
-                                btn.textContent = 'RUN SYNC';
                             }
                         }
                     } catch (error) {
@@ -1009,8 +1041,54 @@
                 statusText.textContent = 'ERROR';
                 outputText.textContent = 'CRITICAL ERROR: ' + error.message;
                 btn.disabled = false;
-                btn.textContent = 'RUN SYNC';
+                btn.classList.remove('cancel');
+                btn.textContent = getButtonText(automationName);
             }
+        }
+        
+        async function cancelAutomation(automationName) {
+            const btn = document.getElementById(`${automationName}-btn`);
+            const indicator = document.getElementById(`${automationName}-indicator`);
+            const statusText = document.getElementById(`${automationName}-status`);
+            const outputText = document.getElementById(`${automationName}-output-text`);
+            
+            const jobId = btn.dataset.jobId;
+            if (!jobId) {
+                console.error('No job ID found for cancellation');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'CANCELLING...';
+            
+            try {
+                const response = await fetch(`/api/automation/${automationName}/cancel/${jobId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    indicator.className = 'status-indicator yellow';
+                    statusText.textContent = 'CANCELLED';
+                } else {
+                    console.error('Cancel failed:', result.error);
+                }
+            } catch (error) {
+                console.error('Error cancelling automation:', error);
+            }
+        }
+        
+        function getButtonText(automationName) {
+            const buttonTexts = {
+                'sync_music': 'RUN SYNC',
+                'reboot': 'REBOOT',
+                'update_os': 'UPDATE'
+            };
+            return buttonTexts[automationName] || 'RUN';
         }
         
         // Update status every 5 seconds
