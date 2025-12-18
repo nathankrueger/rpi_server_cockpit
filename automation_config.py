@@ -38,6 +38,12 @@ AUTOMATIONS = [
         'display_name': 'PROCESS LIST',
         'script_path': './automation_scripts/proc_list.sh',
         'button_text': 'LIST PROCESSES'
+    },
+    {
+        'name': 'restart_webserver',
+        'display_name': 'RESTART WEBSERVER',
+        'script_path': './automation_scripts/restart_webserver.sh',
+        'button_text': 'RESTART'
     }
 ]
 
