@@ -90,6 +90,20 @@ async function updateSystemStats() {
         document.getElementById('cpu-value').textContent = stats.cpu_percent + '%';
         updateProgressBar('cpu-progress', stats.cpu_percent);
 
+        // Update CPU temperature
+        if (stats.cpu_temp !== null && stats.cpu_temp !== undefined) {
+            document.getElementById('cpu-temp').textContent = stats.cpu_temp + ' °F';
+        } else {
+            document.getElementById('cpu-temp').textContent = 'N/A';
+        }
+
+        // Update GPU temperature
+        if (stats.gpu_temp !== null && stats.gpu_temp !== undefined) {
+            document.getElementById('gpu-temp').textContent = stats.gpu_temp + ' °F';
+        } else {
+            document.getElementById('gpu-temp').textContent = 'N/A';
+        }
+
         // Update RAM
         document.getElementById('ram-value').textContent = stats.ram_percent + '%';
         document.getElementById('ram-detail').textContent =

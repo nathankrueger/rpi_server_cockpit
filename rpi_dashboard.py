@@ -129,9 +129,39 @@ def check_internet_connectivity():
 def get_system_stats():
     """Get CPU, RAM, disk, and network statistics."""
     stats = {}
-    
+
     # CPU Usage
     stats['cpu_percent'] = psutil.cpu_percent(interval=1)
+
+    # CPU Temperature (convert C to F)
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            cpu_temp_c = float(f.read().strip()) / 1000.0
+            cpu_temp_f = (cpu_temp_c * 9/5) + 32
+            stats['cpu_temp'] = round(cpu_temp_f, 1)
+    except Exception as e:
+        stats['cpu_temp'] = None
+        print(f"Error reading CPU temperature: {e}")
+
+    # GPU Temperature (convert C to F)
+    try:
+        result = subprocess.run(
+            ['vcgencmd', 'measure_temp'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            # Parse output like "temp=46.6'C"
+            temp_str = result.stdout.strip().split('=')[1].split("'")[0]
+            gpu_temp_c = float(temp_str)
+            gpu_temp_f = (gpu_temp_c * 9/5) + 32
+            stats['gpu_temp'] = round(gpu_temp_f, 1)
+        else:
+            stats['gpu_temp'] = None
+    except Exception as e:
+        stats['gpu_temp'] = None
+        print(f"Error reading GPU temperature: {e}")
     
     # RAM Usage
     ram = psutil.virtual_memory()
