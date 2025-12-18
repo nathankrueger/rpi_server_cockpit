@@ -30,7 +30,8 @@ const draw = () => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#0F0';
+    // Use theme color if set, otherwise default to green
+    ctx.fillStyle = window.matrixColor || '#0F0';
     ctx.font = fontSize + 'px monospace';
 
     for (let i = 0; i < rainDrops.length; i++) {
@@ -46,6 +47,10 @@ const draw = () => {
 
 // Matrix animation interval - will be set in init()
 let matrixInterval = null;
+
+// Interval IDs for status updates
+let statusUpdateInterval = null;
+let systemStatsUpdateInterval = null;
 
 window.addEventListener('resize', () => {
     initMatrix();
@@ -565,17 +570,98 @@ function restoreCollapsedStates() {
     });
 }
 
+// Theme color functions
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
+function applyColors(foregroundColor, backgroundColor) {
+    const fgRgb = hexToRgb(foregroundColor);
+    const bgRgb = hexToRgb(backgroundColor);
+
+    if (!fgRgb || !bgRgb) return;
+
+    // Calculate darker shade for foreground (80% brightness for dimmed text like CPU temp)
+    const dimR = Math.floor(fgRgb.r * 0.8);
+    const dimG = Math.floor(fgRgb.g * 0.8);
+    const dimB = Math.floor(fgRgb.b * 0.8);
+
+    // Calculate darker shade for backgrounds (reduce brightness by ~92%)
+    const darkR = Math.floor(fgRgb.r * 0.08);
+    const darkG = Math.floor(fgRgb.g * 0.08);
+    const darkB = Math.floor(fgRgb.b * 0.08);
+
+    // Set CSS custom properties for foreground
+    document.documentElement.style.setProperty('--theme-primary', foregroundColor);
+    document.documentElement.style.setProperty('--theme-primary-rgb', `${fgRgb.r}, ${fgRgb.g}, ${fgRgb.b}`);
+    document.documentElement.style.setProperty('--theme-primary-dim', `rgb(${dimR}, ${dimG}, ${dimB})`);
+    document.documentElement.style.setProperty('--theme-bg-dark', `rgba(${darkR}, ${darkG}, ${darkB}, 0.9)`);
+    document.documentElement.style.setProperty('--theme-bg-medium', `rgba(${darkR}, ${darkG}, ${darkB}, 0.5)`);
+
+    // Set background color for matrix animation
+    document.documentElement.style.setProperty('--background-color', backgroundColor);
+
+    // Update matrix canvas color
+    updateMatrixColor(backgroundColor);
+}
+
+function updateMatrixColor(color) {
+    // The matrix drawing function will use this color
+    window.matrixColor = color;
+}
+
 // Settings modal functions
 function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
     const statusUpdateRate = document.getElementById('status-update-rate');
     const systemStatsUpdateRate = document.getElementById('system-stats-update-rate');
     const matrixAnimationRate = document.getElementById('matrix-animation-rate');
+    const backgroundColorPicker = document.getElementById('background-color');
+    const backgroundColorText = document.getElementById('background-color-text');
+    const foregroundColorPicker = document.getElementById('foreground-color');
+    const foregroundColorText = document.getElementById('foreground-color-text');
 
     // Load saved settings or use defaults
     statusUpdateRate.value = localStorage.getItem('statusUpdateRate') || 5000;
     systemStatsUpdateRate.value = localStorage.getItem('systemStatsUpdateRate') || 2000;
     matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
+
+    const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
+    const savedForegroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
+
+    backgroundColorPicker.value = savedBackgroundColor;
+    backgroundColorText.value = savedBackgroundColor;
+    foregroundColorPicker.value = savedForegroundColor;
+    foregroundColorText.value = savedForegroundColor;
+
+    // Sync background color picker and text input
+    backgroundColorPicker.addEventListener('input', (e) => {
+        backgroundColorText.value = e.target.value;
+    });
+
+    backgroundColorText.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (/^#[0-9A-F]{6}$/i.test(value)) {
+            backgroundColorPicker.value = value;
+        }
+    });
+
+    // Sync foreground color picker and text input
+    foregroundColorPicker.addEventListener('input', (e) => {
+        foregroundColorText.value = e.target.value;
+    });
+
+    foregroundColorText.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (/^#[0-9A-F]{6}$/i.test(value)) {
+            foregroundColorPicker.value = value;
+        }
+    });
 
     modal.style.display = 'block';
 }
@@ -588,6 +674,8 @@ function saveSettings() {
     const statusUpdateRate = parseInt(document.getElementById('status-update-rate').value);
     const systemStatsUpdateRate = parseInt(document.getElementById('system-stats-update-rate').value);
     const matrixAnimationRate = parseInt(document.getElementById('matrix-animation-rate').value);
+    const backgroundColor = document.getElementById('background-color').value;
+    const foregroundColor = document.getElementById('foreground-color').value;
 
     // Validate inputs
     if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 60000) {
@@ -605,21 +693,55 @@ function saveSettings() {
         return;
     }
 
+    if (!/^#[0-9A-F]{6}$/i.test(backgroundColor)) {
+        alert('ERROR: Invalid background color format. Please use hex format like #00ff41');
+        return;
+    }
+
+    if (!/^#[0-9A-F]{6}$/i.test(foregroundColor)) {
+        alert('ERROR: Invalid foreground color format. Please use hex format like #00ff41');
+        return;
+    }
+
     // Save to localStorage
     localStorage.setItem('statusUpdateRate', statusUpdateRate);
     localStorage.setItem('systemStatsUpdateRate', systemStatsUpdateRate);
     localStorage.setItem('matrixAnimationRate', matrixAnimationRate);
+    localStorage.setItem('backgroundColor', backgroundColor);
+    localStorage.setItem('foregroundColor', foregroundColor);
+
+    // Apply colors immediately
+    applyColors(foregroundColor, backgroundColor);
+
+    // Apply matrix animation rate immediately
+    if (matrixInterval) {
+        clearInterval(matrixInterval);
+    }
+    matrixInterval = setInterval(draw, matrixAnimationRate);
+
+    // Apply status update rate immediately
+    if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+    }
+    statusUpdateInterval = setInterval(updateStatus, statusUpdateRate);
+
+    // Apply system stats update rate immediately
+    if (systemStatsUpdateInterval) {
+        clearInterval(systemStatsUpdateInterval);
+    }
+    systemStatsUpdateInterval = setInterval(updateSystemStats, systemStatsUpdateRate);
 
     // Close modal
     closeSettingsModal();
-
-    // Show confirmation and reload
-    alert('Settings saved! Page will reload to apply changes.');
-    location.reload();
 }
 
 // Initialize the page
 async function init() {
+    // Apply saved colors first
+    const foregroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
+    const backgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
+    applyColors(foregroundColor, backgroundColor);
+
     restoreCollapsedStates();
     await loadAutomations();
 
@@ -637,8 +759,8 @@ async function init() {
     // Start status updates with configured rate
     updateStatus();
     updateSystemStats();
-    setInterval(updateStatus, statusUpdateRate);
-    setInterval(updateSystemStats, systemStatsUpdateRate);
+    statusUpdateInterval = setInterval(updateStatus, statusUpdateRate);
+    systemStatsUpdateInterval = setInterval(updateSystemStats, systemStatsUpdateRate);
 }
 
 // Run initialization when DOM is ready

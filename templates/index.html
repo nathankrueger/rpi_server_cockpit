@@ -133,26 +133,26 @@
             <!-- Network Stats -->
             <div class="stat-card">
                 <div class="stat-title">NETWORK SPEED</div>
-                <div class="stat-detail" id="network-interface" style="margin-bottom: 10px;">INTERFACE: --</div>
                 <div style="display: flex; justify-content: space-around; margin-top: 10px;">
                     <div style="text-align: center;">
-                        <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px;">↑ UPLOAD</div>
+                        <div style="font-size: 0.8em; color: var(--theme-primary); margin-bottom: 5px;">↑ UPLOAD</div>
                         <div class="stat-value" style="font-size: 1.5em;" id="upload-value">--</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px;">↓ DOWNLOAD</div>
+                        <div style="font-size: 0.8em; color: var(--theme-primary); margin-bottom: 5px;">↓ DOWNLOAD</div>
                         <div class="stat-value" style="font-size: 1.5em;" id="download-value">--</div>
                     </div>
                 </div>
+                <div class="stat-detail" id="network-interface" style="margin-top: 10px;">INTERFACE: --</div>
             </div>
 
             <!-- Network Status with Internet Indicator -->
             <div class="stat-card">
                 <div class="stat-title">NETWORK STATUS</div>
                 <div style="display: flex; align-items: center; justify-content: center; margin: 15px 0;">
-                    <span style="font-size: 0.9em; color: #00ff41; margin-right: 10px;">INTERNET:</span>
+                    <span style="font-size: 0.9em; color: var(--theme-primary); margin-right: 10px;">INTERNET:</span>
                     <div class="status-indicator" id="internet-indicator-stat"></div>
-                    <span id="internet-status-stat" style="font-size: 0.9em; color: #00ff41; margin-left: 10px;">CHECKING...</span>
+                    <span id="internet-status-stat" style="font-size: 0.9em; color: var(--theme-primary); margin-left: 10px;">CHECKING...</span>
                 </div>
                 <div class="stat-detail" id="hostname-detail" style="margin-top: 10px;">HOSTNAME: --</div>
                 <div class="stat-detail" id="ip-detail" style="margin-top: 5px;">IP ADDRESS: --</div>
@@ -195,6 +195,22 @@
                     <label for="matrix-animation-rate">MATRIX ANIMATION RATE (MS)</label>
                     <input type="number" id="matrix-animation-rate" min="10" max="1000" step="10" value="120">
                     <div class="setting-hint">Default: 120ms</div>
+                </div>
+                <div class="setting-item">
+                    <label for="background-color">BACKGROUND COLOR (MATRIX ANIMATION)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="color" id="background-color" value="#00ff41" style="width: 60px; height: 40px; cursor: pointer; border: 2px solid var(--theme-primary); background: transparent; border-radius: 5px;">
+                        <input type="text" id="background-color-text" value="#00ff41" maxlength="7" style="flex: 1; background: rgba(0, 20, 0, 0.5); border: 1px solid var(--theme-primary); border-radius: 5px; padding: 10px; color: var(--theme-primary); font-family: 'Courier New', monospace;">
+                    </div>
+                    <div class="setting-hint">Default: #00ff41 (Matrix Green)</div>
+                </div>
+                <div class="setting-item">
+                    <label for="foreground-color">FOREGROUND COLOR (TEXT & BORDERS)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="color" id="foreground-color" value="#00ff41" style="width: 60px; height: 40px; cursor: pointer; border: 2px solid var(--theme-primary); background: transparent; border-radius: 5px;">
+                        <input type="text" id="foreground-color-text" value="#00ff41" maxlength="7" style="flex: 1; background: rgba(0, 20, 0, 0.5); border: 1px solid var(--theme-primary); border-radius: 5px; padding: 10px; color: var(--theme-primary); font-family: 'Courier New', monospace;">
+                    </div>
+                    <div class="setting-hint">Default: #00ff41 (Matrix Green)</div>
                 </div>
                 <div class="settings-buttons">
                     <button class="details-btn" onclick="saveSettings()">SAVE</button>
