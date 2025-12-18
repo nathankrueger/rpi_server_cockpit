@@ -6,3 +6,32 @@
 `$USER ALL=(ALL) NOPASSWD: /bin/systemctl start *, /bin/systemctl stop *`
 
 * To enable rebooting, add this line to sudoers via `sudo visudo`: `$USER ALL=(ALL) NOPASSWD: /sbin/reboot`
+
+## How to install service (rpi)
+### /etc/systemd/system/pi-dashboard.service
+```
+[Unit]
+Description=Raspberry Pi Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=nkrueger
+WorkingDirectory=/home/nkrueger/dev/rpi_server_cockpit
+Environment="PATH=/home/nkrueger/dev/rpi_server_cockpit/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/nkrueger/dev/rpi_server_cockpit/.venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 300 rpi_dashboard:app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target`
+```
+
+### Commands to run
+```
+sudo systemctl daemon-reload
+sudo systemctl stop pi-dashboard.service
+sudo systemctl start pi-dashboard.service
+sudo systemctl restart pi-dashboard.service
+sudo systemctl status pi-dashboard.service
+```
