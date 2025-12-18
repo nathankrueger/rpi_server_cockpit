@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "RPI Dashboard",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/rpi_dashboard.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "DEBUG_MODE": "1"
+            }
+        }
+    ]
+}

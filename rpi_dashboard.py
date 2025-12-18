@@ -8,26 +8,34 @@ import threading
 import uuid
 import os
 import eventlet
+from automation_config import get_all_automations, get_automation_config, validate_automation
+
+# Determine async mode based on environment
+DEBUG_MODE = os.environ.get('DEBUG_MODE') == '1'
 
 # Modifies Python's standard libraries to use non-blocking, cooperative I/O (greenthreads), allowing the application to handle many
 # simultaneous connections efficiently without using traditional threads.
-eventlet.monkey_patch()
+# Only monkey patch when not in debug mode to avoid conflicts with debugpy
+if not DEBUG_MODE:
+    eventlet.monkey_patch()
 
 app = Flask(__name__)
 # Generate a random secret key on startup for Flask session management
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24).hex())
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# Use threading mode for debugging, eventlet for production
+async_mode = 'threading' if DEBUG_MODE else 'eventlet'
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
 
 # Configuration constants - CHANGE THESE AS NEEDED
 NETWORK_INTERFACE = 'wlan0'  # Network interface to monitor
 DISK_MOUNT_POINT = '/'       # Disk mount point to monitor
 
-# Store automation state server-side
+# Store automation state server-side - dynamically initialized from config
 # Structure: {automation_name: {'job_id': str, 'running': bool, 'output': str, 'return_code': int, 'process': subprocess.Popen}}
 automation_state = {
-    'sync_music': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None},
-    'reboot': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None},
-    'update_os': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None}
+    auto['name']: {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None}
+    for auto in get_all_automations()
 }
 automation_lock = threading.Lock()
 
@@ -254,6 +262,11 @@ def get_system():
     """Get system statistics."""
     return jsonify(get_system_stats())
 
+@app.route('/api/automations')
+def get_automations():
+    """Get all automation configurations."""
+    return jsonify({'automations': get_all_automations()})
+
 @app.route('/api/service/details/<service>')
 def get_service_details(service):
     """Get detailed status for a systemd service."""
@@ -309,14 +322,10 @@ def run_automation(automation_name):
     """Run an automation script in the background."""
     print(f"Received request to run automation: {automation_name}")
 
-    # Map automation names to their script files
-    automation_scripts = {
-        'sync_music': './automation_scripts/sync_music.sh',
-        'reboot': './automation_scripts/reboot.sh',
-        'update_os': './automation_scripts/update_os.sh'
-    }
+    # Get automation config
+    automation_config = get_automation_config(automation_name)
 
-    if automation_name not in automation_scripts:
+    if not automation_config:
         print(f"Invalid automation name: {automation_name}")
         return jsonify({'success': False, 'error': 'Invalid automation'}), 400
 
@@ -329,7 +338,7 @@ def run_automation(automation_name):
                 'error': 'Automation already running'
             }), 400
 
-    script_path = automation_scripts[automation_name]
+    script_path = automation_config['script_path']
     job_id = str(uuid.uuid4())
     print(f"Starting automation {automation_name} with job_id {job_id}")
 
@@ -381,8 +390,14 @@ def run_automation(automation_name):
                 automation_state[automation_name]['process'] = None
             broadcast_automation_state(automation_name)
 
-    # Start the script in a background greenthread (eventlet-compatible)
-    eventlet.spawn(run_script)
+    # Start the script in a background thread/greenthread
+    if DEBUG_MODE:
+        # Use regular threading in debug mode
+        thread = threading.Thread(target=run_script, daemon=True)
+        thread.start()
+    else:
+        # Use eventlet greenthreads in production
+        eventlet.spawn(run_script)
 
     # Give it a tiny moment to initialize
     time.sleep(0.1)
