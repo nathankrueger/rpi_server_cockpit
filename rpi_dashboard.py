@@ -39,14 +39,25 @@ automation_state = {
 }
 automation_lock = threading.Lock()
 
-def broadcast_automation_state(automation_name):
+def broadcast_automation_state(automation_name, incremental_output=None):
     """Broadcast automation state to all connected clients.
     Note: This should be called WITHOUT holding automation_lock.
+
+    Args:
+        automation_name: Name of the automation
+        incremental_output: If provided, only send this new output (not full output)
     """
     with automation_lock:
         state = automation_state[automation_name].copy()
         # Don't send the process object to clients
         state.pop('process', None)
+
+        # If incremental output is provided, replace full output with just the increment
+        if incremental_output is not None:
+            state['output'] = incremental_output
+            state['incremental'] = True
+        else:
+            state['incremental'] = False
 
     # Emit outside the lock to avoid blocking
     try:
@@ -371,8 +382,8 @@ def run_automation(automation_name):
             for line in process.stdout:
                 with automation_lock:
                     automation_state[automation_name]['output'] += line
-                # Broadcast outside the lock
-                broadcast_automation_state(automation_name)
+                # Broadcast incremental update outside the lock
+                broadcast_automation_state(automation_name, incremental_output=line)
 
             process.wait()
 
@@ -493,6 +504,8 @@ def handle_connect():
         for automation_name, state in automation_state.items():
             state_copy = state.copy()
             state_copy.pop('process', None)
+            # Mark as full update (not incremental)
+            state_copy['incremental'] = False
             emit('automation_update', {
                 'automation': automation_name,
                 'state': state_copy

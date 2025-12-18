@@ -207,6 +207,18 @@ h1 {
     box-shadow: 0 0 10px #ff0000;
 }
 
+.details-btn.clear-btn {
+    background: rgba(255, 255, 0, 0.2);
+    border-color: #ffff00;
+    color: #ffff00;
+    text-shadow: 0 0 3px #ffff00;
+}
+
+.details-btn.clear-btn:hover {
+    background: rgba(255, 255, 0, 0.4);
+    box-shadow: 0 0 10px #ffff00;
+}
+
 .toggle-switch {
     position: relative;
     width: 60px;
@@ -433,6 +445,13 @@ h1 {
     margin: 20px 0;
     box-shadow: 0 0 10px #00ff41;
     position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.matrix-separator:hover {
+    height: 3px;
+    box-shadow: 0 0 15px #00ff41;
 }
 
 .matrix-separator::before {
@@ -446,18 +465,56 @@ h1 {
     font-size: 0.9em;
     letter-spacing: 3px;
     text-shadow: 0 0 10px #00ff41;
+    transition: all 0.3s ease;
 }
 
 .separator-services::before {
     content: '▼▼▼ SERVICE CONTROL ▼▼▼';
 }
 
+.separator-services.collapsed::before {
+    content: '▶▶▶ SERVICE CONTROL ▶▶▶';
+}
+
 .separator-automations::before {
     content: '▼▼▼ AUTOMATIONS ▼▼▼';
 }
 
+.separator-automations.collapsed::before {
+    content: '▶▶▶ AUTOMATIONS ▶▶▶';
+}
+
 .separator-stats::before {
     content: '▼▼▼ SYSTEM STATISTICS ▼▼▼';
+}
+
+.separator-stats.collapsed::before {
+    content: '▶▶▶ SYSTEM STATISTICS ▶▶▶';
+}
+
+/* Collapsible section styles */
+#services-section,
+#automations-section {
+    display: contents;
+}
+
+#services-section.collapsed,
+#automations-section.collapsed {
+    display: none;
+}
+
+#stats-section {
+    transition: max-height 0.4s ease-out, opacity 0.3s ease-out;
+    overflow: hidden;
+    max-height: 10000px;
+    opacity: 1;
+}
+
+#stats-section.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
 }
 
 /* Scanline effect */

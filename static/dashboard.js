@@ -53,6 +53,12 @@ window.addEventListener('resize', () => {
 // Store automation configurations
 let automationConfigs = {};
 
+// Track client-side accumulated output for each automation
+let automationClientOutput = {};
+
+// Track if client has cleared output (to ignore subsequent updates until reset)
+let automationClearedState = {};
+
 // Service status functions
 async function updateStatus() {
     try {
@@ -152,6 +158,9 @@ function createAutomationCard(automation) {
         <div class="toggle-container">
             <button class="details-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">
                 ${automation.button_text}
+            </button>
+            <button class="details-btn clear-btn" onclick="clearAutomationOutput('${automation.name}')" id="${automation.name}-clear-btn" style="display: none;">
+                CLEAR OUTPUT
             </button>
         </div>
         <div class="automation-output" id="${automation.name}-output" style="display: none;">
@@ -306,17 +315,48 @@ function updateAutomationUI(automationName, state) {
     const statusText = document.getElementById(`${automationName}-status`);
     const outputDiv = document.getElementById(`${automationName}-output`);
     const outputText = document.getElementById(`${automationName}-output-text`);
+    const clearBtn = document.getElementById(`${automationName}-clear-btn`);
 
-    if (!btn || !indicator || !statusText || !outputDiv || !outputText) {
+    if (!btn || !indicator || !statusText || !outputDiv || !outputText || !clearBtn) {
         console.error('Missing elements for automation:', automationName);
         return;
     }
 
-    // Update output if present
+    // Handle output updates - either incremental or full
     if (state.output) {
-        outputDiv.style.display = 'block';
-        outputText.textContent = state.output;
-        outputText.scrollTop = outputText.scrollHeight;
+        if (state.incremental) {
+            // Incremental update - append to client's local buffer (unless cleared)
+            if (!automationClearedState[automationName]) {
+                // Initialize if needed
+                if (!automationClientOutput[automationName]) {
+                    automationClientOutput[automationName] = '';
+                }
+                // Append new output
+                automationClientOutput[automationName] += state.output;
+
+                // Update display
+                outputDiv.style.display = 'block';
+                outputText.textContent = automationClientOutput[automationName];
+                outputText.scrollTop = outputText.scrollHeight;
+            }
+            // If cleared, ignore this incremental update (it's from before the clear)
+        } else {
+            // Full update (from initial connection or status request)
+            // Only show output if automation is currently running (not for completed tasks)
+            const shouldShowOutput = state.running;
+
+            automationClientOutput[automationName] = state.output;
+            if (!automationClearedState[automationName] && shouldShowOutput) {
+                outputDiv.style.display = 'block';
+                outputText.textContent = state.output;
+                outputText.scrollTop = outputText.scrollHeight;
+            }
+        }
+
+        // Show clear button when there's accumulated output and automation is running
+        if (automationClientOutput[automationName] && automationClientOutput[automationName].length > 0 && state.running) {
+            clearBtn.style.display = 'inline-block';
+        }
     }
 
     // Update button and status based on state
@@ -327,6 +367,13 @@ function updateAutomationUI(automationName, state) {
         indicator.className = 'status-indicator yellow';
         statusText.textContent = 'RUNNING...';
         btn.dataset.jobId = state.job_id;
+        // Reset cleared state when automation starts running
+        if (automationClearedState[automationName]) {
+            delete automationClearedState[automationName];
+            // Also reset the client output buffer for fresh start
+            automationClientOutput[automationName] = '';
+            outputText.textContent = '';
+        }
     } else {
         btn.classList.remove('cancel');
         const config = automationConfigs[automationName];
@@ -338,8 +385,9 @@ function updateAutomationUI(automationName, state) {
         if (state.return_code === null) {
             indicator.className = 'status-indicator yellow';
             statusText.textContent = 'READY';
-            if (!state.output) {
+            if (!state.output && (!automationClientOutput[automationName] || automationClientOutput[automationName].length === 0)) {
                 outputDiv.style.display = 'none';
+                clearBtn.style.display = 'none';
             }
         } else if (state.return_code === 0) {
             indicator.className = 'status-indicator green';
@@ -435,8 +483,80 @@ async function cancelAutomation(automationName) {
     }
 }
 
+function clearAutomationOutput(automationName) {
+    console.log('clearAutomationOutput called for:', automationName);
+
+    const outputDiv = document.getElementById(`${automationName}-output`);
+    const outputText = document.getElementById(`${automationName}-output-text`);
+    const clearBtn = document.getElementById(`${automationName}-clear-btn`);
+    const btn = document.getElementById(`${automationName}-btn`);
+
+    if (!outputDiv || !outputText || !clearBtn) {
+        console.error('Missing elements for automation:', automationName);
+        return;
+    }
+
+    // Clear the display
+    outputText.textContent = '';
+
+    // Check if automation is currently running
+    const isRunning = btn && btn.classList.contains('cancel');
+
+    if (isRunning) {
+        // If running, keep the output visible but mark as cleared
+        // Future incremental updates will be ignored until automation restarts
+        automationClearedState[automationName] = true;
+        outputDiv.style.display = 'block';
+    } else {
+        // If not running, hide the output div and clear button
+        outputDiv.style.display = 'none';
+        clearBtn.style.display = 'none';
+        delete automationClearedState[automationName];
+        // Also clear the client output buffer
+        automationClientOutput[automationName] = '';
+    }
+}
+
+// Toggle section collapse
+function toggleSection(sectionName) {
+    const section = document.getElementById(`${sectionName}-section`);
+    const separator = document.querySelector(`.separator-${sectionName}`);
+
+    if (!section || !separator) {
+        console.error(`Section or separator not found for: ${sectionName}`);
+        return;
+    }
+
+    // Toggle collapsed class
+    const isCollapsed = section.classList.toggle('collapsed');
+    separator.classList.toggle('collapsed', isCollapsed);
+
+    // Save state to localStorage
+    localStorage.setItem(`section-${sectionName}-collapsed`, isCollapsed);
+}
+
+// Restore collapsed states from localStorage
+function restoreCollapsedStates() {
+    const sections = ['services', 'automations', 'stats'];
+
+    sections.forEach(sectionName => {
+        const isCollapsed = localStorage.getItem(`section-${sectionName}-collapsed`) === 'true';
+
+        if (isCollapsed) {
+            const section = document.getElementById(`${sectionName}-section`);
+            const separator = document.querySelector(`.separator-${sectionName}`);
+
+            if (section && separator) {
+                section.classList.add('collapsed');
+                separator.classList.add('collapsed');
+            }
+        }
+    });
+}
+
 // Initialize the page
 async function init() {
+    restoreCollapsedStates();
     await loadAutomations();
     updateStatus();
     updateSystemStats();

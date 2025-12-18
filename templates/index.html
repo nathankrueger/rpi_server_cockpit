@@ -14,8 +14,9 @@
 
         <div class="dashboard">
             <!-- Service Control Separator -->
-            <div class="matrix-separator separator-services"></div>
+            <div class="matrix-separator separator-services" onclick="toggleSection('services')"></div>
 
+            <div id="services-section">
             <!-- Tailscale Service -->
             <div class="service-card">
                 <div class="service-header">
@@ -79,19 +80,22 @@
                     </div>
                 </div>
             </div>
+            </div>
 
             <!-- Automations Separator -->
-            <div class="matrix-separator separator-automations"></div>
+            <div class="matrix-separator separator-automations" onclick="toggleSection('automations')"></div>
 
+            <div id="automations-section">
             <!-- Automations will be dynamically inserted here -->
             <div id="automations-container"></div>
+            </div>
 
             <!-- Statistics Separator -->
-            <div class="matrix-separator separator-stats"></div>
+            <div class="matrix-separator separator-stats" onclick="toggleSection('stats')"></div>
         </div>
 
         <!-- System Statistics -->
-        <div class="system-stats">
+        <div class="system-stats" id="stats-section">
             <!-- CPU Stats -->
             <div class="stat-card">
                 <div class="stat-title">CPU USAGE</div>
@@ -167,7 +171,7 @@
         </div>
     </div>
 
-    <button class="refresh-btn" onclick="updateStatus()" title="Refresh Status">⟳</button>
+    <button class="refresh-btn" onclick="location.reload()" title="Refresh Page">⟳</button>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
