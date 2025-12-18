@@ -1,22 +1,53 @@
 from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO, emit
 import subprocess
 import socket
 import psutil
 import time
 import threading
 import uuid
-from collections import defaultdict
+import os
+import eventlet
+
+# Modifies Python's standard libraries to use non-blocking, cooperative I/O (greenthreads), allowing the application to handle many
+# simultaneous connections efficiently without using traditional threads.
+eventlet.monkey_patch()
 
 app = Flask(__name__)
+# Generate a random secret key on startup for Flask session management
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24).hex())
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # Configuration constants - CHANGE THESE AS NEEDED
 NETWORK_INTERFACE = 'wlan0'  # Network interface to monitor
 DISK_MOUNT_POINT = '/'       # Disk mount point to monitor
 
-# Store running automation processes and their output
-running_automations = {}
-automation_outputs = defaultdict(str)
+# Store automation state server-side
+# Structure: {automation_name: {'job_id': str, 'running': bool, 'output': str, 'return_code': int, 'process': subprocess.Popen}}
+automation_state = {
+    'sync_music': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None},
+    'reboot': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None},
+    'update_os': {'job_id': None, 'running': False, 'output': '', 'return_code': None, 'process': None}
+}
 automation_lock = threading.Lock()
+
+def broadcast_automation_state(automation_name):
+    """Broadcast automation state to all connected clients.
+    Note: This should be called WITHOUT holding automation_lock.
+    """
+    with automation_lock:
+        state = automation_state[automation_name].copy()
+        # Don't send the process object to clients
+        state.pop('process', None)
+
+    # Emit outside the lock to avoid blocking
+    try:
+        socketio.emit('automation_update', {
+            'automation': automation_name,
+            'state': state
+        }, namespace='/')
+    except Exception as e:
+        print(f"Error broadcasting state for {automation_name}: {e}")
 
 # Optional callbacks for service control actions
 def on_service_start(service_name):
@@ -276,30 +307,45 @@ def control(service):
 @app.route('/api/automation/<automation_name>', methods=['POST'])
 def run_automation(automation_name):
     """Run an automation script in the background."""
+    print(f"Received request to run automation: {automation_name}")
+
     # Map automation names to their script files
     automation_scripts = {
         'sync_music': './automation_scripts/sync_music.sh',
         'reboot': './automation_scripts/reboot.sh',
         'update_os': './automation_scripts/update_os.sh'
     }
-    
+
     if automation_name not in automation_scripts:
+        print(f"Invalid automation name: {automation_name}")
         return jsonify({'success': False, 'error': 'Invalid automation'}), 400
-    
+
+    # Check if automation is already running
+    with automation_lock:
+        if automation_state[automation_name]['running']:
+            print(f"Automation {automation_name} is already running")
+            return jsonify({
+                'success': False,
+                'error': 'Automation already running'
+            }), 400
+
     script_path = automation_scripts[automation_name]
     job_id = str(uuid.uuid4())
-    
+    print(f"Starting automation {automation_name} with job_id {job_id}")
+
     def run_script():
         try:
-            # Initialize the job info immediately
+            # Initialize the automation state
             with automation_lock:
-                running_automations[job_id] = {
-                    'name': automation_name,
+                automation_state[automation_name] = {
+                    'job_id': job_id,
                     'running': True,
-                    'return_code': None
+                    'output': 'Starting...\n',
+                    'return_code': None,
+                    'process': None
                 }
-                automation_outputs[job_id] = ''
-            
+            broadcast_automation_state(automation_name)
+
             process = subprocess.Popen(
                 ['/bin/bash', script_path],
                 stdout=subprocess.PIPE,
@@ -308,108 +354,157 @@ def run_automation(automation_name):
                 bufsize=1,
                 universal_newlines=True
             )
-            
+
             with automation_lock:
-                running_automations[job_id]['process'] = process
-            
-            # Read output line by line
+                automation_state[automation_name]['process'] = process
+
+            # Read output line by line and broadcast updates
             for line in process.stdout:
                 with automation_lock:
-                    automation_outputs[job_id] += line
-            
+                    automation_state[automation_name]['output'] += line
+                # Broadcast outside the lock
+                broadcast_automation_state(automation_name)
+
             process.wait()
-            
+
             with automation_lock:
-                running_automations[job_id]['running'] = False
-                running_automations[job_id]['return_code'] = process.returncode
-                
+                automation_state[automation_name]['running'] = False
+                automation_state[automation_name]['return_code'] = process.returncode
+                automation_state[automation_name]['process'] = None
+            broadcast_automation_state(automation_name)
+
         except Exception as e:
             with automation_lock:
-                automation_outputs[job_id] += f"\n\nERROR: {str(e)}\n"
-                if job_id in running_automations:
-                    running_automations[job_id]['running'] = False
-                    running_automations[job_id]['return_code'] = -1
-    
-    # Start the script in a background thread
-    thread = threading.Thread(target=run_script, daemon=True)
-    thread.start()
-    
+                automation_state[automation_name]['output'] += f"\n\nERROR: {str(e)}\n"
+                automation_state[automation_name]['running'] = False
+                automation_state[automation_name]['return_code'] = -1
+                automation_state[automation_name]['process'] = None
+            broadcast_automation_state(automation_name)
+
+    # Start the script in a background greenthread (eventlet-compatible)
+    eventlet.spawn(run_script)
+
     # Give it a tiny moment to initialize
     time.sleep(0.1)
-    
-    return jsonify({
+
+    response = jsonify({
         'success': True,
         'job_id': job_id,
         'message': f'{automation_name} started'
     })
+    print(f"Returning success response for {automation_name}")
+    return response
 
-@app.route('/api/automation/<automation_name>/status/<job_id>')
-def get_automation_status(automation_name, job_id):
-    """Get the current status and output of a running automation."""
+@app.route('/api/automation/<automation_name>/status')
+def get_automation_status(automation_name):
+    """Get the current status and output of an automation."""
+    if automation_name not in automation_state:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid automation'
+        }), 404
+
     with automation_lock:
-        if job_id not in running_automations:
-            return jsonify({
-                'success': False,
-                'error': 'Job not found'
-            }), 404
-        
-        job_info = running_automations[job_id]
-        output = automation_outputs[job_id]
-        
+        state = automation_state[automation_name].copy()
+        # Don't send the process object
+        state.pop('process', None)
+
         return jsonify({
             'success': True,
-            'running': job_info['running'],
-            'output': output,
-            'return_code': job_info.get('return_code', None)
+            **state
         })
 
-@app.route('/api/automation/<automation_name>/cancel/<job_id>', methods=['POST'])
-def cancel_automation(automation_name, job_id):
+@app.route('/api/automation/<automation_name>/cancel', methods=['POST'])
+def cancel_automation(automation_name):
     """Cancel a running automation."""
+    if automation_name not in automation_state:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid automation'
+        }), 404
+
     with automation_lock:
-        if job_id not in running_automations:
+        state = automation_state[automation_name]
+
+        if not state['running']:
             return jsonify({
                 'success': False,
-                'error': 'Job not found'
-            }), 404
-        
-        job_info = running_automations[job_id]
-        
-        if not job_info['running']:
-            return jsonify({
-                'success': False,
-                'error': 'Job already completed'
-            })
-        
-        # Try to kill the process
-        try:
-            if 'process' in job_info:
-                process = job_info['process']
-                process.terminate()
-                # Give it a moment to terminate gracefully
-                time.sleep(0.5)
-                if process.poll() is None:
-                    # Force kill if still running
-                    process.kill()
-                
-                automation_outputs[job_id] += "\n\n=== CANCELLED BY USER ===\n"
-                job_info['running'] = False
-                job_info['return_code'] = -999  # Special code for cancelled
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'Job cancelled'
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'Process not found'
-                })
-        except Exception as e:
-            return jsonify({
-                'success': False,
-                'error': str(e)
+                'error': 'Automation not running'
             })
 
+        # Get the process reference
+        process = state.get('process')
+        if not process:
+            return jsonify({
+                'success': False,
+                'error': 'Process not found'
+            })
+
+    # Kill the process outside the lock to avoid blocking
+    try:
+        process.terminate()
+        # Give it a moment to terminate gracefully
+        time.sleep(0.5)
+        if process.poll() is None:
+            # Force kill if still running
+            process.kill()
+
+        # Update state
+        with automation_lock:
+            state['output'] += "\n\n=== CANCELLED BY USER ===\n"
+            state['running'] = False
+            state['return_code'] = -999  # Special code for cancelled
+            state['process'] = None
+
+        # Broadcast outside the lock
+        broadcast_automation_state(automation_name)
+
+        return jsonify({
+            'success': True,
+            'message': 'Automation cancelled'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection - send current automation states."""
+    print('Client connected')
+    # Send current state of all automations to the newly connected client
+    with automation_lock:
+        for automation_name, state in automation_state.items():
+            state_copy = state.copy()
+            state_copy.pop('process', None)
+            emit('automation_update', {
+                'automation': automation_name,
+                'state': state_copy
+            })
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection."""
+    print('Client disconnected')
+
+@socketio.on('request_automation_state')
+def handle_request_state(data):
+    """Handle explicit request for automation state."""
+    automation_name = data.get('automation')
+    if automation_name and automation_name in automation_state:
+        with automation_lock:
+            state = automation_state[automation_name].copy()
+            state.pop('process', None)
+            emit('automation_update', {
+                'automation': automation_name,
+                'state': state
+            })
+
+# Create a WSGI application wrapper for gunicorn
+# This allows gunicorn to serve the Flask-SocketIO app
+def create_app():
+    return app
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

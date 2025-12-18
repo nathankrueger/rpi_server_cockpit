@@ -690,7 +690,8 @@
     </div>
     
     <button class="refresh-btn" onclick="updateStatus()" title="Refresh Status">⟳</button>
-    
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         // Matrix rain effect
         const canvas = document.getElementById('matrix-canvas');
@@ -910,175 +911,159 @@
             }
         }
         
-        async function runAutomation(automationName) {
+        // Initialize WebSocket connection for real-time automation updates
+        const socket = io({
+            transports: ['polling', 'websocket'],
+            upgrade: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
+
+        socket.on('connect', () => {
+            console.log('WebSocket connected');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('WebSocket disconnected');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+        });
+
+        socket.on('automation_update', (data) => {
+            console.log('Received automation update:', data);
+            updateAutomationUI(data.automation, data.state);
+        });
+
+        function updateAutomationUI(automationName, state) {
             const btn = document.getElementById(`${automationName}-btn`);
             const indicator = document.getElementById(`${automationName}-indicator`);
             const statusText = document.getElementById(`${automationName}-status`);
             const outputDiv = document.getElementById(`${automationName}-output`);
             const outputText = document.getElementById(`${automationName}-output-text`);
-            
+
+            if (!btn || !indicator || !statusText || !outputDiv || !outputText) {
+                console.error('Missing elements for automation:', automationName);
+                return;
+            }
+
+            // Update output if present
+            if (state.output) {
+                outputDiv.style.display = 'block';
+                outputText.textContent = state.output;
+                outputText.scrollTop = outputText.scrollHeight;
+            }
+
+            // Update button and status based on state
+            if (state.running) {
+                btn.disabled = false;
+                btn.textContent = 'CANCEL';
+                btn.classList.add('cancel');
+                indicator.className = 'status-indicator yellow';
+                statusText.textContent = 'RUNNING...';
+                btn.dataset.jobId = state.job_id;
+            } else {
+                btn.classList.remove('cancel');
+                btn.textContent = getButtonText(automationName);
+                btn.disabled = false;
+                delete btn.dataset.jobId;
+
+                // Update indicator based on return code
+                if (state.return_code === null) {
+                    indicator.className = 'status-indicator yellow';
+                    statusText.textContent = 'READY';
+                    if (!state.output) {
+                        outputDiv.style.display = 'none';
+                    }
+                } else if (state.return_code === 0) {
+                    indicator.className = 'status-indicator green';
+                    statusText.textContent = 'COMPLETED';
+                } else if (state.return_code === -999) {
+                    indicator.className = 'status-indicator yellow';
+                    statusText.textContent = 'CANCELLED';
+                } else {
+                    indicator.className = 'status-indicator red';
+                    statusText.textContent = 'FAILED';
+                }
+            }
+        }
+
+        async function runAutomation(automationName) {
+            const btn = document.getElementById(`${automationName}-btn`);
+
             // Check if this is a cancel action
             if (btn.classList.contains('cancel')) {
+                console.log('Cancel button clicked for:', automationName);
                 await cancelAutomation(automationName);
                 return;
             }
-            
-            // Debug: Check if elements exist
-            console.log('Elements found:', {
-                btn: btn,
-                indicator: indicator,
-                statusText: statusText,
-                outputDiv: outputDiv,
-                outputText: outputText
-            });
-            
-            if (!btn || !indicator || !statusText || !outputDiv || !outputText) {
-                console.error('Missing elements for automation:', automationName);
-                alert('ERROR: Could not find automation UI elements');
-                return;
-            }
-            
-            // Disable button and update UI
+
+            console.log('Run button clicked for:', automationName);
+
+            // Disable button temporarily
             btn.disabled = true;
             btn.textContent = 'STARTING...';
-            indicator.className = 'status-indicator yellow';
-            statusText.textContent = 'STARTING...';
-            
-            // Show output window and clear previous output
-            outputDiv.style.display = 'block';
-            outputText.textContent = 'Starting...\n';
-            
+
             try {
-                // Start the automation
-                console.log('Starting automation:', automationName);
                 const response = await fetch(`/api/automation/${automationName}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 });
-                
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text);
-                    throw new Error('Server returned non-JSON response: ' + text.substring(0, 100));
-                }
-                
+
                 const result = await response.json();
-                console.log('Start automation result:', result);
-                
+
                 if (!result.success) {
-                    indicator.className = 'status-indicator red';
-                    statusText.textContent = 'FAILED TO START';
-                    outputText.textContent = 'ERROR: ' + (result.error || 'Unknown error');
+                    alert(`ERROR: ${result.error || 'Failed to start automation'}`);
                     btn.disabled = false;
                     btn.textContent = getButtonText(automationName);
-                    return;
                 }
-                
-                if (!result.job_id) {
-                    throw new Error('No job_id returned from server');
-                }
-                
-                const jobId = result.job_id;
-                console.log('Job started with ID:', jobId);
-                
-                // Store job ID and change button to cancel
-                btn.dataset.jobId = jobId;
-                btn.disabled = false;
-                btn.textContent = 'CANCEL';
-                btn.classList.add('cancel');
-                statusText.textContent = 'RUNNING...';
-                
-                // Poll for output every 2 seconds
-                const pollInterval = setInterval(async () => {
-                    try {
-                        const statusResponse = await fetch(`/api/automation/${automationName}/status/${jobId}`);
-                        const statusData = await statusResponse.json();
-                        
-                        if (statusData.success) {
-                            // Update output
-                            outputText.textContent = statusData.output || 'Running...\n';
-                            // Auto-scroll to bottom
-                            outputText.scrollTop = outputText.scrollHeight;
-                            
-                            // Check if finished
-                            if (!statusData.running) {
-                                clearInterval(pollInterval);
-                                
-                                // Reset button
-                                btn.classList.remove('cancel');
-                                btn.textContent = getButtonText(automationName);
-                                delete btn.dataset.jobId;
-                                
-                                if (statusData.return_code === 0) {
-                                    indicator.className = 'status-indicator green';
-                                    statusText.textContent = 'COMPLETED';
-                                } else if (statusData.return_code === -999) {
-                                    indicator.className = 'status-indicator yellow';
-                                    statusText.textContent = 'CANCELLED';
-                                } else {
-                                    indicator.className = 'status-indicator red';
-                                    statusText.textContent = 'FAILED';
-                                }
-                                
-                                btn.disabled = false;
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error polling automation status:', error);
-                    }
-                }, 2000); // Poll every 2 seconds
-                
+                // If successful, the WebSocket will handle updating the UI
             } catch (error) {
                 console.error('Error running automation:', error);
-                indicator.className = 'status-indicator red';
-                statusText.textContent = 'ERROR';
-                outputText.textContent = 'CRITICAL ERROR: ' + error.message;
+                alert(`CRITICAL ERROR: ${error.message}`);
                 btn.disabled = false;
-                btn.classList.remove('cancel');
                 btn.textContent = getButtonText(automationName);
             }
         }
-        
+
         async function cancelAutomation(automationName) {
+            console.log('cancelAutomation called for:', automationName);
             const btn = document.getElementById(`${automationName}-btn`);
-            const indicator = document.getElementById(`${automationName}-indicator`);
-            const statusText = document.getElementById(`${automationName}-status`);
-            const outputText = document.getElementById(`${automationName}-output-text`);
-            
-            const jobId = btn.dataset.jobId;
-            if (!jobId) {
-                console.error('No job ID found for cancellation');
-                return;
-            }
-            
+
             btn.disabled = true;
             btn.textContent = 'CANCELLING...';
-            
+
             try {
-                const response = await fetch(`/api/automation/${automationName}/cancel/${jobId}`, {
+                console.log('Sending cancel request to:', `/api/automation/${automationName}/cancel`);
+                const response = await fetch(`/api/automation/${automationName}/cancel`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 });
-                
+
+                console.log('Cancel response status:', response.status);
                 const result = await response.json();
-                
-                if (result.success) {
-                    indicator.className = 'status-indicator yellow';
-                    statusText.textContent = 'CANCELLED';
-                } else {
+                console.log('Cancel result:', result);
+
+                if (!result.success) {
                     console.error('Cancel failed:', result.error);
+                    alert(`ERROR: ${result.error || 'Failed to cancel automation'}`);
+                    btn.disabled = false;
+                    btn.classList.remove('cancel');
+                    btn.textContent = getButtonText(automationName);
                 }
+                // If successful, the WebSocket will handle updating the UI
             } catch (error) {
                 console.error('Error cancelling automation:', error);
+                alert(`CRITICAL ERROR: ${error.message}`);
+                btn.disabled = false;
+                btn.classList.remove('cancel');
+                btn.textContent = getButtonText(automationName);
             }
         }
         
