@@ -65,6 +65,9 @@ let automationClientOutput = {};
 // Track if client has cleared output (to ignore subsequent updates until reset)
 let automationClearedState = {};
 
+// Track which automation is currently shown in the fullscreen modal
+let currentExpandedAutomation = null;
+
 // Service status functions
 async function updateStatus() {
     try {
@@ -189,6 +192,16 @@ function createAutomationCard(automation) {
         </div>
     `;
 
+    // Add double-click event listener to the output textbox after DOM insertion
+    setTimeout(() => {
+        const outputText = document.getElementById(`${automation.name}-output-text`);
+        if (outputText) {
+            outputText.addEventListener('dblclick', () => {
+                openAutomationOutputModal(automation.name);
+            });
+        }
+    }, 0);
+
     return card;
 }
 
@@ -221,6 +234,41 @@ function closeModal() {
 
 function closeSettingsModal() {
     document.getElementById('settingsModal').style.display = 'none';
+}
+
+function openAutomationOutputModal(automationName) {
+    console.log('openAutomationOutputModal called for:', automationName);
+
+    const modal = document.getElementById('automationOutputModal');
+    const title = document.getElementById('automation-modal-title');
+    const output = document.getElementById('automation-modal-output');
+
+    // Store which automation we're viewing
+    currentExpandedAutomation = automationName;
+
+    // Get config for display name
+    const config = automationConfigs[automationName];
+    title.textContent = config ? `${config.display_name} OUTPUT` : `${automationName.toUpperCase()} OUTPUT`;
+
+    // Set initial content
+    const currentOutput = automationClientOutput[automationName] || '';
+    output.textContent = currentOutput;
+
+    // Scroll to bottom
+    output.scrollTop = output.scrollHeight;
+
+    // Show modal
+    modal.style.display = 'block';
+}
+
+function closeAutomationOutputModal() {
+    console.log('closeAutomationOutputModal called');
+
+    const modal = document.getElementById('automationOutputModal');
+    modal.style.display = 'none';
+
+    // Clear the tracked automation
+    currentExpandedAutomation = null;
 }
 
 function updateProgressBar(id, percent) {
@@ -354,6 +402,15 @@ function updateAutomationUI(automationName, state) {
                 outputDiv.style.display = 'block';
                 outputText.textContent = automationClientOutput[automationName];
                 outputText.scrollTop = outputText.scrollHeight;
+
+                // If this automation is currently shown in the fullscreen modal, update it too
+                if (currentExpandedAutomation === automationName) {
+                    const modalOutput = document.getElementById('automation-modal-output');
+                    if (modalOutput) {
+                        modalOutput.textContent = automationClientOutput[automationName];
+                        modalOutput.scrollTop = modalOutput.scrollHeight;
+                    }
+                }
             }
             // If cleared, ignore this incremental update (it's from before the clear)
         } else {
@@ -366,6 +423,15 @@ function updateAutomationUI(automationName, state) {
                 outputDiv.style.display = 'block';
                 outputText.textContent = state.output;
                 outputText.scrollTop = outputText.scrollHeight;
+
+                // If this automation is currently shown in the fullscreen modal, update it too
+                if (currentExpandedAutomation === automationName) {
+                    const modalOutput = document.getElementById('automation-modal-output');
+                    if (modalOutput) {
+                        modalOutput.textContent = state.output;
+                        modalOutput.scrollTop = modalOutput.scrollHeight;
+                    }
+                }
             }
         }
 
