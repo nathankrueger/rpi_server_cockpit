@@ -8,7 +8,9 @@ import threading
 import uuid
 import os
 import eventlet
+
 from automation_config import get_all_automations, get_automation_config
+from process_mgmt import kill_proc_tree
 
 # Determine async mode based on environment
 DEBUG_MODE = os.environ.get('DEBUG_MODE') == '1'
@@ -513,7 +515,7 @@ def cancel_automation(automation_name):
             })
 
         # Get the process reference
-        process = state.get('process')
+        process: subprocess.Popen = state.get('process')
         if not process:
             return jsonify({
                 'success': False,
@@ -522,12 +524,7 @@ def cancel_automation(automation_name):
 
     # Kill the process outside the lock to avoid blocking
     try:
-        process.terminate()
-        # Give it a moment to terminate gracefully
-        time.sleep(0.5)
-        if process.poll() is None:
-            # Force kill if still running
-            process.kill()
+        kill_proc_tree(process.pid)
 
         # Update state
         with automation_lock:
