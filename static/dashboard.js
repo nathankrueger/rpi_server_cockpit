@@ -137,7 +137,7 @@ async function updateSystemStats() {
         document.getElementById('ip-detail').textContent = `IP ADDRESS: ${stats.ip_address}`;
 
         // Update Uptime
-        document.getElementById('uptime-value').textContent = stats.uptime;
+        document.getElementById('uptime-value').textContent = `UPTIME: ${stats.uptime}`;
 
         // Update Uname
         document.getElementById('uname-value').textContent = `KERNEL: ${stats.uname}`;
