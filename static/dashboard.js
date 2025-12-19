@@ -138,6 +138,10 @@ async function updateSystemStats() {
 
         // Update Uptime
         document.getElementById('uptime-value').textContent = stats.uptime;
+
+        // Update Uname
+        document.getElementById('uname-value').textContent = `KERNEL: ${stats.uname}`;
+
     } catch (error) {
         console.error('Error fetching system stats:', error);
     }

@@ -51,6 +51,8 @@ network_stats_cache = {
 }
 network_stats_lock = threading.Lock()
 
+uname_cache = None
+
 def broadcast_automation_state(automation_name, incremental_output=None):
     """Broadcast automation state to all connected clients.
     Note: This should be called WITHOUT holding automation_lock.
@@ -171,9 +173,22 @@ def network_speed_monitor():
             print(f"Error in network speed monitor: {e}")
             time.sleep(NETWORK_MONITOR_INTERVAL)
 
+def get_uname() -> str:
+    global uname_cache
+    if not uname_cache:
+        uname_cache = subprocess.run(
+            ['uname', '-r'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        ).stdout.strip()
+    return uname_cache
+
 def get_system_stats():
     """Get CPU, RAM, disk, and network statistics."""
     stats = {}
+
+    stats['uname'] = get_uname()
 
     # CPU Usage
     stats['cpu_percent'] = psutil.cpu_percent(interval=1)
