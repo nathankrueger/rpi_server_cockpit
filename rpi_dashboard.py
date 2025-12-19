@@ -156,8 +156,8 @@ def network_speed_monitor():
                 download_bytes = net_io_end.bytes_recv - net_io_start.bytes_recv
 
                 # Convert to Mbps (bytes per interval -> bytes per second -> Mbps)
-                upload_mbps = round((upload_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2), 2)
-                download_mbps = round((download_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2), 2)
+                upload_mbps = f'{(upload_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2):0.2f}'
+                download_mbps = f'{(download_bytes / NETWORK_MONITOR_INTERVAL) * 8 / (1024**2):0.2f}'
 
                 # Update cache with thread safety
                 with network_stats_lock:
