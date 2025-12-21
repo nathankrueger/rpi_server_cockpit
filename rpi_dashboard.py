@@ -10,6 +10,7 @@ import os
 import eventlet
 
 from automation_config import get_all_automations, get_automation_config
+from service_config import get_all_services, get_service_config
 from process_mgmt import kill_proc_tree
 
 # Determine async mode based on environment
@@ -327,16 +328,26 @@ def index():
     """Serve the main dashboard page."""
     return render_template('index.html')
 
+@app.route('/api/services')
+def get_services():
+    """Get all service configurations."""
+    return jsonify(get_all_services())
+
 @app.route('/api/status')
 def get_status():
     """Get status of all services and connectivity."""
-    status = {
-        'tailscaled': check_service_status('tailscaled'),
-        'minidlnad': check_service_status('minidlna'),
-        'smbd': check_service_status('smbd'),
-        'qbittorrent': check_process_running('qbittorrent-nox'),
-        'internet': check_internet_connectivity()
-    }
+    status = {}
+
+    # Dynamically check all configured services
+    for service in get_all_services():
+        if service['check_type'] == 'systemd':
+            status[service['id']] = check_service_status(service['check_name'])
+        elif service['check_type'] == 'process':
+            status[service['id']] = check_process_running(service['check_name'])
+
+    # Always include internet connectivity
+    status['internet'] = check_internet_connectivity()
+
     return jsonify(status)
 
 @app.route('/api/system')
@@ -384,19 +395,27 @@ def control(service):
     """Control a service (start/stop)."""
     data = request.get_json()
     action = data.get('action')  # 'start' or 'stop'
-    
+
     if action not in ['start', 'stop']:
         return jsonify({'success': False, 'error': 'Invalid action'}), 400
-    
-    valid_services = ['tailscaled', 'minidlnad', 'smbd']
-    
-    if service in valid_services:
-        success, error = control_service(service, action)
-    elif service == 'qbittorrent':
-        success, error = control_qbittorrent(action)
-    else:
+
+    # Get service configuration
+    service_config = get_service_config(service)
+    if not service_config:
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
-    
+
+    # Control based on service type
+    if service_config['control_type'] == 'systemd':
+        success, error = control_service(service_config['control_name'], action)
+    elif service_config['control_type'] == 'custom':
+        # Handle custom control logic (currently only qbittorrent)
+        if service == 'qbittorrent':
+            success, error = control_qbittorrent(action)
+        else:
+            return jsonify({'success': False, 'error': 'Unknown custom control type'}), 400
+    else:
+        return jsonify({'success': False, 'error': 'Invalid control type'}), 400
+
     return jsonify({'success': success, 'error': error})
 
 @app.route('/api/automation/<automation_name>', methods=['POST'])

@@ -69,15 +69,107 @@ let automationClearedState = {};
 let currentExpandedAutomation = null;
 
 // Service status functions
+let servicesConfig = [];
+
+async function loadAndRenderServices() {
+    try {
+        const response = await fetch('/api/services');
+        servicesConfig = await response.json();
+        renderServices();
+    } catch (error) {
+        console.error('Error loading services configuration:', error);
+    }
+}
+
+function renderServices() {
+    const servicesSection = document.getElementById('services-section');
+    servicesSection.innerHTML = '';
+
+    servicesConfig.forEach(service => {
+        const serviceCard = document.createElement('div');
+        serviceCard.className = 'service-card';
+
+        // Create service header
+        const serviceHeader = document.createElement('div');
+        serviceHeader.className = 'service-header';
+
+        const serviceName = document.createElement('span');
+        serviceName.className = 'service-name';
+        serviceName.textContent = service.display_name;
+
+        const statusIndicator = document.createElement('div');
+        statusIndicator.className = 'status-indicator';
+        statusIndicator.id = `${service.id}-indicator`;
+
+        serviceHeader.appendChild(serviceName);
+        serviceHeader.appendChild(statusIndicator);
+
+        // Create status text
+        const statusText = document.createElement('div');
+        statusText.className = 'status-text';
+        statusText.id = `${service.id}-status`;
+        statusText.textContent = 'INITIALIZING...';
+
+        // Create toggle container
+        const toggleContainer = document.createElement('div');
+        toggleContainer.className = 'toggle-container';
+
+        // Create button (either details or link)
+        if (service.button_type === 'link') {
+            const link = document.createElement('a');
+            link.id = `${service.id}-link`;
+            link.href = '#';
+            link.target = '_blank';
+            link.className = 'details-btn';
+            link.style.textDecoration = 'none';
+            link.textContent = 'WEB UI';
+            toggleContainer.appendChild(link);
+        } else {
+            const detailsBtn = document.createElement('button');
+            detailsBtn.className = 'details-btn';
+            detailsBtn.textContent = 'DETAILS';
+            detailsBtn.onclick = () => showServiceDetails(service.id);
+            toggleContainer.appendChild(detailsBtn);
+        }
+
+        // Create control toggle
+        const toggleLabel = document.createElement('span');
+        toggleLabel.className = 'toggle-label';
+        toggleLabel.textContent = 'CONTROL';
+
+        const toggleSwitch = document.createElement('div');
+        toggleSwitch.className = 'toggle-switch';
+        toggleSwitch.id = `${service.id}-toggle`;
+        toggleSwitch.onclick = () => toggleService(service.id);
+
+        const toggleSlider = document.createElement('div');
+        toggleSlider.className = 'toggle-slider';
+
+        toggleSwitch.appendChild(toggleSlider);
+        toggleContainer.appendChild(toggleLabel);
+        toggleContainer.appendChild(toggleSwitch);
+
+        // Assemble the card
+        serviceCard.appendChild(serviceHeader);
+        serviceCard.appendChild(statusText);
+        serviceCard.appendChild(toggleContainer);
+
+        servicesSection.appendChild(serviceCard);
+    });
+}
+
 async function updateStatus() {
     try {
         const response = await fetch('/api/status');
         const status = await response.json();
 
-        updateServiceUI('tailscaled', status.tailscaled);
-        updateServiceUI('minidlnad', status.minidlnad);
-        updateServiceUI('smbd', status.smbd);
-        updateServiceUI('qbittorrent', status.qbittorrent);
+        // Dynamically update all configured services
+        servicesConfig.forEach(service => {
+            if (status.hasOwnProperty(service.id)) {
+                updateServiceUI(service.id, status[service.id]);
+            }
+        });
+
         updateInternetUI(status.internet);
     } catch (error) {
         console.error('Error fetching status:', error);
@@ -92,8 +184,15 @@ async function updateSystemStats() {
         // Update page title with hostname
         document.getElementById('hostname-title').textContent = stats.hostname;
 
-        // Update qBittorrent Web UI link
-        document.getElementById('qbittorrent-link').href = `http://${stats.hostname}:8080`;
+        // Update service links dynamically (e.g., qBittorrent Web UI)
+        servicesConfig.forEach(service => {
+            if (service.button_type === 'link' && service.link_url) {
+                const linkElement = document.getElementById(`${service.id}-link`);
+                if (linkElement) {
+                    linkElement.href = service.link_url.replace('{hostname}', stats.hostname);
+                }
+            }
+        });
 
         // Update CPU
         document.getElementById('cpu-value').textContent = stats.cpu_percent + '%';
@@ -813,6 +912,7 @@ async function init() {
     applyColors(foregroundColor, backgroundColor);
 
     restoreCollapsedStates();
+    await loadAndRenderServices();
     await loadAutomations();
 
     // Load settings from localStorage or use defaults
