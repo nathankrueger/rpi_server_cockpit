@@ -98,73 +98,188 @@ async function loadAvailableTimeseries() {
         const response = await fetch('/api/timeseries/list');
         availableTimeseries = await response.json();
 
-        // Render checkboxes
-        const container = document.getElementById('timeseries-checkboxes');
-        container.innerHTML = '';
+        // Set up search input event listeners
+        const searchInput = document.getElementById('timeseries-search');
+        const searchResults = document.getElementById('search-results');
 
-        // Group by units for better organization
-        const groupedByUnits = {};
-        availableTimeseries.forEach(ts => {
-            if (!groupedByUnits[ts.units]) {
-                groupedByUnits[ts.units] = [];
+        searchInput.addEventListener('input', handleSearch);
+        searchInput.addEventListener('focus', handleSearch);
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                searchResults.style.display = 'none';
             }
-            groupedByUnits[ts.units].push(ts);
         });
 
-        // Create checkboxes grouped by units
-        Object.entries(groupedByUnits).forEach(([units, series]) => {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'checkbox-unit-group';
-
-            const groupLabel = document.createElement('div');
-            groupLabel.className = 'unit-group-label';
-            groupLabel.textContent = `${units}`;
-            groupDiv.appendChild(groupLabel);
-
-            series.forEach(ts => {
-                const label = document.createElement('label');
-                label.className = 'checkbox-label';
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = ts.id;
-                checkbox.id = `ts-${ts.id}`;
-                checkbox.onchange = () => toggleTimeseries(ts.id);
-
-                const span = document.createElement('span');
-                span.textContent = ts.name;
-
-                label.appendChild(checkbox);
-                label.appendChild(span);
-                groupDiv.appendChild(label);
+        // Load saved selection from localStorage or select defaults
+        const saved = localStorage.getItem('selectedTimeseries');
+        if (saved) {
+            selectedTimeseries = new Set(JSON.parse(saved));
+        } else {
+            // Select first series from each category by default
+            const byCategory = {};
+            availableTimeseries.forEach(ts => {
+                if (!byCategory[ts.category]) {
+                    byCategory[ts.category] = ts;
+                }
             });
+            Object.values(byCategory).forEach(ts => {
+                selectedTimeseries.add(ts.id);
+            });
+        }
 
-            container.appendChild(groupDiv);
-        });
-
-        // Select first series from each unit group by default
-        Object.values(groupedByUnits).forEach(series => {
-            if (series.length > 0) {
-                const firstId = series[0].id;
-                selectedTimeseries.add(firstId);
-                document.getElementById(`ts-${firstId}`).checked = true;
-            }
-        });
+        // Render selected series pills
+        renderSelectedSeries();
 
     } catch (error) {
         console.error('Error loading timeseries list:', error);
     }
 }
 
-// Toggle timeseries selection
-function toggleTimeseries(timeseriesId) {
-    if (selectedTimeseries.has(timeseriesId)) {
-        selectedTimeseries.delete(timeseriesId);
-    } else {
-        selectedTimeseries.add(timeseriesId);
+// Handle search input
+function handleSearch(e) {
+    const query = e.target.value.toLowerCase().trim();
+    const searchResults = document.getElementById('search-results');
+
+    // Show all if empty query
+    if (query === '') {
+        renderSearchResults(availableTimeseries);
+        return;
     }
-    // Auto-update charts when selection changes
+
+    // Filter timeseries based on query
+    const filtered = availableTimeseries.filter(ts => {
+        // Search in name, category, tags, and description
+        const searchText = [
+            ts.name,
+            ts.category,
+            ...ts.tags,
+            ts.description
+        ].join(' ').toLowerCase();
+
+        return searchText.includes(query);
+    });
+
+    renderSearchResults(filtered);
+}
+
+// Render search results dropdown
+function renderSearchResults(results) {
+    const searchResults = document.getElementById('search-results');
+    searchResults.innerHTML = '';
+
+    if (results.length === 0) {
+        searchResults.innerHTML = '<div class="no-results">No timeseries found</div>';
+        searchResults.style.display = 'block';
+        return;
+    }
+
+    // Sort results by category for better organization
+    results.sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+        }
+        return a.name.localeCompare(b.name);
+    });
+
+    results.forEach(ts => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+
+        // Disable if already selected
+        const isSelected = selectedTimeseries.has(ts.id);
+        if (isSelected) {
+            item.classList.add('disabled');
+        }
+
+        item.innerHTML = `
+            <div class="result-name">${ts.name}</div>
+            <div class="result-meta">
+                <span class="result-category">${ts.category}</span>
+                <span class="result-unit">${ts.units}</span>
+                ${ts.tags.length > 0 ? `<span class="result-tags">${ts.tags.join(', ')}</span>` : ''}
+            </div>
+            ${ts.description ? `<div class="result-description">${ts.description}</div>` : ''}
+        `;
+
+        if (!isSelected) {
+            item.addEventListener('click', () => addTimeseries(ts.id));
+        }
+
+        searchResults.appendChild(item);
+    });
+
+    searchResults.style.display = 'block';
+}
+
+// Add timeseries to selection
+function addTimeseries(timeseriesId) {
+    selectedTimeseries.add(timeseriesId);
+    saveSelection();
+    renderSelectedSeries();
+
+    // Clear search and close dropdown
+    const searchInput = document.getElementById('timeseries-search');
+    const searchResults = document.getElementById('search-results');
+    searchInput.value = '';
+    searchResults.style.display = 'none';
+
+    // Auto-update charts
     updateCharts();
+}
+
+// Remove timeseries from selection
+function removeTimeseries(timeseriesId) {
+    selectedTimeseries.delete(timeseriesId);
+    saveSelection();
+    renderSelectedSeries();
+
+    // Auto-update charts
+    updateCharts();
+}
+
+// Render selected series as pills
+function renderSelectedSeries() {
+    const container = document.getElementById('selected-series');
+    container.innerHTML = '';
+
+    if (selectedTimeseries.size === 0) {
+        container.innerHTML = '<div class="no-series-selected" style="color: rgba(0, 255, 65, 0.5); font-style: italic;">No series selected. Use the search above to add series.</div>';
+        return;
+    }
+
+    // Get selected timeseries objects
+    const selected = availableTimeseries.filter(ts => selectedTimeseries.has(ts.id));
+
+    // Sort by category and name
+    selected.sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+        }
+        return a.name.localeCompare(b.name);
+    });
+
+    selected.forEach(ts => {
+        const pill = document.createElement('div');
+        pill.className = 'series-pill';
+        pill.innerHTML = `
+            <span class="series-pill-name">${ts.name}</span>
+            <span class="series-pill-unit">(${ts.units})</span>
+            <span class="series-pill-remove" data-id="${ts.id}">&times;</span>
+        `;
+
+        pill.querySelector('.series-pill-remove').addEventListener('click', () => {
+            removeTimeseries(ts.id);
+        });
+
+        container.appendChild(pill);
+    });
+}
+
+// Save selection to localStorage
+function saveSelection() {
+    localStorage.setItem('selectedTimeseries', JSON.stringify([...selectedTimeseries]));
 }
 
 // Set quick time range
@@ -206,6 +321,15 @@ async function updateCharts() {
     const endTime = parseDatetimeLocal(document.getElementById('end-time').value);
 
     try {
+        // First, trigger immediate data collection
+        await fetch('/api/timeseries/collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Small delay to ensure data is written to database
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Fetch data for all selected timeseries
         const response = await fetch('/api/timeseries/data/batch', {
             method: 'POST',

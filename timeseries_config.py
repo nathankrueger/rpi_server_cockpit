@@ -59,6 +59,36 @@ class TimeseriesBase(ABC):
         """
         return self.getName().lower().replace(' ', '_').replace('(', '').replace(')', '')
 
+    def getCategory(self) -> str:
+        """
+        Get the category of this timeseries for organization.
+        Override to provide a specific category.
+
+        Returns:
+            str: Category name (e.g., 'System', 'Network', 'Temperature')
+        """
+        return "Uncategorized"
+
+    def getTags(self) -> list:
+        """
+        Get searchable tags for this timeseries.
+        Override to provide custom tags for better search/filtering.
+
+        Returns:
+            list: List of tag strings
+        """
+        return []
+
+    def getDescription(self) -> str:
+        """
+        Get a human-readable description of this timeseries.
+        Override to provide helpful context.
+
+        Returns:
+            str: Description text
+        """
+        return ""
+
 
 # Example timeseries implementations
 
@@ -82,6 +112,15 @@ class CPUTemperatureTimeseries(TimeseriesBase):
 
     def getUnits(self) -> str:
         return "°F"
+
+    def getCategory(self) -> str:
+        return "Temperature"
+
+    def getTags(self) -> list:
+        return ["cpu", "temperature", "thermal", "system"]
+
+    def getDescription(self) -> str:
+        return "Current CPU core temperature"
 
 
 class GPUTemperatureTimeseries(TimeseriesBase):
@@ -111,6 +150,15 @@ class GPUTemperatureTimeseries(TimeseriesBase):
     def getUnits(self) -> str:
         return "°F"
 
+    def getCategory(self) -> str:
+        return "Temperature"
+
+    def getTags(self) -> list:
+        return ["gpu", "temperature", "thermal", "graphics"]
+
+    def getDescription(self) -> str:
+        return "Current GPU core temperature"
+
 
 class CPUUsageTimeseries(TimeseriesBase):
     """CPU usage percentage."""
@@ -126,6 +174,15 @@ class CPUUsageTimeseries(TimeseriesBase):
 
     def getUnits(self) -> str:
         return "%"
+
+    def getCategory(self) -> str:
+        return "System Resources"
+
+    def getTags(self) -> list:
+        return ["cpu", "usage", "performance", "system", "load"]
+
+    def getDescription(self) -> str:
+        return "CPU utilization percentage"
 
 
 class RAMUsageTimeseries(TimeseriesBase):
@@ -143,6 +200,15 @@ class RAMUsageTimeseries(TimeseriesBase):
     def getUnits(self) -> str:
         return "%"
 
+    def getCategory(self) -> str:
+        return "System Resources"
+
+    def getTags(self) -> list:
+        return ["ram", "memory", "usage", "system"]
+
+    def getDescription(self) -> str:
+        return "RAM memory utilization percentage"
+
 
 class DiskUsageTimeseries(TimeseriesBase):
     """Disk usage percentage."""
@@ -158,6 +224,15 @@ class DiskUsageTimeseries(TimeseriesBase):
 
     def getUnits(self) -> str:
         return "%"
+
+    def getCategory(self) -> str:
+        return "Storage"
+
+    def getTags(self) -> list:
+        return ["disk", "storage", "usage", "filesystem"]
+
+    def getDescription(self) -> str:
+        return "Root filesystem disk usage percentage"
 
 
 # Centralized list of all timeseries - add or remove entries here
@@ -188,13 +263,16 @@ def get_timeseries_info() -> list:
     Get metadata for all timeseries.
 
     Returns:
-        list: List of dicts with id, name, and units for each timeseries
+        list: List of dicts with id, name, units, category, tags, and description for each timeseries
     """
     return [
         {
             'id': ts.getId(),
             'name': ts.getName(),
-            'units': ts.getUnits()
+            'units': ts.getUnits(),
+            'category': ts.getCategory(),
+            'tags': ts.getTags(),
+            'description': ts.getDescription()
         }
         for ts in TIMESERIES
     ]

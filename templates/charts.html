@@ -18,9 +18,21 @@
             <!-- Controls Section -->
             <div class="chart-controls">
                 <div class="control-group">
-                    <label for="timeseries-select">Select Series:</label>
-                    <div id="timeseries-checkboxes" class="checkbox-group">
-                        <!-- Checkboxes will be dynamically generated -->
+                    <label for="timeseries-search">Add Series:</label>
+                    <div class="search-container">
+                        <input
+                            type="text"
+                            id="timeseries-search"
+                            class="timeseries-search-input"
+                            placeholder="Search timeseries by name, category, or tags..."
+                            autocomplete="off"
+                        >
+                        <div id="search-results" class="search-results" style="display: none;">
+                            <!-- Search results will be dynamically generated -->
+                        </div>
+                    </div>
+                    <div id="selected-series" class="selected-series">
+                        <!-- Selected series pills will be displayed here -->
                     </div>
                 </div>
 
@@ -77,6 +89,7 @@
         </div>
     </div>
 
+    <button class="refresh-btn" onclick="updateCharts()" title="Refresh Charts">⟳</button>
     <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
     <button class="home-btn" onclick="window.location.href='/'" title="Back to Dashboard">🏠</button>
 

@@ -181,6 +181,41 @@ def update_timeseries_settings():
     return jsonify({'success': True})
 
 
+@timeseries_bp.route('/api/timeseries/collect', methods=['POST'])
+def collect_data_now():
+    """
+    Immediately collect and store current values for all timeseries.
+    This is independent of the automatic sampling interval.
+
+    Returns:
+        JSON object with success status and timestamp
+    """
+    timestamp = datetime.now().timestamp()
+    datapoints = []
+
+    for ts in get_all_timeseries():
+        try:
+            value = ts.getCurrentValue()
+            if value is not None:
+                datapoints.append({
+                    'timeseries_id': ts.getId(),
+                    'value': value,
+                    'timestamp': timestamp
+                })
+        except Exception as e:
+            print(f"Error collecting data for {ts.getId()}: {e}")
+
+    # Insert all datapoints
+    if datapoints:
+        timeseries_db.insert_datapoints_batch(datapoints)
+
+    return jsonify({
+        'success': True,
+        'timestamp': timestamp,
+        'count': len(datapoints)
+    })
+
+
 def get_timeseries_db():
     """Get the timeseries database instance (for use by background threads)."""
     return timeseries_db
