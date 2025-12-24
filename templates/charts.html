@@ -44,6 +44,7 @@
                         <input type="datetime-local" id="end-time" class="time-input">
                     </div>
                     <div class="quick-ranges">
+                        <button class="quick-range-btn" onclick="setQuickRange(60)">Last Minute</button>
                         <button class="quick-range-btn" onclick="setQuickRange(3600)">Last Hour</button>
                         <button class="quick-range-btn" onclick="setQuickRange(21600)">Last 6 Hours</button>
                         <button class="quick-range-btn" onclick="setQuickRange(86400)">Last 24 Hours</button>
@@ -79,7 +80,7 @@
 
                 <div class="setting-item">
                     <label for="auto-refresh-rate">Chart Auto-Refresh Rate (seconds):</label>
-                    <input type="range" id="auto-refresh-rate" min="5" max="300" step="5" value="30">
+                    <input type="range" id="auto-refresh-rate" min="1" max="300" step="1" value="30">
                     <span id="auto-refresh-rate-value">30</span> seconds
                     <div class="setting-description">How often to automatically update charts when auto-refresh is enabled</div>
                 </div>

@@ -317,18 +317,42 @@ async function updateCharts() {
         return;
     }
 
-    const startTime = parseDatetimeLocal(document.getElementById('start-time').value);
-    const endTime = parseDatetimeLocal(document.getElementById('end-time').value);
-
     try {
+        console.log('Collecting fresh data...');
+
         // First, trigger immediate data collection
-        await fetch('/api/timeseries/collect', {
+        const collectResponse = await fetch('/api/timeseries/collect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
 
+        const collectResult = await collectResponse.json();
+        console.log('Data collected:', collectResult);
+
         // Small delay to ensure data is written to database
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Get current time range from UI
+        const startTime = parseDatetimeLocal(document.getElementById('start-time').value);
+        const currentEndTime = parseDatetimeLocal(document.getElementById('end-time').value);
+
+        // Get actual current timestamp (with seconds precision)
+        const nowTimestamp = Date.now() / 1000;
+
+        // Only update end time in UI if current time is AFTER the displayed end time
+        // This prevents the UI from changing when user has set a specific end time in the future
+        let endTime = currentEndTime;
+        if (nowTimestamp > currentEndTime) {
+            const now = new Date();
+            document.getElementById('end-time').value = formatDatetimeLocal(now);
+            endTime = nowTimestamp;
+        } else {
+            // Use current timestamp for query even if UI shows earlier time
+            // This ensures we fetch data up to NOW, including the just-collected point
+            endTime = nowTimestamp;
+        }
+
+        console.log('Fetching chart data from', new Date(startTime * 1000), 'to', new Date(endTime * 1000));
 
         // Fetch data for all selected timeseries
         const response = await fetch('/api/timeseries/data/batch', {
@@ -342,6 +366,10 @@ async function updateCharts() {
         });
 
         const timeseriesData = await response.json();
+        console.log('Received timeseries data:', timeseriesData.map(ts => ({
+            id: ts.id,
+            dataPoints: ts.data.length
+        })));
 
         // Group by units
         const groupedByUnits = {};
@@ -354,6 +382,7 @@ async function updateCharts() {
 
         // Render charts
         renderCharts(groupedByUnits);
+        console.log('Charts rendered');
 
     } catch (error) {
         console.error('Error fetching timeseries data:', error);
