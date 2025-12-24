@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeseries Charts</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='charts.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <div class="container">
+        <h1><span id="hostname-title">timeseries</span> charts</h1>
+
+        <div class="charts-dashboard">
+            <!-- Controls Section -->
+            <div class="chart-controls">
+                <div class="control-group">
+                    <label for="timeseries-select">Select Series:</label>
+                    <div id="timeseries-checkboxes" class="checkbox-group">
+                        <!-- Checkboxes will be dynamically generated -->
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="time-range">Time Range:</label>
+                    <div class="time-range-controls">
+                        <input type="datetime-local" id="start-time" class="time-input">
+                        <span class="time-separator">to</span>
+                        <input type="datetime-local" id="end-time" class="time-input">
+                    </div>
+                    <div class="quick-ranges">
+                        <button class="quick-range-btn" onclick="setQuickRange(3600)">Last Hour</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(21600)">Last 6 Hours</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(86400)">Last 24 Hours</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(604800)">Last Week</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button class="update-chart-btn" onclick="updateCharts()">UPDATE CHARTS</button>
+                    <button class="auto-refresh-btn" id="auto-refresh-toggle" onclick="toggleAutoRefresh()">AUTO-REFRESH: OFF</button>
+                </div>
+            </div>
+
+            <!-- Charts Container -->
+            <div id="charts-container">
+                <!-- Charts will be dynamically generated here, grouped by units -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeSettingsModal()">&times;</span>
+            <div class="modal-header">CHART SETTINGS</div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label for="sampling-rate">Data Sampling Rate (ms):</label>
+                    <input type="range" id="sampling-rate" min="1000" max="60000" step="1000" value="5000">
+                    <span id="sampling-rate-value">5000</span> ms
+                    <div class="setting-description">How often to collect timeseries data points</div>
+                </div>
+
+                <div class="setting-item">
+                    <label for="auto-refresh-rate">Chart Auto-Refresh Rate (seconds):</label>
+                    <input type="range" id="auto-refresh-rate" min="5" max="300" step="5" value="30">
+                    <span id="auto-refresh-rate-value">30</span> seconds
+                    <div class="setting-description">How often to automatically update charts when auto-refresh is enabled</div>
+                </div>
+
+                <button class="save-settings-btn" onclick="saveSettings()">SAVE SETTINGS</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
+    <button class="home-btn" onclick="window.location.href='/'" title="Back to Dashboard">🏠</button>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='charts.js') }}"></script>
+</body>
+</html>

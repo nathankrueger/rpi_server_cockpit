@@ -469,6 +469,32 @@ h1 {
     transform: scale(0.95);
 }
 
+.charts-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 190px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--theme-bg-dark);
+    border: 2px solid var(--theme-primary);
+    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.5);
+    cursor: pointer;
+    font-size: 1.5em;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    color: var(--theme-primary);
+}
+
+.charts-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.8);
+}
+
+.charts-btn:active {
+    transform: scale(0.95);
+}
+
 .loading {
     opacity: 0.6;
     pointer-events: none;

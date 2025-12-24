@@ -26,6 +26,10 @@ app = Flask(__name__)
 # Generate a random secret key on startup for Flask session management
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24).hex())
 
+# Register timeseries blueprint
+from timeseries_routes import timeseries_bp
+app.register_blueprint(timeseries_bp)
+
 # Use threading mode for debugging, eventlet for production
 async_mode = 'threading' if DEBUG_MODE else 'eventlet'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
@@ -618,6 +622,10 @@ def handle_request_state(data):
 # This daemon thread runs in the background and updates network stats cache
 network_monitor_thread = threading.Thread(target=network_speed_monitor, daemon=True)
 network_monitor_thread.start()
+
+# Start the timeseries data collector thread
+from timeseries_collector import start_collector
+start_collector()
 
 # Create a WSGI application wrapper for gunicorn
 # This allows gunicorn to serve the Flask-SocketIO app
