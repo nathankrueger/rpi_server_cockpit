@@ -1,4 +1,4 @@
-REMOTE_PI_HOST=manserv
+REMOTE_PI_HOST=100.73.91.18
 REMOTE_PI_USER=dennis
 REMOTE_FOLDER=/home/dennis/Music/
 LOCAL_FOLDER=/home/nkrueger/Music/
