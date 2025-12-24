@@ -1,6 +1,6 @@
 ## A cockpit to monitor / control the status of a home media server running on RaspberryPi
 
-### *** Disclaimer: Written mostly with Claude
+### *** Disclaimer: Written mostly with Claude 4.5 Sonnet
 
 * To enable the systemctl (start / stop services) add this line to sudoers via `sudo visudo`:
 `$USER ALL=(ALL) NOPASSWD: /bin/systemctl start *, /bin/systemctl stop *`
