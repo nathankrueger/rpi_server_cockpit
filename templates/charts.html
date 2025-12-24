@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timeseries Charts</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='raspberry-pi-icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='charts.css') }}">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -45,10 +46,13 @@
                     </div>
                     <div class="quick-ranges">
                         <button class="quick-range-btn" onclick="setQuickRange(60)">Last Minute</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(600)">Last 10 Minutes</button>
                         <button class="quick-range-btn" onclick="setQuickRange(3600)">Last Hour</button>
                         <button class="quick-range-btn" onclick="setQuickRange(21600)">Last 6 Hours</button>
                         <button class="quick-range-btn" onclick="setQuickRange(86400)">Last 24 Hours</button>
                         <button class="quick-range-btn" onclick="setQuickRange(604800)">Last Week</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(2678400)">Last Month</button>
+                        <button class="quick-range-btn" onclick="setQuickRange(31536000)">Last Year</button>
                     </div>
                 </div>
 

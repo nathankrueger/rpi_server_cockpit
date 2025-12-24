@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 380">
+  <!-- Board background -->
+  <rect x="30" y="20" width="490" height="340" rx="30" fill="#169B4C" stroke="#000" stroke-width="2"/>
+  
+  <!-- Mounting holes -->
+  <circle cx="55" cy="45" r="15" fill="#FFD700" stroke="#000" stroke-width="2"/>
+  <circle cx="55" cy="335" r="15" fill="#FFD700" stroke="#000" stroke-width="2"/>
+  <circle cx="375" cy="45" r="15" fill="#FFD700" stroke="#000" stroke-width="2"/>
+  <circle cx="375" cy="335" r="15" fill="#FFD700" stroke="#000" stroke-width="2"/>
+  
+  <!-- GPIO pins -->
+  <rect x="75" y="30" width="280" height="15" fill="#3A3A3A"/>
+  <g fill="#FFD700">
+    <rect x="80" y="32" width="8" height="11"/>
+    <rect x="93" y="32" width="8" height="11"/>
+    <rect x="106" y="32" width="8" height="11"/>
+    <rect x="119" y="32" width="8" height="11"/>
+    <rect x="132" y="32" width="8" height="11"/>
+    <rect x="145" y="32" width="8" height="11"/>
+    <rect x="158" y="32" width="8" height="11"/>
+    <rect x="171" y="32" width="8" height="11"/>
+    <rect x="184" y="32" width="8" height="11"/>
+    <rect x="197" y="32" width="8" height="11"/>
+    <rect x="210" y="32" width="8" height="11"/>
+    <rect x="223" y="32" width="8" height="11"/>
+    <rect x="236" y="32" width="8" height="11"/>
+    <rect x="249" y="32" width="8" height="11"/>
+    <rect x="262" y="32" width="8" height="11"/>
+    <rect x="275" y="32" width="8" height="11"/>
+    <rect x="288" y="32" width="8" height="11"/>
+    <rect x="301" y="32" width="8" height="11"/>
+    <rect x="314" y="32" width="8" height="11"/>
+    <rect x="327" y="32" width="8" height="11"/>
+    <rect x="340" y="32" width="8" height="11"/>
+  </g>
+  
+  <!-- CPU/SoC -->
+  <rect x="175" y="85" width="85" height="60" fill="#4A4A4A" stroke="#000" stroke-width="2"/>
+  
+  <!-- RAM -->
+  <rect x="170" y="165" width="95" height="40" fill="#B8B8B8" stroke="#000" stroke-width="2"/>
+  
+  <!-- USB ports -->
+  <rect x="425" y="30" width="85" height="50" fill="#B8B8B8" stroke="#000" stroke-width="2"/>
+  <rect x="425" y="140" width="85" height="50" fill="#B8B8B8" stroke="#000" stroke-width="2"/>
+  <rect x="425" y="250" width="95" height="50" fill="#B8B8B8" stroke="#000" stroke-width="2"/>
+  
+  <!-- Ethernet port -->
+  <rect x="75" y="60" width="55" height="55" fill="#B8B8B8" stroke="#000" stroke-width="2"/>
+  
+  <!-- HDMI ports -->
+  <rect x="25" y="145" width="10" height="35" fill="#E67E22"/>
+  <rect x="295" y="240" width="10" height="35" fill="#E67E22"/>
+  <rect x="325" y="240" width="10" height="35" fill="#E67E22"/>
+  
+  <!-- Power port -->
+  <rect x="25" y="195" width="10" height="30" fill="#E67E22"/>
+  
+  <!-- SD card slot -->
+  <rect x="90" y="305" width="35" height="25" fill="#3A3A3A" stroke="#000" stroke-width="1"/>
+  <rect x="135" y="305" width="35" height="25" fill="#3A3A3A" stroke="#000" stroke-width="1"/>
+  <rect x="195" y="305" width="35" height="25" fill="#B8B8B8" stroke="#000" stroke-width="1"/>
+  
+  <!-- Wifi chip -->
+  <rect x="325" y="105" width="60" height="50" fill="#5A5A5A" stroke="#000" stroke-width="2"/>
+  
+  <!-- LEDs -->
+  <circle cx="375" cy="70" r="8" fill="#FFF" stroke="#000" stroke-width="1"/>
+  <circle cx="52" cy="290" r="8" fill="#FFF" stroke="#000" stroke-width="1"/>
+  
+  <!-- Power LED area -->
+  <circle cx="52" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="62" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="72" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="82" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="92" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="102" cy="205" r="4" fill="#B8B8B8"/>
+  <circle cx="112" cy="205" r="4" fill="#B8B8B8"/>
+  
+  <!-- Bluetooth chip indicator -->
+  <g fill="#FFD700">
+    <rect x="365" y="255" width="6" height="6"/>
+    <rect x="373" y="255" width="6" height="6"/>
+    <rect x="381" y="255" width="6" height="6"/>
+  </g>
+  
+  <!-- Chip on bottom left -->
+  <rect x="58" y="235" width="40" height="40" fill="#3A3A3A" stroke="#000" stroke-width="1"/>
+  <g fill="#B8B8B8">
+    <circle cx="62" cy="239" r="2"/>
+    <circle cx="72" cy="239" r="2"/>
+    <circle cx="82" cy="239" r="2"/>
+    <circle cx="92" cy="239" r="2"/>
+    <circle cx="62" cy="249" r="2"/>
+    <circle cx="72" cy="249" r="2"/>
+    <circle cx="82" cy="249" r="2"/>
+    <circle cx="92" cy="249" r="2"/>
+  </g>
+  
+  <!-- Small component (rotated square) -->
+  <rect x="360" y="185" width="35" height="35" fill="#5A5A5A" stroke="#000" stroke-width="1" transform="rotate(45 377.5 202.5)"/>
+  
+  <!-- Audio jack -->
+  <circle cx="268" cy="265" r="10" fill="#3A3A3A" stroke="#000" stroke-width="1"/>
+</svg>

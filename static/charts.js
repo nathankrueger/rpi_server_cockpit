@@ -83,7 +83,7 @@ async function initCharts() {
     await loadAvailableTimeseries();
 
     // Set default time range (last 24 hours)
-    setQuickRange(86400);
+    setQuickRange(3600);
 
     // Load settings
     loadChartSettings();
