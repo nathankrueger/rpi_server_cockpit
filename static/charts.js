@@ -318,19 +318,7 @@ async function updateCharts() {
     }
 
     try {
-        console.log('Collecting fresh data...');
-
-        // First, trigger immediate data collection
-        const collectResponse = await fetch('/api/timeseries/collect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const collectResult = await collectResponse.json();
-        console.log('Data collected:', collectResult);
-
-        // Small delay to ensure data is written to database
-        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log('Updating charts with existing data...');
 
         // Get current time range from UI
         const startTime = parseDatetimeLocal(document.getElementById('start-time').value);
@@ -348,7 +336,7 @@ async function updateCharts() {
             endTime = nowTimestamp;
         } else {
             // Use current timestamp for query even if UI shows earlier time
-            // This ensures we fetch data up to NOW, including the just-collected point
+            // This ensures we fetch the latest data points from the background collector
             endTime = nowTimestamp;
         }
 
