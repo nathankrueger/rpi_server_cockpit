@@ -1,0 +1,12 @@
+I want another page for my website to be a dashboard for charting timeseries data.  The plotting interface should be separate from the main homepage and be reachable via a link at the bottom of the main homepage 'index.html'. The goal here is to make it very easy to add an additonal chart, just like you've helped make it very easy to add another service or automation to control.
+
+I want timeseries data to be saved to a database server side.  Sqllite is acceptable.  This will allow me to connect from any client, and see the history of any timeseries data of interest.
+
+To give you an idea, I want to show things like temperature or pressure data across time.
+
+There should be a class which can be overridden to provde timeseries datapoints.  This class should have methods such as:
+* getName() -> str
+* getCurrentValue() -> Any
+* getUnits() -> str
+
+The framework you will build will sample each defined series at a rate determined by a user setting.  This user setting should be saved server-side, and settable via a modal dialog of the same style as the homepage 'index.html's setting page.  The framework should handle all the serialization / deserialization of the timeseries data, as well as graphing it using something like 'plotly' that can work well on a website.  I expect a 'datetimepicker' or similar UI widget for selecting the starting / ending timerange of data to show.  I want the ability to show multiple timeseries in one graph, or only one at a time.  Series which return an identical value for getUnits() can be graphed together.  Make sure to use different colors and a legend to show multiple series on one graph.
