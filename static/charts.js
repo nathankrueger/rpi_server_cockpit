@@ -11,6 +11,7 @@ let selectedTimeseries = new Set();
 let autoRefreshEnabled = false;
 let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
+let smoothingEnabled = false;
 
 // Color management (shared with dashboard.js via localStorage)
 function hexToRgb(hex) {
@@ -87,6 +88,34 @@ async function initCharts() {
 
     // Load settings
     loadChartSettings();
+
+    // Load smoothing preference
+    const savedSmoothing = localStorage.getItem('smoothingEnabled');
+    if (savedSmoothing !== null) {
+        smoothingEnabled = savedSmoothing === 'true';
+        const toggleSwitch = document.getElementById('smoothing-toggle');
+        if (smoothingEnabled) {
+            toggleSwitch.classList.add('active');
+        }
+    }
+
+    // Enable auto-refresh by default (only on first visit)
+    const savedAutoRefresh = localStorage.getItem('autoRefreshEnabled');
+    if (savedAutoRefresh === null) {
+        // First visit - enable auto-refresh by default
+        autoRefreshEnabled = true;
+        localStorage.setItem('autoRefreshEnabled', 'true');
+    } else {
+        autoRefreshEnabled = savedAutoRefresh === 'true';
+    }
+
+    // Update button state
+    const autoRefreshButton = document.getElementById('auto-refresh-toggle');
+    if (autoRefreshEnabled) {
+        autoRefreshButton.textContent = 'AUTO-REFRESH: ON';
+        autoRefreshButton.classList.add('active');
+        autoRefreshInterval = setInterval(updateCharts, autoRefreshRate);
+    }
 
     // Initial chart update
     await updateCharts();
@@ -409,7 +438,8 @@ function renderCharts(groupedByUnits) {
                 name: ts.name,
                 line: {
                     width: 2,
-                    color: getColorForTrace(traceIndex)
+                    color: getColorForTrace(traceIndex),
+                    shape: smoothingEnabled ? 'spline' : 'linear'
                 }
             };
         });
@@ -506,6 +536,9 @@ function toggleAutoRefresh() {
     button.textContent = `AUTO-REFRESH: ${autoRefreshEnabled ? 'ON' : 'OFF'}`;
     button.classList.toggle('active', autoRefreshEnabled);
 
+    // Save preference
+    localStorage.setItem('autoRefreshEnabled', autoRefreshEnabled);
+
     if (autoRefreshEnabled) {
         // Start auto-refresh
         autoRefreshInterval = setInterval(updateCharts, autoRefreshRate);
@@ -574,6 +607,21 @@ async function saveSettings() {
 function loadChartSettings() {
     const savedAutoRefreshRate = localStorage.getItem('autoRefreshRate') || '30';
     autoRefreshRate = parseInt(savedAutoRefreshRate) * 1000;
+}
+
+// Toggle smoothing
+function toggleSmoothing() {
+    const toggleSwitch = document.getElementById('smoothing-toggle');
+    smoothingEnabled = !smoothingEnabled;
+
+    if (smoothingEnabled) {
+        toggleSwitch.classList.add('active');
+    } else {
+        toggleSwitch.classList.remove('active');
+    }
+
+    localStorage.setItem('smoothingEnabled', smoothingEnabled);
+    updateCharts();
 }
 
 // Update slider value displays

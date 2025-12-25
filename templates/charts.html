@@ -19,7 +19,7 @@
             <!-- Controls Section -->
             <div class="chart-controls">
                 <div class="control-group">
-                    <label for="timeseries-search">Add Series:</label>
+                    <label for="timeseries-search">Series Configuration:</label>
                     <div class="search-container">
                         <input
                             type="text"
@@ -59,6 +59,12 @@
                 <div class="control-group">
                     <button class="update-chart-btn" onclick="updateCharts()">UPDATE CHARTS</button>
                     <button class="auto-refresh-btn" id="auto-refresh-toggle" onclick="toggleAutoRefresh()">AUTO-REFRESH: OFF</button>
+                    <div class="smoothing-control">
+                        <span class="toggle-text">SMOOTH LINES:</span>
+                        <div class="toggle-switch" id="smoothing-toggle" onclick="toggleSmoothing()">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
