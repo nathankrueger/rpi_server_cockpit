@@ -57,7 +57,7 @@
                 </div>
 
                 <div class="control-group">
-                    <button class="update-chart-btn" onclick="updateCharts()">UPDATE CHARTS</button>
+                    <button class="update-chart-btn" onclick="updateCharts(true)">UPDATE CHARTS</button>
                     <button class="auto-refresh-btn" id="auto-refresh-toggle" onclick="toggleAutoRefresh()">AUTO-REFRESH: OFF</button>
                     <div class="smoothing-control">
                         <span class="toggle-text">SMOOTH LINES:</span>
@@ -100,7 +100,7 @@
         </div>
     </div>
 
-    <button class="refresh-btn" onclick="updateCharts()" title="Refresh Charts">⟳</button>
+    <button class="refresh-btn" onclick="updateCharts(true)" title="Refresh Charts">⟳</button>
     <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
     <button class="home-btn" onclick="window.location.href='/'" title="Back to Dashboard">🏠</button>
 

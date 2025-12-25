@@ -114,7 +114,7 @@ async function initCharts() {
     if (autoRefreshEnabled) {
         autoRefreshButton.textContent = 'AUTO-REFRESH: ON';
         autoRefreshButton.classList.add('active');
-        autoRefreshInterval = setInterval(updateCharts, autoRefreshRate);
+        autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
     }
 
     // Initial chart update
@@ -320,7 +320,7 @@ function setQuickRange(seconds) {
     document.getElementById('start-time').value = formatDatetimeLocal(start);
 
     // Auto-update charts when quick range is selected
-    updateCharts();
+    updateCharts(true); // Pass true to indicate this is from a quick range/auto-refresh
 }
 
 // Format date for datetime-local input
@@ -339,7 +339,9 @@ function parseDatetimeLocal(datetimeString) {
 }
 
 // Update all charts
-async function updateCharts() {
+async function updateCharts(autoUpdate = false) {
+    console.log('updateCharts called with autoUpdate =', autoUpdate);
+
     if (selectedTimeseries.size === 0) {
         document.getElementById('charts-container').innerHTML =
             '<div class="no-data-message">Please select at least one timeseries to display.</div>';
@@ -347,11 +349,19 @@ async function updateCharts() {
     }
 
     try {
-        console.log('Updating charts with existing data...');
+        console.log('Updating charts...');
 
         // Get current time range from UI
         const startTime = parseDatetimeLocal(document.getElementById('start-time').value);
-        const endTime = parseDatetimeLocal(document.getElementById('end-time').value);
+        let endTime = parseDatetimeLocal(document.getElementById('end-time').value);
+
+        // If this is an auto-update (from auto-refresh or quick range), update end time to now
+        if (autoUpdate) {
+            console.log('Auto-update mode: setting end time to now');
+            const now = new Date();
+            document.getElementById('end-time').value = formatDatetimeLocal(now);
+            endTime = Date.now() / 1000;
+        }
 
         console.log('Fetching chart data from', new Date(startTime * 1000), 'to', new Date(endTime * 1000));
 
@@ -524,8 +534,8 @@ function toggleAutoRefresh() {
     localStorage.setItem('autoRefreshEnabled', autoRefreshEnabled);
 
     if (autoRefreshEnabled) {
-        // Start auto-refresh
-        autoRefreshInterval = setInterval(updateCharts, autoRefreshRate);
+        // Start auto-refresh with auto-update flag
+        autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
     } else {
         // Stop auto-refresh
         if (autoRefreshInterval) {
@@ -582,7 +592,7 @@ async function saveSettings() {
     // Update auto-refresh interval if it's running
     if (autoRefreshEnabled) {
         clearInterval(autoRefreshInterval);
-        autoRefreshInterval = setInterval(updateCharts, autoRefreshRate);
+        autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
     }
 
     closeSettingsModal();
