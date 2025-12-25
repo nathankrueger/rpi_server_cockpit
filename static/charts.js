@@ -414,6 +414,10 @@ function renderCharts(groupedByUnits) {
             };
         });
 
+        // Determine if we need to show the legend (only if multiple series)
+        const showLegend = seriesList.length > 1;
+        const rightMargin = showLegend ? 150 : 20;
+
         // Chart layout
         const layout = {
             title: {
@@ -434,17 +438,23 @@ function renderCharts(groupedByUnits) {
                 gridcolor: 'rgba(0, 255, 65, 0.1)',
                 fixedrange: false
             },
+            showlegend: showLegend,
             legend: {
-                font: { color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41' },
+                font: {
+                    color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
+                    size: 10
+                },
                 bgcolor: 'rgba(0, 0, 0, 0.7)',
                 bordercolor: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
                 borderwidth: 1,
-                x: 1,
+                x: 1.01,
                 y: 1,
-                xanchor: 'right',
-                yanchor: 'top'
+                xanchor: 'left',
+                yanchor: 'top',
+                orientation: 'v',
+                tracegroupgap: 2
             },
-            margin: { l: 60, r: 150, t: 50, b: 50 },
+            margin: { l: 60, r: rightMargin, t: 50, b: 50 },
             autosize: true
         };
 
@@ -455,6 +465,9 @@ function renderCharts(groupedByUnits) {
             modeBarButtonsToRemove: ['lasso2d', 'select2d'],
             displaylogo: false
         });
+
+        // Add double-tap to fullscreen functionality
+        addFullscreenToggle(chartDiv);
     });
 
     // Show message if no data
@@ -595,6 +608,59 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Add double-tap to fullscreen functionality for a chart
+function addFullscreenToggle(chartDiv) {
+    let lastTap = 0;
+
+    // Handle double-tap for both mouse and touch
+    const handleDoubleTap = (event) => {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTap;
+
+        if (tapLength < 300 && tapLength > 0) {
+            // Double tap detected
+            event.preventDefault();
+            toggleFullscreen(chartDiv);
+            lastTap = 0;
+        } else {
+            lastTap = currentTime;
+        }
+    };
+
+    // Add mouse double-click listener
+    chartDiv.addEventListener('dblclick', () => {
+        toggleFullscreen(chartDiv);
+    });
+
+    // Add touch double-tap listener for mobile
+    chartDiv.addEventListener('touchend', handleDoubleTap);
+}
+
+// Toggle fullscreen mode for a chart
+function toggleFullscreen(chartDiv) {
+    if (chartDiv.classList.contains('chart-fullscreen')) {
+        // Exit fullscreen
+        chartDiv.classList.remove('chart-fullscreen');
+        document.body.classList.remove('chart-fullscreen-active');
+
+        // Resize chart immediately and after animation
+        Plotly.Plots.resize(chartDiv);
+        setTimeout(() => {
+            Plotly.Plots.resize(chartDiv);
+        }, 350);
+    } else {
+        // Enter fullscreen
+        chartDiv.classList.add('chart-fullscreen');
+        document.body.classList.add('chart-fullscreen-active');
+
+        // Resize chart immediately and after animation
+        Plotly.Plots.resize(chartDiv);
+        setTimeout(() => {
+            Plotly.Plots.resize(chartDiv);
+        }, 350);
+    }
+}
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
