@@ -39,6 +39,14 @@ class TimeseriesDB:
             try:
                 cursor = conn.cursor()
 
+                # Enable database optimizations for better compression and performance
+                # Auto-vacuum: automatically reclaim space from deleted data
+                cursor.execute('PRAGMA auto_vacuum = FULL')
+                # Larger page size can improve compression ratio (4KB is good for timeseries)
+                cursor.execute('PRAGMA page_size = 4096')
+                # WAL mode for better concurrent access and performance
+                cursor.execute('PRAGMA journal_mode = WAL')
+
                 # Table for timeseries data points
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS timeseries_data (
@@ -277,3 +285,68 @@ class TimeseriesDB:
                 return {row['key']: row['value'] for row in cursor.fetchall()}
             finally:
                 conn.close()
+
+    def vacuum(self):
+        """
+        Compact the database and reclaim unused space.
+        This is safe to run and won't lose any data.
+        Should be run periodically (e.g., weekly) for maintenance.
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                print("Running VACUUM on timeseries database...")
+                conn.execute('VACUUM')
+                print("VACUUM completed successfully")
+            finally:
+                conn.close()
+
+    def optimize_existing_database(self):
+        """
+        Apply optimization settings to an existing database.
+        This is safe and won't lose data, but requires a VACUUM to take full effect.
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+
+                # Check current settings
+                cursor.execute('PRAGMA auto_vacuum')
+                current_auto_vacuum = cursor.fetchone()[0]
+
+                cursor.execute('PRAGMA journal_mode')
+                current_journal_mode = cursor.fetchone()[0]
+
+                print(f"Current auto_vacuum: {current_auto_vacuum}, journal_mode: {current_journal_mode}")
+
+                # Apply WAL mode (can be changed on existing DB)
+                if current_journal_mode != 'wal':
+                    cursor.execute('PRAGMA journal_mode = WAL')
+                    print("Enabled WAL journal mode")
+
+                # Auto-vacuum requires VACUUM to apply (can't change on existing DB without it)
+                if current_auto_vacuum != 1:  # 1 = FULL
+                    cursor.execute('PRAGMA auto_vacuum = FULL')
+                    print("Set auto_vacuum = FULL (requires VACUUM to take effect)")
+                    # Run VACUUM to apply the auto_vacuum setting
+                    cursor.execute('VACUUM')
+                    print("VACUUM completed - auto_vacuum is now active")
+
+                conn.commit()
+                print("Database optimization complete")
+            finally:
+                conn.close()
+
+    def get_database_size(self) -> int:
+        """
+        Get the current database file size in bytes.
+
+        Returns:
+            Database size in bytes
+        """
+        import os
+        try:
+            return os.path.getsize(self.db_path)
+        except Exception:
+            return 0
