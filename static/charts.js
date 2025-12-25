@@ -351,23 +351,7 @@ async function updateCharts() {
 
         // Get current time range from UI
         const startTime = parseDatetimeLocal(document.getElementById('start-time').value);
-        const currentEndTime = parseDatetimeLocal(document.getElementById('end-time').value);
-
-        // Get actual current timestamp (with seconds precision)
-        const nowTimestamp = Date.now() / 1000;
-
-        // Only update end time in UI if current time is AFTER the displayed end time
-        // This prevents the UI from changing when user has set a specific end time in the future
-        let endTime = currentEndTime;
-        if (nowTimestamp > currentEndTime) {
-            const now = new Date();
-            document.getElementById('end-time').value = formatDatetimeLocal(now);
-            endTime = nowTimestamp;
-        } else {
-            // Use current timestamp for query even if UI shows earlier time
-            // This ensures we fetch the latest data points from the background collector
-            endTime = nowTimestamp;
-        }
+        const endTime = parseDatetimeLocal(document.getElementById('end-time').value);
 
         console.log('Fetching chart data from', new Date(startTime * 1000), 'to', new Date(endTime * 1000));
 
