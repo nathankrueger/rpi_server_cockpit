@@ -16,6 +16,12 @@ AUTOMATIONS = [
         'button_text': 'RUN SYNC'
     },
     {
+        'name': 'ping_ts',
+        'display_name': 'PING TAILSCALE',
+        'script_path': './automation_scripts/ping_ts_hosts.sh',
+        'button_text': 'PING'
+    },
+    {
         'name': 'reboot',
         'display_name': 'REBOOT',
         'script_path': './automation_scripts/reboot.sh',
