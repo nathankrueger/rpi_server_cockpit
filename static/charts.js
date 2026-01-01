@@ -12,6 +12,7 @@ let autoRefreshEnabled = false;
 let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
 let smoothingEnabled = false;
+let maxDatapoints = 10000; // maximum datapoints per chart
 
 // Color management (shared with dashboard.js via localStorage)
 function hexToRgb(hex) {
@@ -372,7 +373,8 @@ async function updateCharts(autoUpdate = false) {
             body: JSON.stringify({
                 timeseries_ids: Array.from(selectedTimeseries),
                 start: startTime,
-                end: endTime
+                end: endTime,
+                max_datapoints: maxDatapoints
             })
         });
 
@@ -554,14 +556,19 @@ function openSettingsModal() {
         .then(response => response.json())
         .then(settings => {
             document.getElementById('sampling-rate').value = settings.sampling_rate_ms;
-            document.getElementById('sampling-rate-value').textContent = settings.sampling_rate_ms;
+            document.getElementById('sampling-rate-input').value = settings.sampling_rate_ms;
         })
         .catch(error => console.error('Error loading settings:', error));
 
     // Load auto-refresh rate from localStorage
     const savedAutoRefreshRate = localStorage.getItem('autoRefreshRate') || '30';
     document.getElementById('auto-refresh-rate').value = savedAutoRefreshRate;
-    document.getElementById('auto-refresh-rate-value').textContent = savedAutoRefreshRate;
+    document.getElementById('auto-refresh-rate-input').value = savedAutoRefreshRate;
+
+    // Load max datapoints from localStorage
+    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '10000';
+    document.getElementById('max-datapoints').value = savedMaxDatapoints;
+    document.getElementById('max-datapoints-input').value = savedMaxDatapoints;
 }
 
 function closeSettingsModal() {
@@ -569,8 +576,9 @@ function closeSettingsModal() {
 }
 
 async function saveSettings() {
-    const samplingRate = parseInt(document.getElementById('sampling-rate').value);
-    const autoRefreshRateSeconds = parseInt(document.getElementById('auto-refresh-rate').value);
+    const samplingRate = parseInt(document.getElementById('sampling-rate-input').value);
+    const autoRefreshRateSeconds = parseInt(document.getElementById('auto-refresh-rate-input').value);
+    const maxDatapointsValue = parseInt(document.getElementById('max-datapoints-input').value);
 
     // Save sampling rate to server
     try {
@@ -589,6 +597,10 @@ async function saveSettings() {
     localStorage.setItem('autoRefreshRate', autoRefreshRateSeconds);
     autoRefreshRate = autoRefreshRateSeconds * 1000;
 
+    // Save max datapoints to localStorage
+    localStorage.setItem('maxDatapoints', maxDatapointsValue);
+    maxDatapoints = maxDatapointsValue;
+
     // Update auto-refresh interval if it's running
     if (autoRefreshEnabled) {
         clearInterval(autoRefreshInterval);
@@ -596,11 +608,17 @@ async function saveSettings() {
     }
 
     closeSettingsModal();
+
+    // Refresh charts to apply new max datapoints setting
+    updateCharts();
 }
 
 function loadChartSettings() {
     const savedAutoRefreshRate = localStorage.getItem('autoRefreshRate') || '30';
     autoRefreshRate = parseInt(savedAutoRefreshRate) * 1000;
+
+    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '10000';
+    maxDatapoints = parseInt(savedMaxDatapoints);
 }
 
 // Toggle smoothing
@@ -618,21 +636,55 @@ function toggleSmoothing() {
     updateCharts();
 }
 
-// Update slider value displays
-document.addEventListener('DOMContentLoaded', () => {
-    const samplingRateSlider = document.getElementById('sampling-rate');
-    if (samplingRateSlider) {
-        samplingRateSlider.oninput = function() {
-            document.getElementById('sampling-rate-value').textContent = this.value;
-        };
-    }
+// Sync slider and text input values
+function syncSliderAndInput(sliderId, inputId) {
+    const slider = document.getElementById(sliderId);
+    const input = document.getElementById(inputId);
 
-    const autoRefreshRateSlider = document.getElementById('auto-refresh-rate');
-    if (autoRefreshRateSlider) {
-        autoRefreshRateSlider.oninput = function() {
-            document.getElementById('auto-refresh-rate-value').textContent = this.value;
-        };
-    }
+    if (!slider || !input) return;
+
+    // Sync slider to input
+    slider.oninput = function() {
+        input.value = this.value;
+    };
+
+    // Sync input to slider (with validation)
+    input.oninput = function() {
+        const min = parseInt(this.min);
+        const max = parseInt(this.max);
+        let val = parseInt(this.value);
+
+        // Clamp value to min/max range
+        if (!isNaN(val)) {
+            if (val < min) val = min;
+            if (val > max) val = max;
+            this.value = val;
+            slider.value = val;
+        }
+    };
+
+    // Also handle blur event to ensure valid value on focus loss
+    input.onblur = function() {
+        const min = parseInt(this.min);
+        const max = parseInt(this.max);
+        let val = parseInt(this.value);
+
+        if (isNaN(val) || val < min) {
+            val = min;
+        } else if (val > max) {
+            val = max;
+        }
+
+        this.value = val;
+        slider.value = val;
+    };
+}
+
+// Update slider and input synchronization
+document.addEventListener('DOMContentLoaded', () => {
+    syncSliderAndInput('sampling-rate', 'sampling-rate-input');
+    syncSliderAndInput('auto-refresh-rate', 'auto-refresh-rate-input');
+    syncSliderAndInput('max-datapoints', 'max-datapoints-input');
 
     // Add event listeners to datetime inputs to auto-update charts when changed
     const startTimeInput = document.getElementById('start-time');

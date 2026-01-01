@@ -84,7 +84,8 @@ def get_timeseries_data_batch():
             "timeseries_ids": ["cpu_temperature", "gpu_temperature"],
             "start": 1234567890.0,  // optional
             "end": 1234567900.0,    // optional
-            "limit": 1000           // optional
+            "limit": 1000,          // optional (for latest query)
+            "max_datapoints": 10000 // optional (for downsampling with LTTB)
         }
 
     Returns:
@@ -95,6 +96,7 @@ def get_timeseries_data_batch():
     start_time = data.get('start')
     end_time = data.get('end')
     limit = data.get('limit', 1000)
+    max_datapoints = data.get('max_datapoints')
 
     results = []
     for ts_id in timeseries_ids:
@@ -104,7 +106,7 @@ def get_timeseries_data_batch():
 
         # Query data
         if start_time is not None and end_time is not None:
-            ts_data = timeseries_db.query_range(ts_id, start_time, end_time)
+            ts_data = timeseries_db.query_range(ts_id, start_time, end_time, max_points=max_datapoints)
         else:
             ts_data = timeseries_db.query_latest(ts_id, limit)
 

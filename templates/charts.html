@@ -84,15 +84,22 @@
                 <div class="setting-item">
                     <label for="sampling-rate">Data Sampling Rate (ms):</label>
                     <input type="range" id="sampling-rate" min="1000" max="60000" step="1000" value="5000">
-                    <span id="sampling-rate-value">5000</span> ms
+                    <input type="number" id="sampling-rate-input" min="1000" max="60000" step="1000" value="5000" style="width: 80px; margin-left: 10px;"> ms
                     <div class="setting-description">How often to collect timeseries data points</div>
                 </div>
 
                 <div class="setting-item">
                     <label for="auto-refresh-rate">Chart Auto-Refresh Rate (seconds):</label>
                     <input type="range" id="auto-refresh-rate" min="1" max="300" step="1" value="30">
-                    <span id="auto-refresh-rate-value">30</span> seconds
+                    <input type="number" id="auto-refresh-rate-input" min="1" max="300" step="1" value="30" style="width: 80px; margin-left: 10px;"> seconds
                     <div class="setting-description">How often to automatically update charts when auto-refresh is enabled</div>
+                </div>
+
+                <div class="setting-item">
+                    <label for="max-datapoints">Maximum Datapoints per Chart:</label>
+                    <input type="range" id="max-datapoints" min="100" max="100000" step="100" value="10000">
+                    <input type="number" id="max-datapoints-input" min="100" max="100000" step="100" value="10000" style="width: 80px; margin-left: 10px;"> points
+                    <div class="setting-description">Limit datapoints for better performance. Data will be intelligently downsampled using LTTB algorithm to preserve visual features.</div>
                 </div>
 
                 <button class="save-settings-btn" onclick="saveSettings()">SAVE SETTINGS</button>
