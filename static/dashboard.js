@@ -357,11 +357,14 @@ function openAutomationOutputModal(automationName) {
     const currentOutput = automationClientOutput[automationName] || '';
     output.textContent = currentOutput;
 
-    // Scroll to bottom
-    output.scrollTop = output.scrollHeight;
-
-    // Show modal
+    // Show modal first so the element is rendered
     modal.style.display = 'block';
+
+    // Use requestAnimationFrame to ensure the modal is rendered before scrolling
+    // This guarantees we're at the bottom when new content arrives
+    requestAnimationFrame(() => {
+        output.scrollTop = output.scrollHeight;
+    });
 }
 
 function closeAutomationOutputModal() {
@@ -476,6 +479,13 @@ socket.on('automation_update', (data) => {
     updateAutomationUI(data.automation, data.state);
 });
 
+// Helper function to check if a scrollable element is at or near the bottom
+function isScrolledToBottom(element, threshold = 5) {
+    if (!element) return false;
+    // Check if the element is scrolled to within 'threshold' pixels of the bottom
+    return element.scrollHeight - element.scrollTop - element.clientHeight <= threshold;
+}
+
 function updateAutomationUI(automationName, state) {
     const btn = document.getElementById(`${automationName}-btn`);
     const indicator = document.getElementById(`${automationName}-indicator`);
@@ -498,20 +508,40 @@ function updateAutomationUI(automationName, state) {
                 if (!automationClientOutput[automationName]) {
                     automationClientOutput[automationName] = '';
                 }
+
+                // Check if we should auto-scroll (before appending new content)
+                const shouldScroll = isScrolledToBottom(outputText);
+
                 // Append new output
                 automationClientOutput[automationName] += state.output;
 
                 // Update display
                 outputDiv.style.display = 'block';
                 outputText.textContent = automationClientOutput[automationName];
-                outputText.scrollTop = outputText.scrollHeight;
+
+                // Only scroll to bottom if already at bottom
+                // Use requestAnimationFrame to ensure content is rendered before scrolling (fixes mobile browsers)
+                if (shouldScroll) {
+                    requestAnimationFrame(() => {
+                        outputText.scrollTop = outputText.scrollHeight;
+                    });
+                }
 
                 // If this automation is currently shown in the fullscreen modal, update it too
                 if (currentExpandedAutomation === automationName) {
                     const modalOutput = document.getElementById('automation-modal-output');
                     if (modalOutput) {
+                        // Check if modal should auto-scroll (before appending)
+                        const shouldScrollModal = isScrolledToBottom(modalOutput);
+
                         modalOutput.textContent = automationClientOutput[automationName];
-                        modalOutput.scrollTop = modalOutput.scrollHeight;
+
+                        // Only scroll modal to bottom if already at bottom
+                        if (shouldScrollModal) {
+                            requestAnimationFrame(() => {
+                                modalOutput.scrollTop = modalOutput.scrollHeight;
+                            });
+                        }
                     }
                 }
             }
