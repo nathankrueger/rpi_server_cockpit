@@ -301,27 +301,27 @@ def control_service(service_name, action):
     except Exception as e:
         return False, str(e)
 
-def control_qbittorrent(action):
-    """Start or stop qbittorrent-nox process."""
+def control_process(process_name, action):
+    """Start or stop a process by name."""
     try:
         if action == 'start':
-            # Start qbittorrent-nox in the background
+            # Start process in the background
             subprocess.Popen(
-                ['qbittorrent-nox'],
+                [process_name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
-            on_service_start('qbittorrent-nox')
+            on_service_start(process_name)
             return True, ''
         elif action == 'stop':
             result = subprocess.run(
-                ['pkill', '-x', 'qbittorrent-nox'],
+                ['pkill', '-x', process_name],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
-            on_service_stop('qbittorrent-nox')
+            on_service_stop(process_name)
             return True, ''
     except Exception as e:
         return False, str(e)
@@ -414,12 +414,8 @@ def control(service):
     # Control based on service type
     if service_config['control_type'] == 'systemd':
         success, error = control_service(service_config['service_name'], action)
-    elif service_config['control_type'] == 'custom':
-        # Handle custom control logic (currently only qbittorrent)
-        if service == 'qbittorrent':
-            success, error = control_qbittorrent(action)
-        else:
-            return jsonify({'success': False, 'error': 'Unknown custom control type'}), 400
+    elif service_config['control_type'] == 'process':
+        success, error = control_process(service_config['service_name'], action)
     else:
         return jsonify({'success': False, 'error': 'Invalid control type'}), 400
 

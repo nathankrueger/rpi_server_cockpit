@@ -6,14 +6,25 @@
       "comment": "Disable qbittorrent on this Pi"
     },
     {
-      "id": "custom_service",
-      "display_name": "MY SERVICE",
+      "id": "custom_systemd_service",
+      "display_name": "MY SYSTEMD SERVICE",
       "check_type": "systemd",
       "service_name": "my-service",
       "control_type": "systemd",
       "button_type": "details",
       "enabled": true,
-      "comment": "Add a custom service only for this Pi"
+      "comment": "Example: Add a custom systemd service"
+    },
+    {
+      "id": "custom_process",
+      "display_name": "MY PROCESS",
+      "check_type": "process",
+      "service_name": "my-custom-app",
+      "control_type": "process",
+      "button_type": "link",
+      "link_url": "http://{hostname}:9000",
+      "enabled": true,
+      "comment": "Example: Add a custom process-based service"
     }
   ]
 }

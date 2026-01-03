@@ -32,7 +32,7 @@
       "display_name": "QBITTORRENT",
       "check_type": "process",
       "service_name": "qbittorrent-nox",
-      "control_type": "custom",
+      "control_type": "process",
       "button_type": "link",
       "link_url": "http://{hostname}:8080",
       "enabled": true

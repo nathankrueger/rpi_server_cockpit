@@ -36,6 +36,21 @@ The config loader merges base + local configs:
 3. Merges by unique key (`name` for automations, `id` for services)
 4. Filters out any items with `"enabled": false`
 
+## Service Configuration Schema
+
+Each service supports the following fields:
+
+- **id**: Unique identifier (required)
+- **display_name**: Name shown in UI (required)
+- **check_type**: How to check if running - `"systemd"` or `"process"` (required)
+- **service_name**: Service/process name for systemctl or pgrep (required)
+- **control_type**: How to control - `"systemd"` or `"process"` (required)
+  - `"systemd"`: Uses `systemctl start/stop <service_name>`
+  - `"process"`: Uses direct process control (start command and pkill)
+- **button_type**: UI button type - `"details"` or `"link"` (required)
+- **link_url**: URL for link buttons (optional, use `{hostname}` placeholder)
+- **enabled**: Whether to show this service (default: true)
+
 ## Usage Examples
 
 ### Disable an automation on one Pi
