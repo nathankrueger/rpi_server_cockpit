@@ -95,9 +95,8 @@ Create `config/service_config.local.json`:
       "id": "pihole",
       "display_name": "PI-HOLE",
       "check_type": "systemd",
-      "check_name": "pihole-FTL",
+      "service_name": "pihole-FTL",
       "control_type": "systemd",
-      "control_name": "pihole-FTL",
       "button_type": "link",
       "link_url": "http://{hostname}/admin",
       "enabled": true

@@ -1,0 +1,19 @@
+{
+  "services": [
+    {
+      "id": "qbittorrent",
+      "enabled": false,
+      "comment": "Disable qbittorrent on this Pi"
+    },
+    {
+      "id": "custom_service",
+      "display_name": "MY SERVICE",
+      "check_type": "systemd",
+      "service_name": "my-service",
+      "control_type": "systemd",
+      "button_type": "details",
+      "enabled": true,
+      "comment": "Add a custom service only for this Pi"
+    }
+  ]
+}

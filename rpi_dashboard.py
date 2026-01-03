@@ -344,9 +344,9 @@ def get_status():
     # Dynamically check all configured services
     for service in get_all_services():
         if service['check_type'] == 'systemd':
-            status[service['id']] = check_service_status(service['check_name'])
+            status[service['id']] = check_service_status(service['service_name'])
         elif service['check_type'] == 'process':
-            status[service['id']] = check_process_running(service['check_name'])
+            status[service['id']] = check_process_running(service['service_name'])
 
     # Always include internet connectivity
     status['internet'] = check_internet_connectivity()
@@ -366,14 +366,18 @@ def get_automations():
 @app.route('/api/service/details/<service>')
 def get_service_details(service):
     """Get detailed status for a systemd service."""
-    valid_services = ['tailscaled', 'minidlnad', 'smbd']
-    internal_names = {'minidlnad':'minidlna'}
-    
-    if service not in valid_services:
+    # Get service configuration
+    service_config = get_service_config(service)
+    if not service_config:
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
-    
+
+    # Only systemd services support details view
+    if service_config['check_type'] != 'systemd':
+        return jsonify({'success': False, 'error': 'Service does not support details view'}), 400
+
     try:
-        service_name = service if service not in internal_names else internal_names[service]
+        # Use service_name from config
+        service_name = service_config['service_name']
         result = subprocess.run(
             ['systemctl', 'status', service_name],
             capture_output=True,
@@ -409,7 +413,7 @@ def control(service):
 
     # Control based on service type
     if service_config['control_type'] == 'systemd':
-        success, error = control_service(service_config['control_name'], action)
+        success, error = control_service(service_config['service_name'], action)
     elif service_config['control_type'] == 'custom':
         # Handle custom control logic (currently only qbittorrent)
         if service == 'qbittorrent':
