@@ -1,0 +1,53 @@
+{
+  "automations": [
+    {
+      "name": "sync_music",
+      "display_name": "SYNC MUSIC",
+      "script_path": "./automation_scripts/sync_music.sh",
+      "button_text": "RUN SYNC",
+      "enabled": true
+    },
+    {
+      "name": "ping_ts",
+      "display_name": "PING TAILSCALE",
+      "script_path": "./automation_scripts/ping_ts_hosts.sh",
+      "button_text": "PING",
+      "enabled": true
+    },
+    {
+      "name": "reboot",
+      "display_name": "REBOOT",
+      "script_path": "./automation_scripts/reboot.sh",
+      "button_text": "REBOOT",
+      "enabled": true
+    },
+    {
+      "name": "update_os",
+      "display_name": "UPDATE OS",
+      "script_path": "./automation_scripts/update_os.sh",
+      "button_text": "UPDATE",
+      "enabled": true
+    },
+    {
+      "name": "stress_test",
+      "display_name": "STRESS TEST",
+      "script_path": "./automation_scripts/make_heat.sh",
+      "button_text": "GO",
+      "enabled": true
+    },
+    {
+      "name": "proc_list",
+      "display_name": "PROCESS LIST",
+      "script_path": "./automation_scripts/proc_list.sh",
+      "button_text": "LIST PROCESSES",
+      "enabled": true
+    },
+    {
+      "name": "restart_webserver",
+      "display_name": "RESTART WEBSERVER",
+      "script_path": "./automation_scripts/restart_webserver.sh",
+      "button_text": "RESTART",
+      "enabled": true
+    }
+  ]
+}

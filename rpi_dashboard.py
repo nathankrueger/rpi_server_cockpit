@@ -9,8 +9,7 @@ import uuid
 import os
 import eventlet
 
-from automation_config import get_all_automations, get_automation_config
-from service_config import get_all_services, get_service_config
+from config_loader import get_all_automations, get_automation_config, get_all_services, get_service_config
 from process_mgmt import kill_proc_tree
 
 # Determine async mode based on environment
