@@ -8,6 +8,7 @@ import threading
 import uuid
 import os
 import eventlet
+from datetime import datetime
 
 from config_loader import get_all_automations, get_automation_config, get_all_services, get_service_config
 from process_mgmt import kill_proc_tree
@@ -484,6 +485,7 @@ def run_automation(automation_name):
                 automation_state[automation_name]['running'] = False
                 automation_state[automation_name]['return_code'] = process.returncode
                 automation_state[automation_name]['process'] = None
+                automation_state[automation_name]['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
             broadcast_automation_state(automation_name)
 
         except Exception as e:
@@ -492,6 +494,7 @@ def run_automation(automation_name):
                 automation_state[automation_name]['running'] = False
                 automation_state[automation_name]['return_code'] = -1
                 automation_state[automation_name]['process'] = None
+                automation_state[automation_name]['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
             broadcast_automation_state(automation_name)
 
     # Start the script in a background thread/greenthread
@@ -569,6 +572,7 @@ def cancel_automation(automation_name):
             state['running'] = False
             state['return_code'] = -999  # Special code for cancelled
             state['process'] = None
+            state['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
 
         # Broadcast outside the lock
         broadcast_automation_state(automation_name)

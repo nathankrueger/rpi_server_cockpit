@@ -606,13 +606,13 @@ function updateAutomationUI(automationName, state) {
             }
         } else if (state.return_code === 0) {
             indicator.className = 'status-indicator green';
-            statusText.textContent = 'COMPLETED';
+            statusText.textContent = state.completed_at ? `COMPLETED -- ${state.completed_at}` : 'COMPLETED';
         } else if (state.return_code === -999) {
             indicator.className = 'status-indicator yellow';
-            statusText.textContent = 'CANCELLED';
+            statusText.textContent = state.completed_at ? `CANCELLED -- ${state.completed_at}` : 'CANCELLED';
         } else {
             indicator.className = 'status-indicator red';
-            statusText.textContent = 'FAILED';
+            statusText.textContent = state.completed_at ? `FAILED -- ${state.completed_at}` : 'FAILED';
         }
     }
 }
