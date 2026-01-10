@@ -281,6 +281,9 @@ function createAutomationCard(automation) {
             <div class="status-indicator yellow" id="${automation.name}-indicator"></div>
         </div>
         <div class="status-text" id="${automation.name}-status">READY</div>
+        <div class="automation-args-container">
+            <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)">
+        </div>
         <div class="toggle-container">
             <button class="details-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">
                 ${automation.button_text}
@@ -629,6 +632,10 @@ async function runAutomation(automationName) {
 
     console.log('Run button clicked for:', automationName);
 
+    // Get arguments from input field
+    const argsInput = document.getElementById(`${automationName}-args`);
+    const args = argsInput ? argsInput.value.trim() : '';
+
     // Disable button temporarily
     btn.disabled = true;
     btn.textContent = 'STARTING...';
@@ -638,7 +645,8 @@ async function runAutomation(automationName) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify({ args: args })
         });
 
         const result = await response.json();

@@ -9,6 +9,7 @@ import uuid
 import os
 import eventlet
 from datetime import datetime
+import shlex
 
 from config_loader import get_all_automations, get_automation_config, get_all_services, get_service_config
 from process_mgmt import kill_proc_tree
@@ -306,16 +307,39 @@ def control_process(process_name, action):
     """Start or stop a process by name."""
     try:
         if action == 'start':
-            # Start process in the background
-            subprocess.Popen(
-                [process_name],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
+            # Check if process is already running
+            if check_process_running(process_name):
+                return True, 'Process is already running'
+
+            # Use daemon helper script to properly detach the process
+            # This ensures the process survives when the web server restarts
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            daemon_helper = os.path.join(script_dir, 'daemon_helper.sh')
+
+            result = subprocess.run(
+                [daemon_helper, process_name],
+                capture_output=True,
+                text=True,
+                timeout=10
             )
+
+            if result.returncode != 0:
+                return False, f"Failed to start process: {result.stderr}"
+
+            # Give the process a moment to start
+            time.sleep(0.5)
+
+            # Verify it started
+            if not check_process_running(process_name):
+                return False, f"Process failed to start"
+
             on_service_start(process_name)
             return True, ''
         elif action == 'stop':
+            # Check if process is running before trying to stop it
+            if not check_process_running(process_name):
+                return True, 'Process is not running'
+
             result = subprocess.run(
                 ['pkill', '-x', process_name],
                 capture_output=True,
@@ -443,9 +467,13 @@ def run_automation(automation_name):
                 'error': 'Automation already running'
             }), 400
 
+    # Get arguments from request body
+    data = request.get_json() or {}
+    args = data.get('args', '').strip()
+
     script_path = automation_config['script_path']
     job_id = str(uuid.uuid4())
-    print(f"Starting automation {automation_name} with job_id {job_id}")
+    print(f"Starting automation {automation_name} with job_id {job_id}" + (f" and args: {args}" if args else ""))
 
     def run_script():
         try:
@@ -460,8 +488,26 @@ def run_automation(automation_name):
                 }
             broadcast_automation_state(automation_name)
 
+            # Build command with arguments if provided
+            if args:
+                # Use shlex to safely split arguments
+                try:
+                    arg_list = shlex.split(args)
+                    cmd = ['/bin/bash', script_path] + arg_list
+                except ValueError as e:
+                    # If argument parsing fails, add error to output
+                    with automation_lock:
+                        automation_state[automation_name]['output'] += f"ERROR: Invalid arguments: {str(e)}\n"
+                        automation_state[automation_name]['running'] = False
+                        automation_state[automation_name]['return_code'] = -1
+                        automation_state[automation_name]['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
+                    broadcast_automation_state(automation_name)
+                    return
+            else:
+                cmd = ['/bin/bash', script_path]
+
             process = subprocess.Popen(
-                ['/bin/bash', script_path],
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
