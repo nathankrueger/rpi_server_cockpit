@@ -19,12 +19,14 @@ Type=simple
 User=nkrueger
 WorkingDirectory=/home/nkrueger/dev/rpi_server_cockpit
 Environment="PATH=/home/nkrueger/dev/rpi_server_cockpit/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/nkrueger/dev/rpi_server_cockpit/.venv/bin/gunicorn --worker-class eventlet --workers 1 --bind 0.0.0.0:5000 --timeout 300 rpi_dashboard:app
+ExecStart=/home/nkrueger/dev/rpi_server_cockpit/.venv/bin/gunicorn --worker-class eventlet --workers 1 --bind 0.0.0.0:5000 --timeout 300 --pid /tmp/pi-dashboard.pid rpi_dashboard:app
+ExecStop=/bin/kill -TERM $MAINPID
+KillMode=process
 Restart=always
-RestartSec=10
+RestartSec=5
 
 [Install]
-WantedBy=multi-user.target`
+WantedBy=multi-user.target
 ```
 
 ### Commands to run

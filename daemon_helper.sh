@@ -1,5 +1,5 @@
 #!/bin/bash
-# Helper script to properly daemonize a process
+# Simple daemon launcher - double fork to detach completely
 # Usage: daemon_helper.sh <command>
 
 if [ $# -eq 0 ]; then
@@ -7,17 +7,12 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# Double fork to create proper daemon
+# Simple double-fork: creates an orphan process that gets adopted by init
+# No special permissions, no cgroup manipulation, just pure Unix process management
 (
-    # First fork - creates child in background
-    if [ "$(uname)" = "Linux" ]; then
-        # Use nohup and disown for maximum detachment
-        nohup setsid "$@" </dev/null >/dev/null 2>&1 &
-        disown
-    else
-        nohup "$@" </dev/null >/dev/null 2>&1 &
-    fi
-) &
+    (
+        exec "$@" </dev/null >/dev/null 2>&1 &
+    ) &
+)
 
-# Parent exits immediately
 exit 0
