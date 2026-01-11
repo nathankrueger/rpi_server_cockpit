@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Parse options using getopt
-OPTIONS=$(getopt -o "" -l "update" -- "$@")
+OPTIONS=$(getopt -o "u" -l "update" -- "$@")
 if [ $? -ne 0 ]; then
-    echo "Usage: $0 [--update]"
+    echo "Usage: $0 [-u|--update]"
     exit 1
 fi
 
@@ -13,7 +13,7 @@ UPDATE=false
 
 while true; do
     case "$1" in
-        --update)
+        -u|--update)
             UPDATE=true
             shift
             ;;
@@ -28,6 +28,7 @@ done
 if [ "$UPDATE" = true ]; then
     echo "Cloning latest server ..."
     git pull
+    sleep 2
 fi
 
 sudo systemctl restart pi-dashboard
