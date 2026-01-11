@@ -3,7 +3,7 @@
 ### *** Disclaimer: Written mostly with Claude 4.5 Sonnet
 
 * To enable the systemctl (start / stop services) add this line to sudoers via `sudo visudo`:
-`$USER ALL=(ALL) NOPASSWD: /bin/systemctl start *, /bin/systemctl stop *`
+`$USER ALL=(ALL) NOPASSWD: /bin/systemctl start *, /bin/systemctl stop *, /bin/systemctl restart *`
 
 * To enable rebooting, add this line to sudoers via `sudo visudo`: `$USER ALL=(ALL) NOPASSWD: /sbin/reboot`
 

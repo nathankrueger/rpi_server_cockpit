@@ -282,7 +282,7 @@ function createAutomationCard(automation) {
         </div>
         <div class="status-text" id="${automation.name}-status">READY</div>
         <div class="automation-args-container">
-            <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)">
+            <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)" autocorrect="off" spellcheck="false">
         </div>
         <div class="toggle-container">
             <button class="details-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">
