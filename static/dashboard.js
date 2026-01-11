@@ -822,11 +822,31 @@ function updateMatrixColor(color) {
     window.matrixColor = color;
 }
 
+function enableMatrixEffect() {
+    canvas.style.display = 'block';
+    // Start matrix animation if not already running
+    const matrixAnimationRate = parseInt(localStorage.getItem('matrixAnimationRate')) || 120;
+    if (matrixInterval) {
+        clearInterval(matrixInterval);
+    }
+    matrixInterval = setInterval(draw, matrixAnimationRate);
+}
+
+function disableMatrixEffect() {
+    canvas.style.display = 'none';
+    // Stop matrix animation
+    if (matrixInterval) {
+        clearInterval(matrixInterval);
+        matrixInterval = null;
+    }
+}
+
 // Settings modal functions
 function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
     const statusUpdateRate = document.getElementById('status-update-rate');
     const systemStatsUpdateRate = document.getElementById('system-stats-update-rate');
+    const matrixEffectEnabled = document.getElementById('matrix-effect-enabled');
     const matrixAnimationRate = document.getElementById('matrix-animation-rate');
     const backgroundColorPicker = document.getElementById('background-color');
     const backgroundColorText = document.getElementById('background-color-text');
@@ -836,6 +856,7 @@ function openSettingsModal() {
     // Load saved settings or use defaults
     statusUpdateRate.value = localStorage.getItem('statusUpdateRate') || 5000;
     systemStatsUpdateRate.value = localStorage.getItem('systemStatsUpdateRate') || 2000;
+    matrixEffectEnabled.checked = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
     matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
 
     const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
@@ -880,6 +901,7 @@ function closeSettingsModal() {
 function saveSettings() {
     const statusUpdateRate = parseInt(document.getElementById('status-update-rate').value);
     const systemStatsUpdateRate = parseInt(document.getElementById('system-stats-update-rate').value);
+    const matrixEffectEnabled = document.getElementById('matrix-effect-enabled').checked;
     const matrixAnimationRate = parseInt(document.getElementById('matrix-animation-rate').value);
     const backgroundColor = document.getElementById('background-color').value;
     const foregroundColor = document.getElementById('foreground-color').value;
@@ -913,6 +935,7 @@ function saveSettings() {
     // Save to localStorage
     localStorage.setItem('statusUpdateRate', statusUpdateRate);
     localStorage.setItem('systemStatsUpdateRate', systemStatsUpdateRate);
+    localStorage.setItem('matrixEffectEnabled', matrixEffectEnabled);
     localStorage.setItem('matrixAnimationRate', matrixAnimationRate);
     localStorage.setItem('backgroundColor', backgroundColor);
     localStorage.setItem('foregroundColor', foregroundColor);
@@ -920,11 +943,12 @@ function saveSettings() {
     // Apply colors immediately
     applyColors(foregroundColor, backgroundColor);
 
-    // Apply matrix animation rate immediately
-    if (matrixInterval) {
-        clearInterval(matrixInterval);
+    // Apply matrix effect enabled/disabled immediately
+    if (matrixEffectEnabled) {
+        enableMatrixEffect();
+    } else {
+        disableMatrixEffect();
     }
-    matrixInterval = setInterval(draw, matrixAnimationRate);
 
     // Apply status update rate immediately
     if (statusUpdateInterval) {
@@ -956,13 +980,15 @@ async function init() {
     // Load settings from localStorage or use defaults
     const statusUpdateRate = parseInt(localStorage.getItem('statusUpdateRate')) || 3000;
     const systemStatsUpdateRate = parseInt(localStorage.getItem('systemStatsUpdateRate')) || 1000;
+    const matrixEffectEnabled = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
     const matrixAnimationRate = parseInt(localStorage.getItem('matrixAnimationRate')) || 120;
 
-    // Start matrix animation with configured rate
-    if (matrixInterval) {
-        clearInterval(matrixInterval);
+    // Start or stop matrix animation based on user preference
+    if (matrixEffectEnabled) {
+        enableMatrixEffect();
+    } else {
+        disableMatrixEffect();
     }
-    matrixInterval = setInterval(draw, matrixAnimationRate);
 
     // Start status updates with configured rate
     updateStatus();
