@@ -43,6 +43,13 @@
       "enabled": true
     },
     {
+      "name": "enable_media_library",
+      "display_name": "DLNA MEDIA LIBRARY",
+      "script_path": "./automation_scripts/media_library.sh",
+      "button_text": "RUN CMD",
+      "enabled": true
+    },
+    {
       "name": "restart_webserver",
       "display_name": "RESTART WEBSERVER",
       "script_path": "./automation_scripts/restart_webserver.sh",

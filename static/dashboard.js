@@ -306,6 +306,17 @@ function createAutomationCard(automation) {
                 openAutomationOutputModal(automation.name);
             });
         }
+
+        // Add Enter key listener to arguments input
+        const argsInput = document.getElementById(`${automation.name}-args`);
+        if (argsInput) {
+            argsInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runAutomation(automation.name);
+                }
+            });
+        }
     }, 0);
 
     return card;
