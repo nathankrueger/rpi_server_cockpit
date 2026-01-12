@@ -218,11 +218,6 @@ function createServiceGroup(groupName, services) {
         content.appendChild(card);
     });
 
-    // Set initial max-height for smooth transitions
-    setTimeout(() => {
-        content.style.maxHeight = content.scrollHeight + 'px';
-    }, 0);
-
     // Add click handler for collapse/expand
     header.addEventListener('click', () => {
         toggleServiceGroup(groupName);
@@ -402,7 +397,7 @@ function createAutomationCard(automation) {
         </div>
         <div class="automation-output" id="${automation.name}-output" style="display: none;">
             <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px; text-shadow: 0 0 3px #00ff41;">OUTPUT:</div>
-            <div class="modal-output" style="max-height: 150px; font-size: 0.75em;" id="${automation.name}-output-text"></div>
+            <div class="modal-output" style="max-height: 150px;" id="${automation.name}-output-text"></div>
         </div>
     `;
 
@@ -463,11 +458,6 @@ function createAutomationGroup(groupName, automations) {
         content.appendChild(card);
     });
 
-    // Set initial max-height for smooth transitions
-    setTimeout(() => {
-        content.style.maxHeight = content.scrollHeight + 'px';
-    }, 0);
-
     // Add click handler for collapse/expand
     header.addEventListener('click', () => {
         toggleAutomationGroup(groupName);
@@ -499,24 +489,14 @@ function toggleAutomationGroup(groupName) {
     const isCurrentlyCollapsed = content.classList.contains('collapsed');
 
     if (isCurrentlyCollapsed) {
-        // Expanding: Remove collapsed class and set to auto height via very large max-height
+        // Expanding: Remove collapsed class
         content.classList.remove('collapsed');
         arrow.classList.remove('collapsed');
-
-        // Instead of setting a fixed pixel height, just use 'none' to let it expand naturally
-        content.style.maxHeight = 'none';
+        // Don't set max-height at all - let it expand naturally
     } else {
-        // Collapsing: First set the specific height, then collapse
-        content.style.maxHeight = content.scrollHeight + 'px';
-
-        // Force reflow
-        content.offsetHeight;
-
-        // Now collapse
-        requestAnimationFrame(() => {
-            content.classList.add('collapsed');
-            arrow.classList.add('collapsed');
-        });
+        // Collapsing: Just add the collapsed class
+        content.classList.add('collapsed');
+        arrow.classList.add('collapsed');
     }
 
     // Save state to localStorage
@@ -536,37 +516,18 @@ function toggleServiceGroup(groupName) {
     const isCurrentlyCollapsed = content.classList.contains('collapsed');
 
     if (isCurrentlyCollapsed) {
-        // Expanding: Remove collapsed class and set to auto height
+        // Expanding: Remove collapsed class
         content.classList.remove('collapsed');
         arrow.classList.remove('collapsed');
-
-        // Let it expand naturally
-        content.style.maxHeight = 'none';
+        // Don't set max-height at all - let it expand naturally
     } else {
-        // Collapsing: First set the specific height, then collapse
-        content.style.maxHeight = content.scrollHeight + 'px';
-
-        // Force reflow
-        content.offsetHeight;
-
-        // Now collapse
-        requestAnimationFrame(() => {
-            content.classList.add('collapsed');
-            arrow.classList.add('collapsed');
-        });
+        // Collapsing: Just add the collapsed class
+        content.classList.add('collapsed');
+        arrow.classList.add('collapsed');
     }
 
     // Save state to localStorage
     localStorage.setItem(`service-group-${groupName}-collapsed`, !isCurrentlyCollapsed);
-}
-
-// Helper function to update group heights when content changes
-function updateGroupHeights() {
-    document.querySelectorAll('.automation-group-content').forEach(content => {
-        if (!content.classList.contains('collapsed')) {
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    });
 }
 
 async function showServiceDetails(service) {
@@ -964,11 +925,6 @@ function updateAutomationUI(automationName, state) {
             statusText.textContent = state.completed_at ? `FAILED -- ${state.completed_at}` : 'FAILED';
         }
     }
-
-    // Update group heights if this automation is in a group and the group is expanded
-    requestAnimationFrame(() => {
-        updateGroupHeights();
-    });
 }
 
 async function runAutomation(automationName) {
@@ -1212,12 +1168,14 @@ function openSettingsModal() {
     const backgroundColorText = document.getElementById('background-color-text');
     const foregroundColorPicker = document.getElementById('foreground-color');
     const foregroundColorText = document.getElementById('foreground-color-text');
+    const automationOutputFontSize = document.getElementById('automation-output-font-size');
 
     // Load saved settings or use defaults
     statusUpdateRate.value = localStorage.getItem('statusUpdateRate') || 5000;
     systemStatsUpdateRate.value = localStorage.getItem('systemStatsUpdateRate') || 2000;
     matrixEffectEnabled.checked = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
     matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
+    automationOutputFontSize.value = localStorage.getItem('automationOutputFontSize') || 12;
 
     const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
     const savedForegroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
@@ -1284,6 +1242,7 @@ function saveSettings() {
     const backgroundColor = document.getElementById('background-color').value;
     const foregroundColor = document.getElementById('foreground-color').value;
     const groupColor = document.getElementById('group-color').value;
+    const automationOutputFontSize = parseInt(document.getElementById('automation-output-font-size').value);
 
     // Validate inputs
     if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 60000) {
@@ -1298,6 +1257,11 @@ function saveSettings() {
 
     if (isNaN(matrixAnimationRate) || matrixAnimationRate < 10 || matrixAnimationRate > 1000) {
         alert('ERROR: Matrix animation rate must be between 50 and 1000 ms');
+        return;
+    }
+
+    if (isNaN(automationOutputFontSize) || automationOutputFontSize < 8 || automationOutputFontSize > 24) {
+        alert('ERROR: Automation output font size must be between 8 and 24 px');
         return;
     }
 
@@ -1324,9 +1288,13 @@ function saveSettings() {
     localStorage.setItem('backgroundColor', backgroundColor);
     localStorage.setItem('foregroundColor', foregroundColor);
     localStorage.setItem('groupColor', groupColor);
+    localStorage.setItem('automationOutputFontSize', automationOutputFontSize);
 
     // Apply colors immediately
     applyColors(foregroundColor, backgroundColor, groupColor);
+
+    // Apply font size immediately
+    document.documentElement.style.setProperty('--automation-output-font-size', `${automationOutputFontSize}px`);
 
     // Apply matrix effect enabled/disabled immediately
     if (matrixEffectEnabled) {
@@ -1358,6 +1326,10 @@ async function init() {
     const backgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
     const groupColor = localStorage.getItem('groupColor') || '#0080ff';
     applyColors(foregroundColor, backgroundColor, groupColor);
+
+    // Apply saved font size
+    const automationOutputFontSize = parseInt(localStorage.getItem('automationOutputFontSize')) || 12;
+    document.documentElement.style.setProperty('--automation-output-font-size', `${automationOutputFontSize}px`);
 
     restoreCollapsedStates();
     await loadAndRenderServices();
