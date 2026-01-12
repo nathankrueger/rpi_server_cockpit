@@ -196,8 +196,9 @@ def get_system_stats():
 
     stats['uname'] = get_uname()
 
-    # CPU Usage
+    # CPU Usage - overall and per-core
     stats['cpu_percent'] = psutil.cpu_percent(interval=1)
+    stats['cpu_per_core'] = psutil.cpu_percent(interval=0, percpu=True)
 
     # CPU Temperature (convert C to F)
     try:

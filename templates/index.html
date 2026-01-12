@@ -38,14 +38,14 @@
             <!-- CPU Stats -->
             <div class="stat-card">
                 <div class="stat-title">CPU USAGE</div>
-                <div class="stat-value" id="cpu-value">--</div>
-                <div style="display: flex; justify-content: space-around; margin-bottom: 10px;">
-                    <div class="stat-detail">CPU: <span id="cpu-temp">--</span></div>
-                    <div class="stat-detail">GPU: <span id="gpu-temp">--</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div class="stat-value" id="cpu-value" style="margin: 0;">--</div>
+                    <div style="display: flex; flex-direction: column; font-size: 0.85em; line-height: 1.4; text-align: right;">
+                        <div class="stat-detail" style="margin: 0;">CPU: <span id="cpu-temp">--</span></div>
+                        <div class="stat-detail" style="margin: 0;">GPU: <span id="gpu-temp">--</span></div>
+                    </div>
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="cpu-progress"></div>
-                </div>
+                <div id="cpu-cores-container"></div>
             </div>
 
             <!-- RAM Stats -->

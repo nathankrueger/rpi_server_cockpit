@@ -279,7 +279,11 @@ async function updateSystemStats() {
 
         // Update CPU
         document.getElementById('cpu-value').textContent = stats.cpu_percent + '%';
-        updateProgressBar('cpu-progress', stats.cpu_percent);
+
+        // Update per-core CPU bars
+        if (stats.cpu_per_core) {
+            updateCpuCores(stats.cpu_per_core);
+        }
 
         // Update CPU temperature
         if (stats.cpu_temp !== null && stats.cpu_temp !== undefined) {
@@ -638,13 +642,101 @@ function updateProgressBar(id, percent) {
     const progressBar = document.getElementById(id);
     progressBar.style.width = percent + '%';
 
-    // Change color based on usage
-    progressBar.className = 'progress-fill';
-    if (percent >= 90) {
-        progressBar.classList.add('danger');
-    } else if (percent >= 75) {
-        progressBar.classList.add('warning');
+    // Calculate gradient color from green (0%) -> yellow (50%) -> red (100%)
+    let color1, color2;
+
+    if (percent <= 50) {
+        // Green to Yellow gradient
+        const ratio = percent / 50;
+        const r = Math.round(0 + (255 * ratio));
+        const g = Math.round(170 + (85 * ratio));
+        const b = 43;
+        color1 = `rgb(${r}, ${g}, ${b})`;
+        color2 = `rgb(${Math.round(r * 0.8)}, ${Math.round(g * 0.8)}, ${Math.round(b * 0.8)})`;
+    } else {
+        // Yellow to Red gradient
+        const ratio = (percent - 50) / 50;
+        const r = 255;
+        const g = Math.round(255 * (1 - ratio));
+        const b = 43 * (1 - ratio);
+        color1 = `rgb(${r}, ${g}, ${Math.round(b)})`;
+        color2 = `rgb(${Math.round(r * 0.8)}, ${Math.round(g * 0.8)}, ${Math.round(b * 0.8)})`;
     }
+
+    progressBar.className = 'progress-fill';
+    progressBar.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
+    progressBar.style.boxShadow = `0 0 10px ${color1}`;
+}
+
+function updateCpuCores(corePercentages) {
+    const container = document.getElementById('cpu-cores-container');
+
+    // Create core bars if they don't exist yet
+    if (container.children.length === 0) {
+        corePercentages.forEach((percent, index) => {
+            const coreDiv = document.createElement('div');
+            coreDiv.style.display = 'flex';
+            coreDiv.style.alignItems = 'center';
+            coreDiv.style.marginBottom = '3px';
+
+            const label = document.createElement('div');
+            label.className = 'stat-detail';
+            label.style.fontSize = '0.7em';
+            label.style.minWidth = '80px';
+            label.style.marginRight = '8px';
+            label.innerHTML = `C${index}: <span id="cpu-core-${index}-value">--</span>`;
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar';
+            progressBar.style.height = '10px'; // Half the normal height
+            progressBar.style.flex = '1';
+
+            const progressFill = document.createElement('div');
+            progressFill.className = 'progress-fill';
+            progressFill.id = `cpu-core-${index}-progress`;
+
+            progressBar.appendChild(progressFill);
+            coreDiv.appendChild(label);
+            coreDiv.appendChild(progressBar);
+            container.appendChild(coreDiv);
+        });
+    }
+
+    // Update each core's progress bar
+    corePercentages.forEach((percent, index) => {
+        const valueElement = document.getElementById(`cpu-core-${index}-value`);
+        const progressElement = document.getElementById(`cpu-core-${index}-progress`);
+
+        if (valueElement && progressElement) {
+            valueElement.textContent = percent.toFixed(1) + '%';
+            progressElement.style.width = percent + '%';
+
+            // Calculate gradient color from green (0%) -> yellow (50%) -> red (100%)
+            let color1, color2;
+
+            if (percent <= 50) {
+                // Green to Yellow gradient
+                const ratio = percent / 50;
+                const r = Math.round(0 + (255 * ratio));
+                const g = Math.round(170 + (85 * ratio));
+                const b = 43;
+                color1 = `rgb(${r}, ${g}, ${b})`;
+                color2 = `rgb(${Math.round(r * 0.8)}, ${Math.round(g * 0.8)}, ${Math.round(b * 0.8)})`;
+            } else {
+                // Yellow to Red gradient
+                const ratio = (percent - 50) / 50;
+                const r = 255;
+                const g = Math.round(255 * (1 - ratio));
+                const b = 43 * (1 - ratio);
+                color1 = `rgb(${r}, ${g}, ${Math.round(b)})`;
+                color2 = `rgb(${Math.round(r * 0.8)}, ${Math.round(g * 0.8)}, ${Math.round(b * 0.8)})`;
+            }
+
+            progressElement.className = 'progress-fill';
+            progressElement.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
+            progressElement.style.boxShadow = `0 0 10px ${color1}`;
+        }
+    });
 }
 
 function updateServiceUI(service, isRunning) {
