@@ -16,7 +16,8 @@
       "service_name": "minidlna",
       "control_type": "systemd",
       "button_type": "details",
-      "enabled": true
+      "enabled": true,
+      "group": "Media Services"
     },
     {
       "id": "smbd",
@@ -25,7 +26,8 @@
       "service_name": "smbd",
       "control_type": "systemd",
       "button_type": "details",
-      "enabled": true
+      "enabled": true,
+      "group": "Media Services"
     },
     {
       "id": "qbittorrent",
@@ -35,7 +37,8 @@
       "control_type": "process",
       "button_type": "link",
       "link_url": "http://{hostname}:8080",
-      "enabled": true
+      "enabled": true,
+      "group": "Media Services"
     }
   ]
 }

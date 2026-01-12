@@ -85,77 +85,160 @@ function renderServices() {
     const servicesSection = document.getElementById('services-section');
     servicesSection.innerHTML = '';
 
+    // Group services by the 'group' field
+    const grouped = {};
+    const ungrouped = [];
+
     servicesConfig.forEach(service => {
-        const serviceCard = document.createElement('div');
-        serviceCard.className = 'service-card';
-
-        // Create service header
-        const serviceHeader = document.createElement('div');
-        serviceHeader.className = 'service-header';
-
-        const serviceName = document.createElement('span');
-        serviceName.className = 'service-name';
-        serviceName.textContent = service.display_name;
-
-        const statusIndicator = document.createElement('div');
-        statusIndicator.className = 'status-indicator';
-        statusIndicator.id = `${service.id}-indicator`;
-
-        serviceHeader.appendChild(serviceName);
-        serviceHeader.appendChild(statusIndicator);
-
-        // Create status text
-        const statusText = document.createElement('div');
-        statusText.className = 'status-text';
-        statusText.id = `${service.id}-status`;
-        statusText.textContent = 'INITIALIZING...';
-
-        // Create toggle container
-        const toggleContainer = document.createElement('div');
-        toggleContainer.className = 'toggle-container';
-
-        // Create button (either details or link)
-        if (service.button_type === 'link') {
-            const link = document.createElement('a');
-            link.id = `${service.id}-link`;
-            link.href = '#';
-            link.target = '_blank';
-            link.className = 'details-btn';
-            link.style.textDecoration = 'none';
-            link.textContent = 'WEB UI';
-            toggleContainer.appendChild(link);
+        if (service.group) {
+            if (!grouped[service.group]) {
+                grouped[service.group] = [];
+            }
+            grouped[service.group].push(service);
         } else {
-            const detailsBtn = document.createElement('button');
-            detailsBtn.className = 'details-btn';
-            detailsBtn.textContent = 'DETAILS';
-            detailsBtn.onclick = () => showServiceDetails(service.id);
-            toggleContainer.appendChild(detailsBtn);
+            ungrouped.push(service);
         }
-
-        // Create control toggle
-        const toggleLabel = document.createElement('span');
-        toggleLabel.className = 'toggle-label';
-        toggleLabel.textContent = 'CONTROL';
-
-        const toggleSwitch = document.createElement('div');
-        toggleSwitch.className = 'toggle-switch';
-        toggleSwitch.id = `${service.id}-toggle`;
-        toggleSwitch.onclick = () => toggleService(service.id);
-
-        const toggleSlider = document.createElement('div');
-        toggleSlider.className = 'toggle-slider';
-
-        toggleSwitch.appendChild(toggleSlider);
-        toggleContainer.appendChild(toggleLabel);
-        toggleContainer.appendChild(toggleSwitch);
-
-        // Assemble the card
-        serviceCard.appendChild(serviceHeader);
-        serviceCard.appendChild(statusText);
-        serviceCard.appendChild(toggleContainer);
-
-        servicesSection.appendChild(serviceCard);
     });
+
+    // Render ungrouped services first
+    ungrouped.forEach(service => {
+        const card = createServiceCard(service);
+        servicesSection.appendChild(card);
+    });
+
+    // Render grouped services
+    Object.keys(grouped).forEach(groupName => {
+        const groupContainer = createServiceGroup(groupName, grouped[groupName]);
+        servicesSection.appendChild(groupContainer);
+    });
+}
+
+function createServiceCard(service) {
+    const serviceCard = document.createElement('div');
+    serviceCard.className = 'service-card';
+
+    // Create service header
+    const serviceHeader = document.createElement('div');
+    serviceHeader.className = 'service-header';
+
+    const serviceName = document.createElement('span');
+    serviceName.className = 'service-name';
+    serviceName.textContent = service.display_name;
+
+    const statusIndicator = document.createElement('div');
+    statusIndicator.className = 'status-indicator';
+    statusIndicator.id = `${service.id}-indicator`;
+
+    serviceHeader.appendChild(serviceName);
+    serviceHeader.appendChild(statusIndicator);
+
+    // Create status text
+    const statusText = document.createElement('div');
+    statusText.className = 'status-text';
+    statusText.id = `${service.id}-status`;
+    statusText.textContent = 'INITIALIZING...';
+
+    // Create toggle container
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'toggle-container';
+
+    // Create button (either details or link)
+    if (service.button_type === 'link') {
+        const link = document.createElement('a');
+        link.id = `${service.id}-link`;
+        link.href = '#';
+        link.target = '_blank';
+        link.className = 'details-btn';
+        link.style.textDecoration = 'none';
+        link.textContent = 'WEB UI';
+        toggleContainer.appendChild(link);
+    } else {
+        const detailsBtn = document.createElement('button');
+        detailsBtn.className = 'details-btn';
+        detailsBtn.textContent = 'DETAILS';
+        detailsBtn.onclick = () => showServiceDetails(service.id);
+        toggleContainer.appendChild(detailsBtn);
+    }
+
+    // Create control toggle
+    const toggleLabel = document.createElement('span');
+    toggleLabel.className = 'toggle-label';
+    toggleLabel.textContent = 'CONTROL';
+
+    const toggleSwitch = document.createElement('div');
+    toggleSwitch.className = 'toggle-switch';
+    toggleSwitch.id = `${service.id}-toggle`;
+    toggleSwitch.onclick = () => toggleService(service.id);
+
+    const toggleSlider = document.createElement('div');
+    toggleSlider.className = 'toggle-slider';
+
+    toggleSwitch.appendChild(toggleSlider);
+    toggleContainer.appendChild(toggleLabel);
+    toggleContainer.appendChild(toggleSwitch);
+
+    // Assemble the card
+    serviceCard.appendChild(serviceHeader);
+    serviceCard.appendChild(statusText);
+    serviceCard.appendChild(toggleContainer);
+
+    return serviceCard;
+}
+
+function createServiceGroup(groupName, services) {
+    const group = document.createElement('div');
+    group.className = 'automation-group'; // Reuse automation-group styles
+
+    // Create group header
+    const header = document.createElement('div');
+    header.className = 'automation-group-header';
+
+    const title = document.createElement('div');
+    title.className = 'automation-group-title';
+
+    const arrow = document.createElement('span');
+    arrow.className = 'automation-group-arrow';
+    arrow.textContent = '▼';
+
+    const titleText = document.createElement('span');
+    titleText.textContent = groupName;
+
+    title.appendChild(arrow);
+    title.appendChild(titleText);
+    header.appendChild(title);
+
+    // Create content container
+    const content = document.createElement('div');
+    content.className = 'automation-group-content';
+    content.id = `service-group-${groupName.replace(/\s+/g, '-').toLowerCase()}`;
+
+    // Add service cards to the group
+    services.forEach(service => {
+        const card = createServiceCard(service);
+        content.appendChild(card);
+    });
+
+    // Set initial max-height for smooth transitions
+    setTimeout(() => {
+        content.style.maxHeight = content.scrollHeight + 'px';
+    }, 0);
+
+    // Add click handler for collapse/expand
+    header.addEventListener('click', () => {
+        toggleServiceGroup(groupName);
+    });
+
+    group.appendChild(header);
+    group.appendChild(content);
+
+    // Restore collapsed state from localStorage
+    const isCollapsed = localStorage.getItem(`service-group-${groupName}-collapsed`) === 'true';
+    if (isCollapsed) {
+        arrow.classList.add('collapsed');
+        content.classList.add('collapsed');
+    }
+
+    return group;
 }
 
 async function updateStatus() {
@@ -434,6 +517,43 @@ function toggleAutomationGroup(groupName) {
 
     // Save state to localStorage
     localStorage.setItem(`group-${groupName}-collapsed`, !isCurrentlyCollapsed);
+}
+
+function toggleServiceGroup(groupName) {
+    const groupId = `service-group-${groupName.replace(/\s+/g, '-').toLowerCase()}`;
+    const content = document.getElementById(groupId);
+    const arrow = content.previousElementSibling.querySelector('.automation-group-arrow');
+
+    if (!content || !arrow) {
+        console.error(`Service group not found: ${groupName}`);
+        return;
+    }
+
+    const isCurrentlyCollapsed = content.classList.contains('collapsed');
+
+    if (isCurrentlyCollapsed) {
+        // Expanding: Remove collapsed class and set to auto height
+        content.classList.remove('collapsed');
+        arrow.classList.remove('collapsed');
+
+        // Let it expand naturally
+        content.style.maxHeight = 'none';
+    } else {
+        // Collapsing: First set the specific height, then collapse
+        content.style.maxHeight = content.scrollHeight + 'px';
+
+        // Force reflow
+        content.offsetHeight;
+
+        // Now collapse
+        requestAnimationFrame(() => {
+            content.classList.add('collapsed');
+            arrow.classList.add('collapsed');
+        });
+    }
+
+    // Save state to localStorage
+    localStorage.setItem(`service-group-${groupName}-collapsed`, !isCurrentlyCollapsed);
 }
 
 // Helper function to update group heights when content changes
