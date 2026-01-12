@@ -1,9 +1,18 @@
 #!/bin/bash
 
+# Function to print usage
+print_usage() {
+    echo "Usage: $0 [-u|--update] [-h|--help]"
+    echo ""
+    echo "Options:"
+    echo "  -u, --update    Pull latest changes from git before restarting"
+    echo "  -h, --help      Show this help message"
+}
+
 # Parse options using getopt
-OPTIONS=$(getopt -o "u" -l "update" -- "$@")
+OPTIONS=$(getopt -o "uh" -l "update,help" -- "$@")
 if [ $? -ne 0 ]; then
-    echo "Usage: $0 [-u|--update]"
+    print_usage
     exit 1
 fi
 
@@ -16,6 +25,10 @@ while true; do
         -u|--update)
             UPDATE=true
             shift
+            ;;
+        -h|--help)
+            print_usage
+            exit 0
             ;;
         --)
             shift
