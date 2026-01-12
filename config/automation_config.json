@@ -15,34 +15,6 @@
       "enabled": true
     },
     {
-      "name": "reboot",
-      "display_name": "REBOOT",
-      "script_path": "./automation_scripts/reboot.sh",
-      "button_text": "REBOOT",
-      "enabled": true
-    },
-    {
-      "name": "update_os",
-      "display_name": "UPDATE OS",
-      "script_path": "./automation_scripts/update_os.sh",
-      "button_text": "UPDATE",
-      "enabled": true
-    },
-    {
-      "name": "stress_test",
-      "display_name": "STRESS TEST",
-      "script_path": "./automation_scripts/make_heat.sh",
-      "button_text": "GO",
-      "enabled": true
-    },
-    {
-      "name": "proc_list",
-      "display_name": "PROCESS LIST",
-      "script_path": "./automation_scripts/proc_list.sh",
-      "button_text": "LIST PROCESSES",
-      "enabled": true
-    },
-    {
       "name": "enable_media_library",
       "display_name": "DLNA MEDIA LIBRARY",
       "script_path": "./automation_scripts/media_library.sh",
@@ -50,11 +22,44 @@
       "enabled": true
     },
     {
+      "name": "reboot",
+      "display_name": "REBOOT",
+      "script_path": "./automation_scripts/reboot.sh",
+      "button_text": "REBOOT",
+      "enabled": true,
+      "group": "System Control"
+    },
+    {
+      "name": "update_os",
+      "display_name": "UPDATE OS",
+      "script_path": "./automation_scripts/update_os.sh",
+      "button_text": "UPDATE",
+      "enabled": true,
+      "group": "System Control"
+    },
+    {
+      "name": "stress_test",
+      "display_name": "STRESS TEST",
+      "script_path": "./automation_scripts/make_heat.sh",
+      "button_text": "GO",
+      "enabled": true,
+      "group": "Diagnostic"
+    },
+    {
+      "name": "proc_list",
+      "display_name": "PROCESS LIST",
+      "script_path": "./automation_scripts/proc_list.sh",
+      "button_text": "LIST PROCESSES",
+      "enabled": true,
+      "group": "Diagnostic"
+    },
+    {
       "name": "restart_webserver",
       "display_name": "RESTART WEBSERVER",
       "script_path": "./automation_scripts/restart_webserver.sh",
       "button_text": "RESTART",
-      "enabled": true
+      "enabled": true,
+      "group": "System Control"
     }
   ]
 }

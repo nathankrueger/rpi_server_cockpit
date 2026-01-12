@@ -6,6 +6,8 @@
     --theme-bg-dark: rgba(0, 20, 0, 0.9);
     --theme-bg-medium: rgba(0, 20, 0, 0.5);
     --background-color: #00ff41;  /* Matrix animation color */
+    --group-color: #0080ff;  /* Default blue for group borders */
+    --group-color-rgb: 0, 128, 255;
 }
 
 * {
@@ -684,4 +686,114 @@ body::before {
     );
     pointer-events: none;
     z-index: 2;
+}
+
+/* Automation group styles */
+.automation-group {
+    background: rgba(40, 40, 50, 0.95);
+    border: 2px solid var(--group-color);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(var(--group-color-rgb), 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.automation-group::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, transparent, var(--group-color), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: -1;
+    border-radius: 10px;
+}
+
+.automation-group:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 30px rgba(var(--group-color-rgb), 0.5);
+}
+
+.automation-group:hover::before {
+    opacity: 0.5;
+}
+
+.automation-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    padding: 10px;
+    margin: -10px -10px 10px -10px;
+    border-radius: 5px;
+    transition: background 0.3s ease;
+}
+
+.automation-group-header:hover {
+    background: rgba(var(--group-color-rgb), 0.1);
+}
+
+.automation-group-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--group-color);
+    text-shadow: 0 0 5px var(--group-color);
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.automation-group-arrow {
+    font-size: 0.8em;
+    color: var(--group-color);
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.automation-group-arrow.collapsed {
+    transform: rotate(-90deg);
+}
+
+.automation-group-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    transition: max-height 0.4s ease-out, opacity 0.3s ease-out;
+    overflow: hidden;
+}
+
+.automation-group-content.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* Nested automation cards in groups */
+.automation-group .service-card {
+    margin: 0;
+}
+
+/* Mobile responsive adjustments for groups */
+@media (max-width: 768px) {
+    .automation-group {
+        padding: 15px;
+    }
+
+    .automation-group-title {
+        font-size: 1em;
+    }
 }

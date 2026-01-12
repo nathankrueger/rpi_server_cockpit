@@ -159,6 +159,14 @@
                     </div>
                     <div class="setting-hint">Default: #00ff41 (Matrix Green)</div>
                 </div>
+                <div class="setting-item">
+                    <label for="group-color">GROUP BORDER COLOR</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="color" id="group-color" value="#0080ff" style="width: 60px; height: 40px; cursor: pointer; border: 2px solid var(--theme-primary); background: transparent; border-radius: 5px;">
+                        <input type="text" id="group-color-text" value="#0080ff" maxlength="7" style="flex: 1; background: rgba(0, 20, 0, 0.5); border: 1px solid var(--theme-primary); border-radius: 5px; padding: 10px; color: var(--theme-primary); font-family: 'Courier New', monospace;">
+                    </div>
+                    <div class="setting-hint">Default: #0080ff (Blue) - Color for automation group borders</div>
+                </div>
                 <div class="settings-buttons">
                     <button class="details-btn" onclick="saveSettings()">SAVE</button>
                     <button class="details-btn cancel" onclick="closeSettingsModal()">CANCEL</button>

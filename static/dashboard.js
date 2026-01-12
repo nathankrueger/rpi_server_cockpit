@@ -261,10 +261,31 @@ async function loadAutomations() {
         const container = document.getElementById('automations-container');
         container.innerHTML = '';
 
-        // Create cards for each automation
+        // Group automations by the 'group' field
+        const grouped = {};
+        const ungrouped = [];
+
         automations.forEach(auto => {
+            if (auto.group) {
+                if (!grouped[auto.group]) {
+                    grouped[auto.group] = [];
+                }
+                grouped[auto.group].push(auto);
+            } else {
+                ungrouped.push(auto);
+            }
+        });
+
+        // Render ungrouped automations first
+        ungrouped.forEach(auto => {
             const card = createAutomationCard(auto);
             container.appendChild(card);
+        });
+
+        // Render grouped automations
+        Object.keys(grouped).forEach(groupName => {
+            const groupContainer = createAutomationGroup(groupName, grouped[groupName]);
+            container.appendChild(groupContainer);
         });
     } catch (error) {
         console.error('Error loading automations:', error);
@@ -320,6 +341,108 @@ function createAutomationCard(automation) {
     }, 0);
 
     return card;
+}
+
+function createAutomationGroup(groupName, automations) {
+    const group = document.createElement('div');
+    group.className = 'automation-group';
+
+    // Create group header
+    const header = document.createElement('div');
+    header.className = 'automation-group-header';
+
+    const title = document.createElement('div');
+    title.className = 'automation-group-title';
+
+    const arrow = document.createElement('span');
+    arrow.className = 'automation-group-arrow';
+    arrow.textContent = '▼';
+
+    const titleText = document.createElement('span');
+    titleText.textContent = groupName;
+
+    title.appendChild(arrow);
+    title.appendChild(titleText);
+    header.appendChild(title);
+
+    // Create content container
+    const content = document.createElement('div');
+    content.className = 'automation-group-content';
+    content.id = `group-${groupName.replace(/\s+/g, '-').toLowerCase()}`;
+
+    // Add automation cards to the group
+    automations.forEach(auto => {
+        const card = createAutomationCard(auto);
+        content.appendChild(card);
+    });
+
+    // Set initial max-height for smooth transitions
+    setTimeout(() => {
+        content.style.maxHeight = content.scrollHeight + 'px';
+    }, 0);
+
+    // Add click handler for collapse/expand
+    header.addEventListener('click', () => {
+        toggleAutomationGroup(groupName);
+    });
+
+    group.appendChild(header);
+    group.appendChild(content);
+
+    // Restore collapsed state from localStorage
+    const isCollapsed = localStorage.getItem(`group-${groupName}-collapsed`) === 'true';
+    if (isCollapsed) {
+        arrow.classList.add('collapsed');
+        content.classList.add('collapsed');
+    }
+
+    return group;
+}
+
+function toggleAutomationGroup(groupName) {
+    const groupId = `group-${groupName.replace(/\s+/g, '-').toLowerCase()}`;
+    const content = document.getElementById(groupId);
+    const arrow = content.previousElementSibling.querySelector('.automation-group-arrow');
+
+    if (!content || !arrow) {
+        console.error(`Group not found: ${groupName}`);
+        return;
+    }
+
+    const isCurrentlyCollapsed = content.classList.contains('collapsed');
+
+    if (isCurrentlyCollapsed) {
+        // Expanding: Remove collapsed class and set to auto height via very large max-height
+        content.classList.remove('collapsed');
+        arrow.classList.remove('collapsed');
+
+        // Instead of setting a fixed pixel height, just use 'none' to let it expand naturally
+        content.style.maxHeight = 'none';
+    } else {
+        // Collapsing: First set the specific height, then collapse
+        content.style.maxHeight = content.scrollHeight + 'px';
+
+        // Force reflow
+        content.offsetHeight;
+
+        // Now collapse
+        requestAnimationFrame(() => {
+            content.classList.add('collapsed');
+            arrow.classList.add('collapsed');
+        });
+    }
+
+    // Save state to localStorage
+    localStorage.setItem(`group-${groupName}-collapsed`, !isCurrentlyCollapsed);
+}
+
+// Helper function to update group heights when content changes
+function updateGroupHeights() {
+    document.querySelectorAll('.automation-group-content').forEach(content => {
+        if (!content.classList.contains('collapsed')) {
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    });
 }
 
 async function showServiceDetails(service) {
@@ -629,6 +752,11 @@ function updateAutomationUI(automationName, state) {
             statusText.textContent = state.completed_at ? `FAILED -- ${state.completed_at}` : 'FAILED';
         }
     }
+
+    // Update group heights if this automation is in a group and the group is expanded
+    requestAnimationFrame(() => {
+        updateGroupHeights();
+    });
 }
 
 async function runAutomation(automationName) {
@@ -798,7 +926,7 @@ function hexToRgb(hex) {
     } : null;
 }
 
-function applyColors(foregroundColor, backgroundColor) {
+function applyColors(foregroundColor, backgroundColor, groupColor) {
     const fgRgb = hexToRgb(foregroundColor);
     const bgRgb = hexToRgb(backgroundColor);
 
@@ -823,6 +951,15 @@ function applyColors(foregroundColor, backgroundColor) {
 
     // Set background color for matrix animation
     document.documentElement.style.setProperty('--background-color', backgroundColor);
+
+    // Set group color if provided
+    if (groupColor) {
+        const groupRgb = hexToRgb(groupColor);
+        if (groupRgb) {
+            document.documentElement.style.setProperty('--group-color', groupColor);
+            document.documentElement.style.setProperty('--group-color-rgb', `${groupRgb.r}, ${groupRgb.g}, ${groupRgb.b}`);
+        }
+    }
 
     // Update matrix canvas color
     updateMatrixColor(backgroundColor);
@@ -872,11 +1009,17 @@ function openSettingsModal() {
 
     const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
     const savedForegroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
+    const savedGroupColor = localStorage.getItem('groupColor') || '#0080ff';
 
     backgroundColorPicker.value = savedBackgroundColor;
     backgroundColorText.value = savedBackgroundColor;
     foregroundColorPicker.value = savedForegroundColor;
     foregroundColorText.value = savedForegroundColor;
+
+    const groupColorPicker = document.getElementById('group-color');
+    const groupColorText = document.getElementById('group-color-text');
+    groupColorPicker.value = savedGroupColor;
+    groupColorText.value = savedGroupColor;
 
     // Sync background color picker and text input
     backgroundColorPicker.addEventListener('input', (e) => {
@@ -902,6 +1045,18 @@ function openSettingsModal() {
         }
     });
 
+    // Sync group color picker and text input
+    groupColorPicker.addEventListener('input', (e) => {
+        groupColorText.value = e.target.value;
+    });
+
+    groupColorText.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (/^#[0-9A-F]{6}$/i.test(value)) {
+            groupColorPicker.value = value;
+        }
+    });
+
     modal.style.display = 'block';
 }
 
@@ -916,6 +1071,7 @@ function saveSettings() {
     const matrixAnimationRate = parseInt(document.getElementById('matrix-animation-rate').value);
     const backgroundColor = document.getElementById('background-color').value;
     const foregroundColor = document.getElementById('foreground-color').value;
+    const groupColor = document.getElementById('group-color').value;
 
     // Validate inputs
     if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 60000) {
@@ -943,6 +1099,11 @@ function saveSettings() {
         return;
     }
 
+    if (!/^#[0-9A-F]{6}$/i.test(groupColor)) {
+        alert('ERROR: Invalid group color format. Please use hex format like #0080ff');
+        return;
+    }
+
     // Save to localStorage
     localStorage.setItem('statusUpdateRate', statusUpdateRate);
     localStorage.setItem('systemStatsUpdateRate', systemStatsUpdateRate);
@@ -950,9 +1111,10 @@ function saveSettings() {
     localStorage.setItem('matrixAnimationRate', matrixAnimationRate);
     localStorage.setItem('backgroundColor', backgroundColor);
     localStorage.setItem('foregroundColor', foregroundColor);
+    localStorage.setItem('groupColor', groupColor);
 
     // Apply colors immediately
-    applyColors(foregroundColor, backgroundColor);
+    applyColors(foregroundColor, backgroundColor, groupColor);
 
     // Apply matrix effect enabled/disabled immediately
     if (matrixEffectEnabled) {
@@ -982,7 +1144,8 @@ async function init() {
     // Apply saved colors first
     const foregroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
     const backgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
-    applyColors(foregroundColor, backgroundColor);
+    const groupColor = localStorage.getItem('groupColor') || '#0080ff';
+    applyColors(foregroundColor, backgroundColor, groupColor);
 
     restoreCollapsedStates();
     await loadAndRenderServices();
