@@ -14,9 +14,58 @@ fi
 
 # Default values
 PLUG_IP=""
+PLUG_NAME=""
 ACTION=""
 KASA_USER=""
 KASA_PASS=""
+
+# Function to discover device IP by name substring
+# Returns the IP address of the first device matching the name substring
+find_device_by_name() {
+    local name_substr="$1"
+    local auth_flags=""
+
+    if [[ -n "$KASA_USER" ]] && [[ -n "$KASA_PASS" ]]; then
+        auth_flags="--username $KASA_USER --password $KASA_PASS"
+    fi
+
+    # Run discovery and parse output
+    local discovery_output=$(kasa $auth_flags discover 2>&1)
+
+    # Look for device name containing the substring (case-insensitive)
+    local device_ip=""
+    local in_device_block=false
+    local current_name=""
+    local current_ip=""
+
+    while IFS= read -r line; do
+        # Check for device name line (== Name ==)
+        if [[ "$line" =~ ^==\ (.+)\ ==$ ]]; then
+            current_name="${BASH_REMATCH[1]}"
+            in_device_block=true
+            current_ip=""
+        fi
+
+        # Check for IP in different formats
+        if [[ "$line" =~ ^IP:\ +(.+)$ ]]; then
+            current_ip="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^Host:\ +(.+)$ ]]; then
+            current_ip="${BASH_REMATCH[1]}"
+        fi
+
+        # If we have both name and IP, check for match
+        if [[ -n "$current_name" ]] && [[ -n "$current_ip" ]]; then
+            if [[ "$current_name" =~ $name_substr ]] || [[ "${current_name,,}" =~ ${name_substr,,} ]]; then
+                echo "$current_ip"
+                return 0
+            fi
+            current_name=""
+            current_ip=""
+        fi
+    done <<< "$discovery_output"
+
+    return 1
+}
 
 # Function to get current plug state
 # Returns 0 if ON, 1 if OFF
@@ -45,25 +94,26 @@ toggle_plug() {
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 -i|--ip_addr <IP> [-r|--read_state | -t|--toggle | -n|--on | -f|--off] [-u|--username <email>] [-p|--password <password>]"
+    echo "Usage: $0 (-i|--ip_addr <IP> | -n|--name <substring>) [-r|--read_state | -t|--toggle | -o|--on | -f|--off] [-u|--username <email>] [-p|--password <password>]"
     echo ""
     echo "Options:"
-    echo "  -i, --ip_addr <IP>       IP address of the Kasa smart plug (required)"
+    echo "  -i, --ip_addr <IP>       IP address of the Kasa smart plug"
+    echo "  -n, --name <substring>   Match plug by name substring"
     echo "  -r, --read_state         Read and display current state"
     echo "  -t, --toggle             Toggle the plug state (ON->OFF or OFF->ON)"
-    echo "  -n, --on                 Turn the plug ON"
+    echo "  -o, --on                 Turn the plug ON"
     echo "  -f, --off                Turn the plug OFF"
     echo "  -u, --username <email>   Kasa account email (for newer devices)"
     echo "  -p, --password <pass>    Kasa account password (for newer devices)"
     echo ""
-    echo "Note: Newer Kasa devices require authentication. Set KASA_USERNAME and"
-    echo "      KASA_PASSWORD environment variables or use -u/-p flags."
+    echo "Note: Either -i or -n is required. Newer devices require authentication."
+    echo "      Set KASA_USERNAME and KASA_PASSWORD environment variables or use -u/-p flags."
     echo ""
     echo "Example:"
     echo "  $0 -i 192.168.1.24 -r"
-    echo "  $0 -i 192.168.1.47 --toggle"
+    echo "  $0 -n \"Living Room\" --toggle"
     echo "  $0 -i 192.168.1.47 --on -u your@email.com -p yourpassword"
-    echo "  KASA_USERNAME=your@email.com KASA_PASSWORD=yourpass $0 -i 192.168.1.47 --on"
+    echo "  KASA_USERNAME=your@email.com KASA_PASSWORD=yourpass $0 -n \"Lamp\" --on"
     exit 1
 }
 
@@ -74,6 +124,10 @@ while [[ $# -gt 0 ]]; do
             PLUG_IP="$2"
             shift 2
             ;;
+        -n|--name)
+            PLUG_NAME="$2"
+            shift 2
+            ;;
         -r|--read_state)
             ACTION="read"
             shift
@@ -82,7 +136,7 @@ while [[ $# -gt 0 ]]; do
             ACTION="toggle"
             shift
             ;;
-        -n|--on)
+        -o|--on)
             ACTION="on"
             shift
             ;;
@@ -118,13 +172,18 @@ if [[ -z "$KASA_PASS" ]] && [[ -n "$KASA_PASSWORD" ]]; then
 fi
 
 # Validate inputs
-if [[ -z "$PLUG_IP" ]]; then
-    echo "Error: IP address is required"
+if [[ -z "$PLUG_IP" ]] && [[ -z "$PLUG_NAME" ]]; then
+    echo "Error: Either IP address (-i) or name (-n) is required"
+    usage
+fi
+
+if [[ -n "$PLUG_IP" ]] && [[ -n "$PLUG_NAME" ]]; then
+    echo "Error: Cannot specify both -i and -n. Use one or the other."
     usage
 fi
 
 if [[ -z "$ACTION" ]]; then
-    echo "Error: An action is required (-r, -t, -n, or -f)"
+    echo "Error: An action is required (-r, -t, -o, or -f)"
     usage
 fi
 
@@ -135,6 +194,18 @@ if ! command -v kasa &> /dev/null; then
 fi
 
 # Build kasa command with authentication if provided
+if [[ -n "$PLUG_NAME" ]]; then
+    # Discover device by name and get IP
+    echo "Discovering device with name matching: $PLUG_NAME"
+    PLUG_IP=$(find_device_by_name "$PLUG_NAME")
+    if [[ -z "$PLUG_IP" ]]; then
+        echo "Error: No device found matching name '$PLUG_NAME'"
+        exit 1
+    fi
+    echo "Found device at IP: $PLUG_IP"
+fi
+
+# Build command with IP (either provided or discovered)
 KASA_CMD="kasa --host $PLUG_IP"
 if [[ -n "$KASA_USER" ]] && [[ -n "$KASA_PASS" ]]; then
     KASA_CMD="kasa --host $PLUG_IP --username $KASA_USER --password $KASA_PASS"
