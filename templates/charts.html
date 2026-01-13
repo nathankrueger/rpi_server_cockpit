@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='raspberry-pi-icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='charts.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav-dock.css') }}">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 </head>
 <body>
@@ -107,11 +108,19 @@
         </div>
     </div>
 
-    <button class="refresh-btn" onclick="updateCharts(true)" title="Refresh Charts">⟳</button>
-    <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
-    <button class="home-btn" onclick="window.location.href='/'" title="Back to Dashboard">🏠</button>
+    <!-- Navigation Dock -->
+    <div class="nav-dock">
+        <button class="nav-btn nav-toggle" title="Menu">
+            <span class="toggle-icon">☰</span>
+        </button>
+        <button class="nav-btn nav-refresh" onclick="updateCharts(true)" title="Refresh Charts">⟳</button>
+        <button class="nav-btn nav-settings" onclick="openSettingsModal()" title="Settings">⚙</button>
+        <button class="nav-btn nav-monitor" onclick="navigateTo('/monitor')" title="System Monitor">📺</button>
+        <button class="nav-btn nav-home" onclick="navigateTo('/')" title="Back to Dashboard">🏠</button>
+    </div>
 
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='nav-dock.js') }}"></script>
 </body>
 </html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitor</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='raspberry-pi-icon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav-dock.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <div class="container">
+        <h1><span id="hostname-title">system</span> monitor</h1>
+
+        <div class="monitor-grid">
+            <!-- Weather, Time Section -->
+            <div class="monitor-card weather-time-card">
+                <div class="card-title">WEATHER & TIME</div>
+                <div class="weather-container">
+                    <div id="weather-info">
+                        <div class="weather-temp">--°F</div>
+                        <div class="weather-condition">Loading...</div>
+                        <div class="weather-location">--</div>
+                    </div>
+                    <div id="analog-clock">
+                        <svg viewBox="0 0 200 200" class="clock-face">
+                            <circle cx="100" cy="100" r="95" class="clock-circle"/>
+                            <line x1="100" y1="100" x2="100" y2="40" class="clock-hand hour-hand" id="hour-hand"/>
+                            <line x1="100" y1="100" x2="100" y2="30" class="clock-hand minute-hand" id="minute-hand"/>
+                            <line x1="100" y1="100" x2="100" y2="25" class="clock-hand second-hand" id="second-hand"/>
+                            <circle cx="100" cy="100" r="5" class="clock-center"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="digital-time" id="digital-time">--:--:--</div>
+                <div class="date-display" id="date-display">--</div>
+            </div>
+
+            <!-- Stock Charts Section -->
+            <div class="monitor-card stock-card">
+                <div class="card-title">STOCK PERFORMANCE (DAILY % CHANGE)</div>
+                <div id="stock-chart" class="chart-container"></div>
+            </div>
+
+            <!-- Quick Status Section -->
+            <div class="monitor-card status-card">
+                <div class="card-title">QUICK STATUS</div>
+                <div class="status-content">
+                    <div class="status-item">
+                        <div class="status-label">SERVICE STATUSES</div>
+                        <div class="status-indicators" id="service-indicators">
+                            <!-- Service LEDs will be dynamically generated -->
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">UPTIME</div>
+                        <div class="status-value" id="uptime-status">--</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">DISK SPACE</div>
+                        <div class="status-value" id="disk-status">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sensor Data Section (Placeholder) -->
+            <div class="monitor-card sensor-card">
+                <div class="card-title">SENSOR DATA</div>
+                <div id="sensor-chart" class="chart-container chart-placeholder">
+                    <div class="placeholder-text">SENSOR DATA COMING SOON</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather Settings Modal -->
+    <div id="weatherModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeWeatherSettings()">&times;</span>
+            <div class="modal-header">WEATHER SETTINGS</div>
+            <div class="settings-container">
+                <div class="setting-item">
+                    <label for="weather-address">ADDRESS OR LOCATION</label>
+                    <input type="text" id="weather-address" placeholder="Enter address or city, state">
+                    <div class="setting-hint">Examples: "123 Main St, City, State" or "San Francisco, CA"</div>
+                </div>
+                <div class="settings-buttons">
+                    <button class="details-btn" onclick="saveWeatherSettings()">SAVE</button>
+                    <button class="details-btn cancel" onclick="closeWeatherSettings()">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Dock -->
+    <div class="nav-dock">
+        <button class="nav-btn nav-toggle" title="Menu">
+            <span class="toggle-icon">☰</span>
+        </button>
+        <button class="nav-btn nav-refresh" onclick="refreshPage()" title="Refresh Page">⟳</button>
+        <button class="nav-btn nav-settings" onclick="openWeatherSettings()" title="Weather Settings">⚙</button>
+        <button class="nav-btn nav-charts" onclick="navigateTo('/charts')" title="View Charts">📊</button>
+        <button class="nav-btn nav-home" onclick="navigateTo('/')" title="Back to Dashboard">🏠</button>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='monitor.js') }}"></script>
+    <script src="{{ url_for('static', filename='nav-dock.js') }}"></script>
+</body>
+</html>

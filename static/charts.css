@@ -392,59 +392,7 @@
     color: #ff0000;
 }
 
-/* Home Button - positioned next to settings button */
-.home-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 190px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: var(--theme-bg-dark, rgba(0, 0, 0, 0.8));
-    border: 2px solid var(--theme-primary, var(--chart-green));
-    color: var(--theme-primary, var(--chart-green));
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb, var(--chart-green-rgb)), 0.5);
-    transition: all 0.3s;
-    z-index: 1000;
-}
-
-.home-btn:hover {
-    box-shadow: 0 0 30px rgba(var(--theme-primary-rgb, var(--chart-green-rgb)), 0.8);
-    transform: scale(1.1);
-}
-
-.home-btn:active {
-    transform: scale(0.95);
-}
-
-/* Refresh Button - positioned at rightmost position */
-.refresh-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: var(--theme-bg-dark, rgba(0, 0, 0, 0.8));
-    border: 2px solid var(--theme-primary, var(--chart-green));
-    color: var(--theme-primary, var(--chart-green));
-    font-size: 1.5em;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb, var(--chart-green-rgb)), 0.5);
-    transition: all 0.3s ease;
-    z-index: 1000;
-}
-
-.refresh-btn:hover {
-    transform: scale(1.1) rotate(180deg);
-    box-shadow: 0 0 30px rgba(var(--theme-primary-rgb, var(--chart-green-rgb)), 0.8);
-}
-
-.refresh-btn:active {
-    transform: scale(0.95);
-}
+/* Navigation buttons - now handled by nav-dock.css */
 
 /* Settings Modal Adjustments */
 .modal-body .setting-item {

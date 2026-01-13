@@ -8,8 +8,12 @@ import threading
 import uuid
 import os
 import eventlet
-from datetime import datetime
+from datetime import datetime, timedelta
 import shlex
+import json
+import urllib.request
+import urllib.parse
+import urllib.error
 
 from config_loader import get_all_automations, get_automation_config, get_all_services, get_service_config
 from process_mgmt import kill_proc_tree
@@ -357,6 +361,11 @@ def index():
     """Serve the main dashboard page."""
     return render_template('index.html')
 
+@app.route('/monitor')
+def monitor():
+    """Serve the system monitor page."""
+    return render_template('monitor.html')
+
 @app.route('/api/services')
 def get_services():
     """Get all service configurations."""
@@ -582,6 +591,124 @@ def get_automation_status(automation_name):
             'success': True,
             **state
         })
+
+@app.route('/api/stocks/daily-change', methods=['POST'])
+def get_stock_daily_change():
+    """Get daily percentage changes for stock symbols over the last 30 trading days."""
+    try:
+        data = request.get_json()
+        symbols = data.get('symbols', [])
+
+        if not symbols:
+            return jsonify({'success': False, 'error': 'No symbols provided'}), 400
+
+        stock_data = {}
+
+        for symbol in symbols:
+            try:
+                # Use Yahoo Finance API to get stock data
+                # Get last 60 days to ensure we have at least 30 trading days
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=60)
+
+                period1 = int(start_date.timestamp())
+                period2 = int(end_date.timestamp())
+
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={period1}&period2={period2}&interval=1d"
+
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    result = json.loads(response.read().decode())
+
+                if 'chart' in result and 'result' in result['chart'] and result['chart']['result']:
+                    chart_data = result['chart']['result'][0]
+                    timestamps = chart_data['timestamp']
+                    quotes = chart_data['indicators']['quote'][0]
+                    close_prices = quotes['close']
+
+                    # Calculate daily percentage changes
+                    dates = []
+                    percent_changes = []
+
+                    for i in range(1, len(close_prices)):
+                        if close_prices[i] is not None and close_prices[i-1] is not None:
+                            prev_close = close_prices[i-1]
+                            curr_close = close_prices[i]
+                            pct_change = ((curr_close - prev_close) / prev_close) * 100
+
+                            dates.append(datetime.fromtimestamp(timestamps[i]).strftime('%Y-%m-%d'))
+                            percent_changes.append(round(pct_change, 2))
+
+                    # Keep only last 30 data points
+                    stock_data[symbol] = {
+                        'dates': dates[-30:],
+                        'percent_changes': percent_changes[-30:]
+                    }
+                else:
+                    stock_data[symbol] = {
+                        'dates': [],
+                        'percent_changes': [],
+                        'error': 'No data available'
+                    }
+
+            except Exception as e:
+                print(f"Error fetching data for {symbol}: {e}")
+                stock_data[symbol] = {
+                    'dates': [],
+                    'percent_changes': [],
+                    'error': str(e)
+                }
+
+        return jsonify({'success': True, 'data': stock_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/weather', methods=['POST'])
+def get_weather():
+    """Get weather data for a given location using wttr.in service."""
+    try:
+        data = request.get_json()
+        location = data.get('location', '')
+
+        if not location:
+            return jsonify({'success': False, 'error': 'No location provided'}), 400
+
+        # Use wttr.in API (free, no API key required)
+        # Format: wttr.in/Location?format=j1 for JSON
+        encoded_location = urllib.parse.quote(location)
+        url = f"https://wttr.in/{encoded_location}?format=j1"
+
+        req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.68.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            weather_data = json.loads(response.read().decode())
+
+        # Extract current weather
+        current = weather_data['current_condition'][0]
+        temp_f = current['temp_F']
+        condition = current['weatherDesc'][0]['value']
+
+        # Get location name from nearest area
+        location_name = weather_data['nearest_area'][0]['areaName'][0]['value']
+        region = weather_data['nearest_area'][0].get('region', [{}])[0].get('value', '')
+        country = weather_data['nearest_area'][0].get('country', [{}])[0].get('value', '')
+
+        full_location = f"{location_name}"
+        if region:
+            full_location += f", {region}"
+        if country and country != "United States of America":
+            full_location += f", {country}"
+
+        return jsonify({
+            'success': True,
+            'temperature': float(temp_f),
+            'condition': condition,
+            'location': full_location
+        })
+
+    except Exception as e:
+        print(f"Error fetching weather: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/automation/<automation_name>/cancel', methods=['POST'])
 def cancel_automation(automation_name):

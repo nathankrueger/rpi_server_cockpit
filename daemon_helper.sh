@@ -8,7 +8,6 @@ if [ $# -eq 0 ]; then
 fi
 
 # Simple double-fork: creates an orphan process that gets adopted by init
-# No special permissions, no cgroup manipulation, just pure Unix process management
 (
     (
         exec "$@" </dev/null >/dev/null 2>&1 &

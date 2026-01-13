@@ -1,0 +1,133 @@
+/**
+ * Expandable Navigation Dock
+ *
+ * A collapsible navigation system that expands on hover/tap
+ */
+
+/* Navigation Dock Container */
+.nav-dock {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Navigation buttons - hidden by default */
+.nav-dock .nav-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--theme-bg-dark);
+    border: 2px solid var(--theme-primary);
+    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.5);
+    cursor: pointer;
+    font-size: 1.5em;
+    transition: all 0.3s ease;
+    color: var(--theme-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateX(20px) scale(0.8);
+    pointer-events: none;
+}
+
+/* Menu toggle button - always visible */
+.nav-dock .nav-toggle {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: all;
+}
+
+/* Show buttons when dock is expanded */
+.nav-dock.expanded .nav-btn {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: all;
+}
+
+/* Stagger animation for buttons */
+.nav-dock.expanded .nav-btn:nth-child(2) {
+    transition-delay: 0.05s;
+}
+
+.nav-dock.expanded .nav-btn:nth-child(3) {
+    transition-delay: 0.1s;
+}
+
+.nav-dock.expanded .nav-btn:nth-child(4) {
+    transition-delay: 0.15s;
+}
+
+.nav-dock.expanded .nav-btn:nth-child(5) {
+    transition-delay: 0.2s;
+}
+
+/* Button hover effects */
+.nav-dock .nav-btn:hover {
+    transform: translateX(0) scale(1.1);
+    box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.8);
+}
+
+.nav-dock .nav-btn:active {
+    transform: translateX(0) scale(0.95);
+}
+
+/* Specific button styles */
+.nav-btn.nav-home {
+    /* Home button */
+}
+
+.nav-btn.nav-charts {
+    /* Charts button */
+}
+
+.nav-btn.nav-monitor {
+    /* Monitor button */
+}
+
+.nav-btn.nav-settings {
+    /* Settings button */
+}
+
+.nav-btn.nav-refresh {
+    /* Refresh button */
+}
+
+/* Toggle button rotation when expanded */
+.nav-toggle .toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.nav-dock.expanded .nav-toggle .toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Labels removed - using browser's built-in title tooltips instead */
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .nav-dock {
+        bottom: 20px;
+        right: 20px;
+        gap: 10px;
+    }
+
+    .nav-dock .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2em;
+    }
+}
+
+/* Touch devices - tap to expand, tap outside to collapse */
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile touch devices */
+    .nav-dock {
+        /* Allow tapping */
+    }
+}

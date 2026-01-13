@@ -6,6 +6,7 @@
     <title>Raspberry Pi Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='raspberry-pi-icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav-dock.css') }}">
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
@@ -189,11 +190,19 @@
         </div>
     </div>
 
-    <button class="settings-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
-    <button class="refresh-btn" onclick="location.reload()" title="Refresh Page">⟳</button>
-    <button class="charts-btn" onclick="window.location.href='/charts'" title="View Charts">📊</button>
+    <!-- Navigation Dock -->
+    <div class="nav-dock">
+        <button class="nav-btn nav-toggle" title="Menu">
+            <span class="toggle-icon">☰</span>
+        </button>
+        <button class="nav-btn nav-refresh" onclick="refreshPage()" title="Refresh Page">⟳</button>
+        <button class="nav-btn nav-settings" onclick="openSettingsModal()" title="Settings">⚙</button>
+        <button class="nav-btn nav-monitor" onclick="navigateTo('/monitor')" title="System Monitor">📺</button>
+        <button class="nav-btn nav-charts" onclick="navigateTo('/charts')" title="View Charts">📊</button>
+    </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='nav-dock.js') }}"></script>
 </body>
 </html>
