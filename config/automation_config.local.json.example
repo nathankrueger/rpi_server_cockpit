@@ -1,0 +1,29 @@
+{
+  "automations": [
+    {
+      "name": "sync_music",
+      "enabled": false,
+      "comment": "Disable music sync on this Pi"
+    },
+    {
+      "name": "kasa_plug",
+      "args": "-i 192.168.1.100 --toggle",
+      "comment": "Override IP address for smart plug on this Pi"
+    },
+    {
+      "name": "custom_automation",
+      "display_name": "MY CUSTOM SCRIPT",
+      "script_path": "./automation_scripts/my_script.sh",
+      "button_text": "RUN",
+      "enabled": true,
+      "group": "Custom",
+      "comment": "Example: Add a custom automation"
+    },
+    {
+      "name": "reboot",
+      "display_name": "REBOOT SYSTEM",
+      "button_text": "REBOOT NOW",
+      "comment": "Example: Override display name and button text"
+    }
+  ]
+}
