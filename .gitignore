@@ -2,3 +2,4 @@
 __pycache__
 timeseries.db
 config/*.local.json
+.env

@@ -22,6 +22,14 @@
       "enabled": true
     },
     {
+      "name": "kasa_plug_on",
+      "display_name": "SMART PLUG CONTROL",
+      "script_path": "./automation_scripts/kasa.sh",
+      "args": "-i 192.168.1.47 --on",
+      "button_text": "EXECUTE",
+      "enabled": true
+    },
+    {
       "name": "reboot",
       "display_name": "REBOOT",
       "script_path": "./automation_scripts/reboot.sh",
