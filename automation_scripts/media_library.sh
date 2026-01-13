@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 ### NOTE: To use this, a sudoers entry is required: /etc/sudoers.d/pi-dashboard-media-library
 #
 #   # Command alias for minidlna configuration management
@@ -7,7 +9,8 @@
 #                               /usr/bin/grep * /etc/minidlna.conf, \
 #                               /usr/bin/tee -a /etc/minidlna.conf, \
 #                               /usr/bin/systemctl restart minidlna, \
-#                               /usr/bin/systemctl is-active minidlna
+#                               /usr/bin/systemctl is-active minidlna, \
+#                               /usr/sbin/service minidlna force-reload
 #
 #   # Allow nkrueger to manage minidlna without password
 #   nkrueger ALL=(root) NOPASSWD: MINIDLNA_CMDS
@@ -35,6 +38,7 @@ Options:
   -d, --disable[=MEDIA_LINE] Remove media directory line from minidlna.conf
                             If MEDIA_LINE is not provided, uses default:
                             $DEFAULT_MEDIA_FOLDER
+  -r, --rescan              Trigger media library rescan by reloading minidlna
 
 Examples:
   Query current media directories:
@@ -53,6 +57,9 @@ Examples:
   Disable specific media folder:
     $0 -d 'media_dir=V,/media/other/path/'
     $0 --disable='media_dir=V,/media/other/path/'
+
+  Rescan media library:
+    $0 -r
 
 Notes:
   - The script automatically restarts the minidlna service after changes
@@ -73,6 +80,10 @@ while [ $# -gt 0 ]; do
             ;;
         -q|--query)
             ACTION="query"
+            shift
+            ;;
+        -r|--rescan)
+            ACTION="rescan"
             shift
             ;;
         -e|--enable)
@@ -116,7 +127,7 @@ done
 
 # Validate that an action was specified
 if [ -z "$ACTION" ]; then
-    echo "Error: Must specify either --query, --enable, or --disable"
+    echo "Error: Must specify either --query, --enable, --disable, or --rescan"
     exit 1
 fi
 
@@ -138,6 +149,20 @@ if [ "$ACTION" = "query" ]; then
             echo "  $line"
         done
     fi
+    exit 0
+fi
+
+# Handle rescan action
+if [ "$ACTION" = "rescan" ]; then
+    # Check if minidlna service is running
+    if ! systemctl is-active --quiet minidlna; then
+        echo "Error: minidlna service is not running"
+        exit 1
+    fi
+
+    echo "Triggering media library rescan..."
+    sudo service minidlna force-reload
+    echo "Library rescan initiated successfully"
     exit 0
 fi
 
