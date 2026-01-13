@@ -94,9 +94,10 @@ toggle_plug() {
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 (-i|--ip_addr <IP> | -n|--name <substring>) [-r|--read_state | -t|--toggle | -o|--on | -f|--off] [-u|--username <email>] [-p|--password <password>]"
+    echo "Usage: $0 [-d|--discover] | (-i|--ip_addr <IP> | -n|--name <substring>) [-r|--read_state | -t|--toggle | -o|--on | -f|--off] [-u|--username <email>] [-p|--password <password>]"
     echo ""
     echo "Options:"
+    echo "  -d, --discover           Discover and list all Kasa devices on the network"
     echo "  -i, --ip_addr <IP>       IP address of the Kasa smart plug"
     echo "  -n, --name <substring>   Match plug by name substring"
     echo "  -r, --read_state         Read and display current state"
@@ -106,10 +107,11 @@ usage() {
     echo "  -u, --username <email>   Kasa account email (for newer devices)"
     echo "  -p, --password <pass>    Kasa account password (for newer devices)"
     echo ""
-    echo "Note: Either -i or -n is required. Newer devices require authentication."
-    echo "      Set KASA_USERNAME and KASA_PASSWORD environment variables or use -u/-p flags."
+    echo "Note: For device control, either -i or -n is required."
+    echo "      Newer devices require authentication via KASA_USERNAME/KASA_PASSWORD env vars or -u/-p flags."
     echo ""
     echo "Example:"
+    echo "  $0 -d                    # List all devices"
     echo "  $0 -i 192.168.1.24 -r"
     echo "  $0 -n \"Living Room\" --toggle"
     echo "  $0 -i 192.168.1.47 --on -u your@email.com -p yourpassword"
@@ -120,6 +122,10 @@ usage() {
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -d|--discover)
+            ACTION="discover"
+            shift
+            ;;
         -i|--ip_addr)
             PLUG_IP="$2"
             shift 2
@@ -172,25 +178,39 @@ if [[ -z "$KASA_PASS" ]] && [[ -n "$KASA_PASSWORD" ]]; then
 fi
 
 # Validate inputs
-if [[ -z "$PLUG_IP" ]] && [[ -z "$PLUG_NAME" ]]; then
-    echo "Error: Either IP address (-i) or name (-n) is required"
-    usage
-fi
-
-if [[ -n "$PLUG_IP" ]] && [[ -n "$PLUG_NAME" ]]; then
-    echo "Error: Cannot specify both -i and -n. Use one or the other."
-    usage
-fi
-
 if [[ -z "$ACTION" ]]; then
-    echo "Error: An action is required (-r, -t, -o, or -f)"
+    echo "Error: An action is required (-d, -r, -t, -o, or -f)"
     usage
+fi
+
+# For discover mode, we don't need IP or name
+if [[ "$ACTION" != "discover" ]]; then
+    if [[ -z "$PLUG_IP" ]] && [[ -z "$PLUG_NAME" ]]; then
+        echo "Error: Either IP address (-i) or name (-n) is required"
+        usage
+    fi
+
+    if [[ -n "$PLUG_IP" ]] && [[ -n "$PLUG_NAME" ]]; then
+        echo "Error: Cannot specify both -i and -n. Use one or the other."
+        usage
+    fi
 fi
 
 # Check if kasa is installed
 if ! command -v kasa &> /dev/null; then
     echo "Error: kasa command not found. Install with: pip3 install python-kasa"
     exit 1
+fi
+
+# Handle discover mode separately
+if [[ "$ACTION" == "discover" ]]; then
+    echo "Discovering Kasa devices on the network..."
+    if [[ -n "$KASA_USER" ]] && [[ -n "$KASA_PASS" ]]; then
+        kasa --username "$KASA_USER" --password "$KASA_PASS" discover
+    else
+        kasa discover
+    fi
+    exit 0
 fi
 
 # Build kasa command with authentication if provided
