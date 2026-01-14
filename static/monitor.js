@@ -316,7 +316,9 @@ async function updateStatus() {
             indicatorsContainer.innerHTML = '<div style="color: var(--theme-primary-dim); font-size: 0.9em;">No services configured</div>';
         } else {
             enabledServices.forEach(service => {
-                const isActive = statusData[service.id] || false;
+                // Handle both old format (boolean) and new format (object)
+                const serviceStatus = statusData[service.id];
+                const isActive = typeof serviceStatus === 'boolean' ? serviceStatus : (serviceStatus?.running || false);
                 const ledEl = document.createElement('div');
                 ledEl.className = 'service-led';
                 ledEl.innerHTML = `

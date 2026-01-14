@@ -700,14 +700,30 @@ function updateCpuCores(corePercentages) {
     });
 }
 
-function updateServiceUI(service, isRunning) {
+function formatMemory(bytes) {
+    if (!bytes) return '';
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) {
+        return `${gb.toFixed(2)} GB`;
+    } else {
+        const mb = bytes / (1024 * 1024);
+        return `${mb.toFixed(1)} MB`;
+    }
+}
+
+function updateServiceUI(service, statusData) {
     const indicator = document.getElementById(`${service}-indicator`);
     const statusText = document.getElementById(`${service}-status`);
     const toggle = document.getElementById(`${service}-toggle`);
 
+    // Handle both old format (boolean) and new format (object)
+    const isRunning = typeof statusData === 'boolean' ? statusData : statusData.running;
+    const memoryBytes = typeof statusData === 'object' ? statusData.memory_bytes : null;
+
     if (isRunning) {
         indicator.className = 'status-indicator green';
-        statusText.textContent = 'ONLINE';
+        const memoryStr = formatMemory(memoryBytes);
+        statusText.textContent = memoryStr ? `ONLINE - ${memoryStr}` : 'ONLINE';
         toggle.classList.add('active');
     } else {
         indicator.className = 'status-indicator red';

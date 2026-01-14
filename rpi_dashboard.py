@@ -133,6 +133,83 @@ def check_process_running(process_name):
         print(f"Error checking process {process_name}: {e}")
         return False
 
+def get_service_memory_usage(service_config):
+    """Get memory usage (RSS) in bytes for a service, including child processes.
+    
+    Args:
+        service_config: Service configuration dict with 'check_type' and 'service_name'
+        
+    Returns:
+        int: Memory usage in bytes, or None if service is not running or can't be determined
+    """
+    try:
+        if service_config['check_type'] == 'systemd':
+            # Get main PID from systemd
+            service_name = service_config['service_name']
+            result = subprocess.run(
+                ['systemctl', 'show', '-p', 'MainPID', service_name],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                return None
+            
+            main_pid_str = result.stdout.strip().split('=')[1]
+            if not main_pid_str or main_pid_str == '0':
+                return None
+            
+            main_pid = int(main_pid_str)
+            if main_pid == 0:
+                return None
+            
+            # Get process and sum memory with children
+            try:
+                main_process = psutil.Process(main_pid)
+                total_memory = main_process.memory_info().rss
+                
+                # Add memory from all child processes
+                children = main_process.children(recursive=True)
+                for child in children:
+                    try:
+                        total_memory += child.memory_info().rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                return total_memory
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                return None
+                
+        elif service_config['check_type'] == 'process':
+            # Find all processes matching the name and sum their memory
+            process_name = service_config['service_name']
+            total_memory = 0
+            found_process = False
+            
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if proc.info['name'] == process_name:
+                        found_process = True
+                        process = psutil.Process(proc.info['pid'])
+                        total_memory += process.memory_info().rss
+                        
+                        # Add memory from all child processes
+                        children = process.children(recursive=True)
+                        for child in children:
+                            try:
+                                total_memory += child.memory_info().rss
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+            
+            return total_memory if found_process else None
+        else:
+            return None
+    except Exception as e:
+        print(f"Error getting memory usage for service {service_config.get('id', 'unknown')}: {e}")
+        return None
+
 def check_internet_connectivity():
     """Check internet connectivity by pinging google.com, fallback to amazon.com."""
     hosts = ['8.8.8.8', '1.1.1.1']  # Google DNS and Cloudflare DNS
@@ -379,9 +456,19 @@ def get_status():
     # Dynamically check all configured services
     for service in get_all_services():
         if service['check_type'] == 'systemd':
-            status[service['id']] = check_service_status(service['service_name'])
+            is_running = check_service_status(service['service_name'])
+            memory_bytes = get_service_memory_usage(service) if is_running else None
+            status[service['id']] = {
+                'running': is_running,
+                'memory_bytes': memory_bytes
+            }
         elif service['check_type'] == 'process':
-            status[service['id']] = check_process_running(service['service_name'])
+            is_running = check_process_running(service['service_name'])
+            memory_bytes = get_service_memory_usage(service) if is_running else None
+            status[service['id']] = {
+                'running': is_running,
+                'memory_bytes': memory_bytes
+            }
 
     # Always include internet connectivity
     status['internet'] = check_internet_connectivity()
