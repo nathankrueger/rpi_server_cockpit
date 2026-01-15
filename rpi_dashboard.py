@@ -61,6 +61,60 @@ network_stats_cache = {
 }
 network_stats_lock = threading.Lock()
 
+# Cached system stats (updated by background thread, pushed via WebSocket)
+system_stats_cache = {}
+system_stats_lock = threading.Lock()
+
+# Cached service status (updated by background thread, pushed via WebSocket)
+service_status_cache = {}
+service_status_lock = threading.Lock()
+
+# Cached internet connectivity (updated by separate background thread)
+internet_status_cache = {'connected': False}
+internet_status_lock = threading.Lock()
+
+# Server configuration (mutable at runtime via API, persisted to JSON file)
+SERVER_CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config', 'server_config.local.json')
+SERVER_CONFIG_DEFAULTS = {
+    'system_stats_interval': 2.0,  # seconds
+    'service_status_interval': 5.0,  # seconds
+    'internet_check_interval': 5.0,  # seconds
+}
+
+def load_server_config():
+    """Load server config from JSON file, creating with defaults if missing."""
+    config = SERVER_CONFIG_DEFAULTS.copy()
+    try:
+        if os.path.exists(SERVER_CONFIG_FILE):
+            with open(SERVER_CONFIG_FILE, 'r') as f:
+                loaded = json.load(f)
+                # Only use valid keys from the file
+                for key in SERVER_CONFIG_DEFAULTS:
+                    if key in loaded:
+                        config[key] = float(loaded[key])
+            print(f"Loaded server config from {SERVER_CONFIG_FILE}")
+        else:
+            # Create config file with defaults
+            save_server_config(config)
+            print(f"Created server config file with defaults at {SERVER_CONFIG_FILE}")
+    except Exception as e:
+        print(f"Error loading server config: {e}, using defaults")
+    return config
+
+def save_server_config(config):
+    """Save server config to JSON file."""
+    try:
+        with open(SERVER_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+        print(f"Saved server config to {SERVER_CONFIG_FILE}")
+        return True
+    except Exception as e:
+        print(f"Error saving server config: {e}")
+        return False
+
+server_config = load_server_config()
+server_config_lock = threading.Lock()
+
 uname_cache = None
 
 def broadcast_automation_state(automation_name, incremental_output=None):
@@ -260,6 +314,76 @@ def network_speed_monitor():
             print(f"Error in network speed monitor: {e}")
             time.sleep(NETWORK_MONITOR_INTERVAL)
 
+def system_stats_broadcaster():
+    """Background thread that collects system stats and broadcasts to all clients."""
+    print("System stats broadcaster started")
+
+    while True:
+        try:
+            stats = get_system_stats()
+            with system_stats_lock:
+                system_stats_cache.update(stats)
+            socketio.emit('system_stats', stats, namespace='/')
+        except Exception as e:
+            print(f"Error in system stats broadcaster: {e}")
+        # Read interval from config each iteration (allows runtime changes)
+        with server_config_lock:
+            interval = server_config['system_stats_interval']
+        time.sleep(interval)
+
+def service_status_broadcaster():
+    """Background thread that checks service status and broadcasts to all clients."""
+    print("Service status broadcaster started")
+
+    while True:
+        try:
+            status = {}
+            for service in get_all_services():
+                if service['check_type'] == 'systemd':
+                    is_running = check_service_status(service['service_name'])
+                    memory_bytes = get_service_memory_usage(service) if is_running else None
+                    status[service['id']] = {
+                        'running': is_running,
+                        'memory_bytes': memory_bytes
+                    }
+                elif service['check_type'] == 'process':
+                    is_running = check_process_running(service['service_name'])
+                    memory_bytes = get_service_memory_usage(service) if is_running else None
+                    status[service['id']] = {
+                        'running': is_running,
+                        'memory_bytes': memory_bytes
+                    }
+
+            # Add internet status from its own cache
+            with internet_status_lock:
+                status['internet'] = internet_status_cache['connected']
+
+            with service_status_lock:
+                service_status_cache.update(status)
+            socketio.emit('service_status', status, namespace='/')
+        except Exception as e:
+            print(f"Error in service status broadcaster: {e}")
+        # Read interval from config each iteration (allows runtime changes)
+        with server_config_lock:
+            interval = server_config['service_status_interval']
+        time.sleep(interval)
+
+def internet_connectivity_monitor():
+    """Background thread that checks internet connectivity independently."""
+    print("Internet connectivity monitor started")
+
+    while True:
+        try:
+            connected = check_internet_connectivity()
+            with internet_status_lock:
+                internet_status_cache['connected'] = connected
+        except Exception as e:
+            print(f"Error in internet connectivity monitor: {e}")
+        # Read interval from config each iteration (allows runtime changes)
+        with server_config_lock:
+            interval = server_config['internet_check_interval']
+        time.sleep(interval)
+
 def get_uname() -> str:
     global uname_cache
     if not uname_cache:
@@ -271,15 +395,49 @@ def get_uname() -> str:
         ).stdout.strip()
     return uname_cache
 
+def get_top_cpu_processes(n=5):
+    """Get top N processes by CPU usage using ps command (non-blocking).
+
+    Uses ps which gives a coherent snapshot of CPU usage across all processes.
+    """
+    try:
+        # ps aux sorted by CPU, get top n+1 (skip header)
+        result = subprocess.run(
+            ['ps', '-eo', 'pid,pcpu,comm', '--sort=-pcpu', '--no-headers'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode != 0:
+            return []
+
+        processes = []
+        for line in result.stdout.strip().split('\n')[:n]:
+            if not line.strip():
+                continue
+            parts = line.split(None, 2)  # Split into 3 parts max
+            if len(parts) >= 3:
+                pid, cpu, name = parts
+                processes.append({
+                    'name': name,
+                    'pid': int(pid),
+                    'cpu_percent': round(float(cpu), 1)
+                })
+        return processes
+    except Exception as e:
+        print(f"Error getting top CPU processes: {e}")
+        return []
+
 def get_system_stats():
     """Get CPU, RAM, disk, and network statistics."""
     stats = {}
 
     stats['uname'] = get_uname()
 
-    # CPU Usage - overall and per-core
-    stats['cpu_percent'] = psutil.cpu_percent(interval=1)
-    stats['cpu_per_core'] = psutil.cpu_percent(interval=0, percpu=True)
+    # CPU Usage - overall and per-core (non-blocking)
+    # interval=None returns CPU usage since last call (or since module import on first call)
+    stats['cpu_percent'] = psutil.cpu_percent(interval=None)
+    stats['cpu_per_core'] = psutil.cpu_percent(interval=None, percpu=True)
 
     # CPU Temperature (convert C to F)
     try:
@@ -360,7 +518,10 @@ def get_system_stats():
     except Exception as e:
         stats['uptime'] = 'Unknown'
         print(f"Error reading uptime: {e}")
-    
+
+    # Get top CPU processes
+    stats['top_cpu_processes'] = get_top_cpu_processes(5)
+
     return stats
 
 def control_service(service_name, action):
@@ -450,35 +611,63 @@ def get_services():
 
 @app.route('/api/status')
 def get_status():
-    """Get status of all services and connectivity."""
-    status = {}
-
-    # Dynamically check all configured services
-    for service in get_all_services():
-        if service['check_type'] == 'systemd':
-            is_running = check_service_status(service['service_name'])
-            memory_bytes = get_service_memory_usage(service) if is_running else None
-            status[service['id']] = {
-                'running': is_running,
-                'memory_bytes': memory_bytes
-            }
-        elif service['check_type'] == 'process':
-            is_running = check_process_running(service['service_name'])
-            memory_bytes = get_service_memory_usage(service) if is_running else None
-            status[service['id']] = {
-                'running': is_running,
-                'memory_bytes': memory_bytes
-            }
-
-    # Always include internet connectivity
-    status['internet'] = check_internet_connectivity()
-
-    return jsonify(status)
+    """Get status of all services and connectivity (returns cached data)."""
+    with service_status_lock:
+        return jsonify(service_status_cache.copy())
 
 @app.route('/api/system')
 def get_system():
-    """Get system statistics."""
-    return jsonify(get_system_stats())
+    """Get system statistics (returns cached data)."""
+    with system_stats_lock:
+        return jsonify(system_stats_cache.copy())
+
+@app.route('/api/server_config', methods=['GET'])
+def get_server_config():
+    """Get current server configuration."""
+    with server_config_lock:
+        return jsonify(server_config.copy())
+
+@app.route('/api/server_config', methods=['POST'])
+def set_server_config():
+    """Update server configuration."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    updated = {}
+    with server_config_lock:
+        # Validate and update system_stats_interval
+        if 'system_stats_interval' in data:
+            val = data['system_stats_interval']
+            if isinstance(val, (int, float)) and 0.1 <= val <= 60:
+                server_config['system_stats_interval'] = float(val)
+                updated['system_stats_interval'] = float(val)
+            else:
+                return jsonify({'success': False, 'error': 'system_stats_interval must be between 0.1 and 60 seconds'}), 400
+
+        # Validate and update service_status_interval
+        if 'service_status_interval' in data:
+            val = data['service_status_interval']
+            if isinstance(val, (int, float)) and 1 <= val <= 300:
+                server_config['service_status_interval'] = float(val)
+                updated['service_status_interval'] = float(val)
+            else:
+                return jsonify({'success': False, 'error': 'service_status_interval must be between 1 and 300 seconds'}), 400
+
+        # Validate and update internet_check_interval
+        if 'internet_check_interval' in data:
+            val = data['internet_check_interval']
+            if isinstance(val, (int, float)) and 1 <= val <= 300:
+                server_config['internet_check_interval'] = float(val)
+                updated['internet_check_interval'] = float(val)
+            else:
+                return jsonify({'success': False, 'error': 'internet_check_interval must be between 1 and 300 seconds'}), 400
+
+        # Persist to file if any changes were made
+        if updated:
+            save_server_config(server_config)
+
+    return jsonify({'success': True, 'updated': updated})
 
 @app.route('/api/automations')
 def get_automations():
@@ -886,6 +1075,21 @@ def handle_request_state(data):
 # This daemon thread runs in the background and updates network stats cache
 network_monitor_thread = threading.Thread(target=network_speed_monitor, daemon=True)
 network_monitor_thread.start()
+
+# Start the system stats broadcaster thread
+# This daemon thread collects system stats and pushes them to all connected clients
+system_stats_thread = threading.Thread(target=system_stats_broadcaster, daemon=True)
+system_stats_thread.start()
+
+# Start the service status broadcaster thread
+# This daemon thread checks service status and pushes updates to all connected clients
+service_status_thread = threading.Thread(target=service_status_broadcaster, daemon=True)
+service_status_thread.start()
+
+# Start the internet connectivity monitor thread
+# This runs separately to avoid blocking other status checks when internet is slow/down
+internet_monitor_thread = threading.Thread(target=internet_connectivity_monitor, daemon=True)
+internet_monitor_thread.start()
 
 # Start the timeseries data collector thread
 from timeseries_collector import start_collector

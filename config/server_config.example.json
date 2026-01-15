@@ -1,0 +1,5 @@
+{
+    "system_stats_interval": 2.0,
+    "service_status_interval": 5.0,
+    "internet_check_interval": 5.0
+}

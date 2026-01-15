@@ -48,9 +48,6 @@ const draw = () => {
 // Matrix animation interval - will be set in init()
 let matrixInterval = null;
 
-// Interval IDs for status updates
-let statusUpdateInterval = null;
-let systemStatsUpdateInterval = null;
 
 window.addEventListener('resize', () => {
     initMatrix();
@@ -236,95 +233,130 @@ function createServiceGroup(groupName, services) {
     return group;
 }
 
-async function updateStatus() {
+// Handle service status update (from WebSocket or initial fetch)
+function handleServiceStatusUpdate(status) {
+    // Dynamically update all configured services
+    servicesConfig.forEach(service => {
+        if (status.hasOwnProperty(service.id)) {
+            updateServiceUI(service.id, status[service.id]);
+        }
+    });
+
+    updateInternetUI(status.internet);
+}
+
+// Fetch initial status (used on page load before WebSocket is ready)
+async function fetchInitialStatus() {
     try {
         const response = await fetch('/api/status');
         const status = await response.json();
-
-        // Dynamically update all configured services
-        servicesConfig.forEach(service => {
-            if (status.hasOwnProperty(service.id)) {
-                updateServiceUI(service.id, status[service.id]);
-            }
-        });
-
-        updateInternetUI(status.internet);
+        handleServiceStatusUpdate(status);
     } catch (error) {
-        console.error('Error fetching status:', error);
+        console.error('Error fetching initial status:', error);
     }
 }
 
-async function updateSystemStats() {
-    try {
-        const response = await fetch('/api/system');
-        const stats = await response.json();
+// Handle system stats update (from WebSocket or initial fetch)
+function handleSystemStatsUpdate(stats) {
+    // Guard against empty stats (cache not yet populated)
+    if (!stats || Object.keys(stats).length === 0) {
+        return;
+    }
 
-        // Update page title with hostname
+    // Update page title with hostname
+    if (stats.hostname) {
         document.getElementById('hostname-title').textContent = stats.hostname;
+    }
 
-        // Update service links dynamically (e.g., qBittorrent Web UI)
-        servicesConfig.forEach(service => {
-            if (service.button_type === 'link' && service.link_url) {
-                const linkElement = document.getElementById(`${service.id}-link`);
-                if (linkElement) {
-                    linkElement.href = service.link_url.replace('{hostname}', stats.hostname);
-                }
+    // Update service links dynamically (e.g., qBittorrent Web UI)
+    servicesConfig.forEach(service => {
+        if (service.button_type === 'link' && service.link_url) {
+            const linkElement = document.getElementById(`${service.id}-link`);
+            if (linkElement && stats.hostname) {
+                linkElement.href = service.link_url.replace('{hostname}', stats.hostname);
             }
-        });
+        }
+    });
 
-        // Update CPU
+    // Update CPU
+    if (stats.cpu_percent !== undefined) {
         document.getElementById('cpu-value').textContent = stats.cpu_percent + '%';
+    }
 
-        // Update per-core CPU bars
-        if (stats.cpu_per_core) {
-            updateCpuCores(stats.cpu_per_core);
-        }
+    // Update per-core CPU bars
+    if (stats.cpu_per_core) {
+        updateCpuCores(stats.cpu_per_core);
+    }
 
-        // Update CPU temperature
-        if (stats.cpu_temp !== null && stats.cpu_temp !== undefined) {
-            document.getElementById('cpu-temp').textContent = stats.cpu_temp + ' °F';
-        } else {
-            document.getElementById('cpu-temp').textContent = 'N/A';
-        }
+    // Update CPU temperature
+    if (stats.cpu_temp !== null && stats.cpu_temp !== undefined) {
+        document.getElementById('cpu-temp').textContent = stats.cpu_temp + ' °F';
+    } else {
+        document.getElementById('cpu-temp').textContent = 'N/A';
+    }
 
-        // Update GPU temperature
-        if (stats.gpu_temp !== null && stats.gpu_temp !== undefined) {
-            document.getElementById('gpu-temp').textContent = stats.gpu_temp + ' °F';
-        } else {
-            document.getElementById('gpu-temp').textContent = 'N/A';
-        }
+    // Update GPU temperature
+    if (stats.gpu_temp !== null && stats.gpu_temp !== undefined) {
+        document.getElementById('gpu-temp').textContent = stats.gpu_temp + ' °F';
+    } else {
+        document.getElementById('gpu-temp').textContent = 'N/A';
+    }
 
-        // Update RAM
+    // Update RAM
+    if (stats.ram_percent !== undefined) {
         document.getElementById('ram-value').textContent = stats.ram_percent + '%';
         document.getElementById('ram-detail').textContent =
             `${stats.ram_used_gb} / ${stats.ram_total_gb} GB`;
         updateProgressBar('ram-progress', stats.ram_percent);
+    }
 
-        // Update Disk
+    // Update Disk
+    if (stats.disk_percent !== undefined) {
         document.getElementById('disk-value').textContent = stats.disk_percent + '%';
         document.getElementById('disk-detail').textContent =
             `${stats.disk_free_gb} GB FREE / ${stats.disk_total_gb} GB TOTAL`;
         document.getElementById('disk-mount').textContent = `MOUNT: ${stats.disk_mount}`;
         updateProgressBar('disk-progress', stats.disk_percent);
+    }
 
-        // Update Network
+    // Update Network
+    if (stats.network_interface) {
         document.getElementById('network-interface').textContent =
             `INTERFACE: ${stats.network_interface}`;
         document.getElementById('upload-value').textContent = stats.upload_mbps + ' Mbps';
         document.getElementById('download-value').textContent = stats.download_mbps + ' Mbps';
+    }
 
-        // Update Network Status (hostname and IP)
+    // Update Network Status (hostname and IP)
+    if (stats.hostname) {
         document.getElementById('hostname-detail').textContent = `HOSTNAME: ${stats.hostname}`;
         document.getElementById('ip-detail').textContent = `IP ADDRESS: ${stats.ip_address}`;
+    }
 
-        // Update Uptime
+    // Update Uptime
+    if (stats.uptime) {
         document.getElementById('uptime-value').textContent = `UPTIME: ${stats.uptime}`;
+    }
 
-        // Update Uname
+    // Update Uname
+    if (stats.uname) {
         document.getElementById('uname-value').textContent = `KERNEL: ${stats.uname}`;
+    }
 
+    // Update Top CPU Processes
+    if (stats.top_cpu_processes) {
+        updateTopCpuProcesses(stats.top_cpu_processes);
+    }
+}
+
+// Fetch initial system stats (used on page load before WebSocket is ready)
+async function fetchInitialSystemStats() {
+    try {
+        const response = await fetch('/api/system');
+        const stats = await response.json();
+        handleSystemStatsUpdate(stats);
     } catch (error) {
-        console.error('Error fetching system stats:', error);
+        console.error('Error fetching initial system stats:', error);
     }
 }
 
@@ -711,6 +743,50 @@ function formatMemory(bytes) {
     }
 }
 
+function updateTopCpuProcesses(processes) {
+    const container = document.getElementById('top-cpu-processes');
+    if (!container) return;
+
+    // Clear container
+    container.innerHTML = '';
+
+    // If no processes or empty array, show placeholder
+    if (!processes || processes.length === 0) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'stat-detail';
+        placeholder.textContent = '--';
+        container.appendChild(placeholder);
+        return;
+    }
+
+    // Create a row for each process
+    processes.forEach(proc => {
+        const row = document.createElement('div');
+        row.className = 'stat-detail';
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.marginBottom = '3px';
+
+        // Truncate process name if too long (max 20 chars)
+        let displayName = proc.name;
+        if (displayName.length > 20) {
+            displayName = displayName.substring(0, 17) + '...';
+        }
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = displayName;
+        nameSpan.title = proc.name; // Full name on hover
+
+        const cpuSpan = document.createElement('span');
+        cpuSpan.textContent = proc.cpu_percent.toFixed(1) + '%';
+        cpuSpan.style.marginLeft = '10px';
+
+        row.appendChild(nameSpan);
+        row.appendChild(cpuSpan);
+        container.appendChild(row);
+    });
+}
+
 function updateServiceUI(service, statusData) {
     const indicator = document.getElementById(`${service}-indicator`);
     const statusText = document.getElementById(`${service}-status`);
@@ -768,7 +844,9 @@ async function toggleService(service) {
         const result = await response.json();
 
         if (result.success) {
-            setTimeout(updateStatus, 1000);
+            // Fetch updated status after a short delay for the service to start/stop
+            // (WebSocket will also push updates, but this provides quicker feedback)
+            setTimeout(fetchInitialStatus, 1000);
         } else {
             alert(`SYSTEM ERROR: Failed to ${action} ${service}\n${result.error}`);
         }
@@ -803,6 +881,16 @@ socket.on('connect_error', (error) => {
 socket.on('automation_update', (data) => {
     console.log('Received automation update:', data);
     updateAutomationUI(data.automation, data.state);
+});
+
+// Handle system stats pushed from server
+socket.on('system_stats', (stats) => {
+    handleSystemStatsUpdate(stats);
+});
+
+// Handle service status pushed from server
+socket.on('service_status', (status) => {
+    handleServiceStatusUpdate(status);
 });
 
 // Helper function to check if a scrollable element is at or near the bottom
@@ -1174,7 +1262,7 @@ function disableMatrixEffect() {
 }
 
 // Settings modal functions
-function openSettingsModal() {
+async function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
     const statusUpdateRate = document.getElementById('status-update-rate');
     const systemStatsUpdateRate = document.getElementById('system-stats-update-rate');
@@ -1186,9 +1274,21 @@ function openSettingsModal() {
     const foregroundColorText = document.getElementById('foreground-color-text');
     const automationOutputFontSize = document.getElementById('automation-output-font-size');
 
-    // Load saved settings or use defaults
-    statusUpdateRate.value = localStorage.getItem('statusUpdateRate') || 5000;
-    systemStatsUpdateRate.value = localStorage.getItem('systemStatsUpdateRate') || 2000;
+    // Fetch server config for update rates
+    try {
+        const response = await fetch('/api/server_config');
+        const serverConfig = await response.json();
+        // Server uses seconds, UI uses milliseconds
+        statusUpdateRate.value = Math.round(serverConfig.service_status_interval * 1000);
+        systemStatsUpdateRate.value = Math.round(serverConfig.system_stats_interval * 1000);
+    } catch (error) {
+        console.error('Error fetching server config:', error);
+        // Fallback to defaults if fetch fails
+        statusUpdateRate.value = 5000;
+        systemStatsUpdateRate.value = 2000;
+    }
+
+    // Load client-side settings from localStorage
     matrixEffectEnabled.checked = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
     matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
     automationOutputFontSize.value = localStorage.getItem('automationOutputFontSize') || 12;
@@ -1250,7 +1350,7 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').style.display = 'none';
 }
 
-function saveSettings() {
+async function saveSettings() {
     const statusUpdateRate = parseInt(document.getElementById('status-update-rate').value);
     const systemStatsUpdateRate = parseInt(document.getElementById('system-stats-update-rate').value);
     const matrixEffectEnabled = document.getElementById('matrix-effect-enabled').checked;
@@ -1260,19 +1360,19 @@ function saveSettings() {
     const groupColor = document.getElementById('group-color').value;
     const automationOutputFontSize = parseInt(document.getElementById('automation-output-font-size').value);
 
-    // Validate inputs
-    if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 60000) {
-        alert('ERROR: Status update rate must be between 1000 and 60000 ms');
+    // Validate inputs (UI uses milliseconds, server uses seconds)
+    if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 300000) {
+        alert('ERROR: Service status update rate must be between 1000 and 300000 ms');
         return;
     }
 
     if (isNaN(systemStatsUpdateRate) || systemStatsUpdateRate < 100 || systemStatsUpdateRate > 60000) {
-        alert('ERROR: System statistics update rate must be between 1000 and 60000 ms');
+        alert('ERROR: System statistics update rate must be between 100 and 60000 ms');
         return;
     }
 
     if (isNaN(matrixAnimationRate) || matrixAnimationRate < 10 || matrixAnimationRate > 1000) {
-        alert('ERROR: Matrix animation rate must be between 50 and 1000 ms');
+        alert('ERROR: Matrix animation rate must be between 10 and 1000 ms');
         return;
     }
 
@@ -1296,9 +1396,29 @@ function saveSettings() {
         return;
     }
 
-    // Save to localStorage
-    localStorage.setItem('statusUpdateRate', statusUpdateRate);
-    localStorage.setItem('systemStatsUpdateRate', systemStatsUpdateRate);
+    // POST update rates to server (convert ms to seconds)
+    try {
+        const response = await fetch('/api/server_config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                service_status_interval: statusUpdateRate / 1000,
+                system_stats_interval: systemStatsUpdateRate / 1000
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            alert(`ERROR: Failed to update server config: ${result.error}`);
+            return;
+        }
+    } catch (error) {
+        alert(`ERROR: Failed to update server config: ${error.message}`);
+        return;
+    }
+
+    // Save client-side settings to localStorage
     localStorage.setItem('matrixEffectEnabled', matrixEffectEnabled);
     localStorage.setItem('matrixAnimationRate', matrixAnimationRate);
     localStorage.setItem('backgroundColor', backgroundColor);
@@ -1318,18 +1438,6 @@ function saveSettings() {
     } else {
         disableMatrixEffect();
     }
-
-    // Apply status update rate immediately
-    if (statusUpdateInterval) {
-        clearInterval(statusUpdateInterval);
-    }
-    statusUpdateInterval = setInterval(updateStatus, statusUpdateRate);
-
-    // Apply system stats update rate immediately
-    if (systemStatsUpdateInterval) {
-        clearInterval(systemStatsUpdateInterval);
-    }
-    systemStatsUpdateInterval = setInterval(updateSystemStats, systemStatsUpdateRate);
 
     // Close modal
     closeSettingsModal();
@@ -1352,10 +1460,7 @@ async function init() {
     await loadAutomations();
 
     // Load settings from localStorage or use defaults
-    const statusUpdateRate = parseInt(localStorage.getItem('statusUpdateRate')) || 3000;
-    const systemStatsUpdateRate = parseInt(localStorage.getItem('systemStatsUpdateRate')) || 1000;
     const matrixEffectEnabled = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
-    const matrixAnimationRate = parseInt(localStorage.getItem('matrixAnimationRate')) || 120;
 
     // Start or stop matrix animation based on user preference
     if (matrixEffectEnabled) {
@@ -1364,11 +1469,10 @@ async function init() {
         disableMatrixEffect();
     }
 
-    // Start status updates with configured rate
-    updateStatus();
-    updateSystemStats();
-    statusUpdateInterval = setInterval(updateStatus, statusUpdateRate);
-    systemStatsUpdateInterval = setInterval(updateSystemStats, systemStatsUpdateRate);
+    // Fetch initial data (will be updated via WebSocket after this)
+    // These calls return cached data from the server, so they're fast
+    fetchInitialStatus();
+    fetchInitialSystemStats();
 }
 
 // Run initialization when DOM is ready
