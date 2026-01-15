@@ -124,9 +124,9 @@ function updateClock() {
     document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', options);
 
     // Update analog clock hands
-    const secondsDegrees = ((now.getSeconds() / 60) * 360) + 90;
-    const minutesDegrees = ((now.getMinutes() / 60) * 360) + ((now.getSeconds() / 60) * 6) + 90;
-    const hoursDegrees = ((now.getHours() % 12 / 12) * 360) + ((now.getMinutes() / 60) * 30) + 90;
+    const secondsDegrees = (now.getSeconds() / 60) * 360;
+    const minutesDegrees = (now.getMinutes() / 60) * 360 + (now.getSeconds() / 60) * 6;
+    const hoursDegrees = ((now.getHours() % 12) / 12) * 360 + (now.getMinutes() / 60) * 30;
 
     document.getElementById('second-hand').style.transform = `rotate(${secondsDegrees}deg)`;
     document.getElementById('minute-hand').style.transform = `rotate(${minutesDegrees}deg)`;
