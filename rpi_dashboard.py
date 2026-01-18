@@ -868,12 +868,94 @@ def get_automation_status(automation_name):
             **state
         })
 
+def lttb_downsample(data, threshold):
+    """
+    Downsample data using Largest Triangle Three Buckets (LTTB) algorithm.
+
+    This algorithm preserves the visual shape of the data by selecting points that
+    form the largest triangles, capturing peaks, valleys, and trends effectively.
+
+    Args:
+        data: List of tuples (timestamp, value)
+        threshold: Target number of datapoints in output
+
+    Returns:
+        Downsampled list of tuples (timestamp, value)
+    """
+    if len(data) <= threshold or threshold < 3:
+        return data
+
+    # Always include first and last points
+    sampled = [data[0]]
+
+    # Bucket size
+    bucket_size = (len(data) - 2) / (threshold - 2)
+
+    for i in range(threshold - 2):
+        # Calculate point average for next bucket
+        avg_range_start = int((i + 1) * bucket_size) + 1
+        avg_range_end = min(int((i + 2) * bucket_size) + 1, len(data))
+
+        avg_x = 0.0
+        avg_y = 0.0
+        avg_range_length = avg_range_end - avg_range_start
+
+        if avg_range_length > 0:
+            for j in range(avg_range_start, avg_range_end):
+                avg_x += data[j][0]
+                avg_y += data[j][1] if data[j][1] is not None else 0
+            avg_x /= avg_range_length
+            avg_y /= avg_range_length
+        else:
+            avg_x = data[-1][0]
+            avg_y = data[-1][1] if data[-1][1] is not None else 0
+
+        # Get range for this bucket
+        range_offs = int(i * bucket_size) + 1
+        range_to = int((i + 1) * bucket_size) + 1
+
+        # Point a (previous selected point)
+        point_a_x = sampled[-1][0]
+        point_a_y = sampled[-1][1] if sampled[-1][1] is not None else 0
+
+        max_area = -1.0
+        max_area_point = range_offs
+
+        # Find point forming largest triangle
+        for j in range(range_offs, min(range_to, len(data))):
+            point_val = data[j][1] if data[j][1] is not None else 0
+            area = abs(
+                (point_a_x - avg_x) * (point_val - point_a_y) -
+                (point_a_x - data[j][0]) * (avg_y - point_a_y)
+            ) * 0.5
+
+            if area > max_area:
+                max_area = area
+                max_area_point = j
+
+        sampled.append(data[max_area_point])
+
+    sampled.append(data[-1])
+    return sampled
+
+
 @app.route('/api/stocks/daily-change', methods=['POST'])
 def get_stock_daily_change():
-    """Get daily percentage changes for stock symbols over the last 30 trading days."""
+    """Get cumulative percentage return for stock symbols from period start.
+
+    This shows how each stock has performed relative to the start of the period,
+    making it easy to compare stocks with different share prices.
+
+    Request body:
+        symbols: list of stock symbols
+        days: number of days of data to fetch (0 = all available, default 30)
+        max_points: maximum data points per symbol (uses LTTB downsampling, default 10000)
+    """
     try:
         data = request.get_json()
         symbols = data.get('symbols', [])
+        requested_days = data.get('days', 30)
+        max_points = data.get('max_points', 10000)
 
         if not symbols:
             return jsonify({'success': False, 'error': 'No symbols provided'}), 400
@@ -883,47 +965,108 @@ def get_stock_daily_change():
         for symbol in symbols:
             try:
                 # Use Yahoo Finance API to get stock data
-                # Get last 60 days to ensure we have at least 30 trading days
+                # Choose interval based on date range for best resolution
                 end_date = datetime.now()
-                start_date = end_date - timedelta(days=60)
+
+                if requested_days == 0:
+                    # All time - use weekly interval
+                    start_date = end_date - timedelta(days=365 * 50)
+                    interval = '1wk'
+                elif requested_days <= 7:
+                    # 1 week or less - use 5 minute intervals for high resolution
+                    start_date = end_date - timedelta(days=requested_days + 1)
+                    interval = '5m'
+                elif requested_days <= 60:
+                    # Up to 2 months - use hourly intervals
+                    start_date = end_date - timedelta(days=requested_days + 1)
+                    interval = '1h'
+                elif requested_days <= 365 * 2:
+                    # Up to 2 years - use daily intervals
+                    start_date = end_date - timedelta(days=requested_days + 30)
+                    interval = '1d'
+                else:
+                    # More than 2 years - use weekly intervals
+                    start_date = end_date - timedelta(days=requested_days + 30)
+                    interval = '1wk'
 
                 period1 = int(start_date.timestamp())
                 period2 = int(end_date.timestamp())
 
-                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={period1}&period2={period2}&interval=1d"
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={period1}&period2={period2}&interval={interval}"
 
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=15) as response:
                     result = json.loads(response.read().decode())
 
                 if 'chart' in result and 'result' in result['chart'] and result['chart']['result']:
                     chart_data = result['chart']['result'][0]
-                    timestamps = chart_data['timestamp']
+                    timestamps = chart_data.get('timestamp', [])
                     quotes = chart_data['indicators']['quote'][0]
-                    close_prices = quotes['close']
+                    close_prices = quotes.get('close', [])
 
-                    # Calculate daily percentage changes
-                    dates = []
-                    percent_changes = []
+                    if not timestamps or not close_prices:
+                        stock_data[symbol] = {
+                            'dates': [],
+                            'cumulative_return': [],
+                            'error': 'No data available'
+                        }
+                        continue
 
-                    for i in range(1, len(close_prices)):
-                        if close_prices[i] is not None and close_prices[i-1] is not None:
-                            prev_close = close_prices[i-1]
-                            curr_close = close_prices[i]
-                            pct_change = ((curr_close - prev_close) / prev_close) * 100
+                    # Filter to requested time range first
+                    if requested_days > 0:
+                        cutoff_time = end_date.timestamp() - (requested_days * 24 * 60 * 60)
+                        filtered_data = [
+                            (t, p) for t, p in zip(timestamps, close_prices)
+                            if t >= cutoff_time and p is not None
+                        ]
+                    else:
+                        filtered_data = [
+                            (t, p) for t, p in zip(timestamps, close_prices)
+                            if p is not None
+                        ]
 
-                            dates.append(datetime.fromtimestamp(timestamps[i]).strftime('%Y-%m-%d'))
-                            percent_changes.append(round(pct_change, 2))
+                    if not filtered_data:
+                        stock_data[symbol] = {
+                            'dates': [],
+                            'cumulative_return': [],
+                            'error': 'No data in range'
+                        }
+                        continue
 
-                    # Keep only last 30 data points
+                    # Calculate cumulative % return from period start
+                    # All values are relative to the first price in the period
+                    base_price = filtered_data[0][1]
+                    raw_data = []  # List of (timestamp, cumulative_return)
+
+                    for t, price in filtered_data:
+                        cumulative_return = ((price - base_price) / base_price) * 100
+                        raw_data.append((t, round(cumulative_return, 4)))
+
+                    # Apply LTTB downsampling if needed
+                    if len(raw_data) > max_points:
+                        raw_data = lttb_downsample(raw_data, max_points)
+
+                    # Format dates based on interval granularity
+                    if interval in ['5m', '15m', '30m', '1h']:
+                        date_format = '%Y-%m-%d %H:%M'
+                    else:
+                        date_format = '%Y-%m-%d'
+
+                    dates = [datetime.fromtimestamp(t).strftime(date_format) for t, _ in raw_data]
+                    cumulative_returns = [v for _, v in raw_data]
+
                     stock_data[symbol] = {
-                        'dates': dates[-30:],
-                        'percent_changes': percent_changes[-30:]
+                        'dates': dates,
+                        'cumulative_return': cumulative_returns,
+                        'interval': interval,
+                        'raw_points': len(timestamps),
+                        'displayed_points': len(dates),
+                        'base_price': round(base_price, 2)
                     }
                 else:
                     stock_data[symbol] = {
                         'dates': [],
-                        'percent_changes': [],
+                        'cumulative_return': [],
                         'error': 'No data available'
                     }
 
@@ -931,7 +1074,7 @@ def get_stock_daily_change():
                 print(f"Error fetching data for {symbol}: {e}")
                 stock_data[symbol] = {
                     'dates': [],
-                    'percent_changes': [],
+                    'cumulative_return': [],
                     'error': str(e)
                 }
 

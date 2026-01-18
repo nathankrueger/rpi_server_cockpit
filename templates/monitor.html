@@ -42,7 +42,20 @@
 
             <!-- Stock Charts Section -->
             <div class="monitor-card stock-card">
-                <div class="card-title">STOCK PERFORMANCE (DAILY % CHANGE)</div>
+                <div class="card-title">
+                    STOCK PERFORMANCE (% RETURN)
+                    <div class="card-title-controls">
+                        <select id="stock-date-range-inline" class="inline-select" onchange="onDateRangeChange(this.value)" title="Date Range">
+                            <option value="1d">1D</option>
+                            <option value="1w">1W</option>
+                            <option value="1m">1M</option>
+                            <option value="1y">1Y</option>
+                            <option value="5y">5Y</option>
+                            <option value="10y">10Y</option>
+                            <option value="all">ALL</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="stock-chart" class="chart-container"></div>
             </div>
 
@@ -77,20 +90,37 @@
         </div>
     </div>
 
-    <!-- Weather Settings Modal -->
-    <div id="weatherModal" class="modal">
+    <!-- Monitor Settings Modal -->
+    <div id="settingsModal" class="modal">
         <div class="modal-content">
-            <span class="modal-close" onclick="closeWeatherSettings()">&times;</span>
-            <div class="modal-header">WEATHER SETTINGS</div>
+            <span class="modal-close" onclick="closeSettingsModal()">&times;</span>
+            <div class="modal-header">MONITOR SETTINGS</div>
             <div class="settings-container">
+                <!-- Weather Settings Section -->
+                <div class="settings-section-title">WEATHER</div>
                 <div class="setting-item">
-                    <label for="weather-address">ADDRESS OR LOCATION</label>
+                    <label for="weather-address">LOCATION</label>
                     <input type="text" id="weather-address" placeholder="Enter address or city, state">
                     <div class="setting-hint">Examples: "123 Main St, City, State" or "San Francisco, CA"</div>
                 </div>
+
+                <!-- Stock Settings Section -->
+                <div class="settings-section-title">STOCKS</div>
+                <div class="setting-item">
+                    <label for="stock-symbols">SYMBOLS TO TRACK</label>
+                    <textarea id="stock-symbols" rows="5" placeholder="Enter stock symbols, one per line&#10;Format: SYMBOL:Display Name&#10;Example: AAPL:Apple Inc"></textarea>
+                    <div class="setting-hint">One symbol per line. Use SYMBOL:Name format for custom display names.<br>Index symbols: ^IXIC (NASDAQ), ^DJI (Dow Jones), ^GSPC (S&P 500)</div>
+                </div>
+                <div class="setting-item">
+                    <label for="stock-max-points">MAX DATA POINTS</label>
+                    <input type="number" id="stock-max-points" min="100" max="100000" step="100" value="10000">
+                    <div class="setting-hint">Maximum data points per symbol. Uses LTTB downsampling to preserve visual fidelity.</div>
+                </div>
+
                 <div class="settings-buttons">
-                    <button class="details-btn" onclick="saveWeatherSettings()">SAVE</button>
-                    <button class="details-btn cancel" onclick="closeWeatherSettings()">CANCEL</button>
+                    <button class="details-btn" onclick="saveSettings()">SAVE</button>
+                    <button class="details-btn secondary" onclick="resetSettings()">RESET</button>
+                    <button class="details-btn cancel" onclick="closeSettingsModal()">CANCEL</button>
                 </div>
             </div>
         </div>
@@ -102,7 +132,7 @@
             <span class="toggle-icon">☰</span>
         </button>
         <button class="nav-btn nav-refresh" onclick="refreshPage()" title="Refresh Page">⟳</button>
-        <button class="nav-btn nav-settings" onclick="openWeatherSettings()" title="Weather Settings">⚙</button>
+        <button class="nav-btn nav-settings" onclick="openSettingsModal()" title="Settings">⚙</button>
         <button class="nav-btn nav-charts" onclick="navigateTo('/charts')" title="View Charts">📊</button>
         <button class="nav-btn nav-home" onclick="navigateTo('/')" title="Back to Dashboard">🏠</button>
     </div>

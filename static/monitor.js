@@ -4,15 +4,56 @@
  * Handles stock charts, weather data, clock, and status updates
  */
 
-// Stock symbols to track
-const STOCK_SYMBOLS = ['AMD', 'INTC', '^IXIC', '^DJI', '^GSPC']; // NASDAQ, DOW JONES, S&P 500
-const STOCK_NAMES = {
+// Default stock symbols
+const DEFAULT_STOCK_SYMBOLS = ['AMD', 'INTC', '^IXIC', '^DJI', '^GSPC'];
+const DEFAULT_STOCK_NAMES = {
     'AMD': 'AMD',
-    'INTC': 'Intel',
+    'INTC': 'INTC',
     '^IXIC': 'NASDAQ',
     '^DJI': 'Dow Jones',
     '^GSPC': 'S&P 500'
 };
+
+// Date range options (in days, 0 = all time)
+const DATE_RANGE_OPTIONS = {
+    '1w': { label: '1 Week', days: 7 },
+    '1m': { label: '1 Month', days: 30 },
+    '1y': { label: '1 Year', days: 365 },
+    '5y': { label: '5 Years', days: 1825 },
+    '10y': { label: '10 Years', days: 3650 },
+    'all': { label: 'All Time', days: 0 }
+};
+
+// Default max data points for LTTB downsampling
+const DEFAULT_MAX_DATA_POINTS = 10000;
+
+// Load stock settings from localStorage
+function loadStockSettings() {
+    const savedSymbols = localStorage.getItem('stockSymbols');
+    const savedNames = localStorage.getItem('stockNames');
+    const savedRange = localStorage.getItem('stockDateRange');
+    const savedMaxPoints = localStorage.getItem('stockMaxDataPoints');
+
+    return {
+        symbols: savedSymbols ? JSON.parse(savedSymbols) : DEFAULT_STOCK_SYMBOLS,
+        names: savedNames ? JSON.parse(savedNames) : DEFAULT_STOCK_NAMES,
+        dateRange: savedRange || '1m',
+        maxDataPoints: savedMaxPoints ? parseInt(savedMaxPoints, 10) : DEFAULT_MAX_DATA_POINTS
+    };
+}
+
+// Save stock settings to localStorage
+function saveStockSettings(symbols, names, dateRange, maxDataPoints) {
+    localStorage.setItem('stockSymbols', JSON.stringify(symbols));
+    localStorage.setItem('stockNames', JSON.stringify(names));
+    localStorage.setItem('stockDateRange', dateRange);
+    if (maxDataPoints !== undefined) {
+        localStorage.setItem('stockMaxDataPoints', maxDataPoints.toString());
+    }
+}
+
+// Current stock settings
+let stockSettings = loadStockSettings();
 
 // Update intervals (in milliseconds)
 const STOCK_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -31,6 +72,9 @@ async function initMonitor() {
 
     // Apply saved theme colors
     applyThemeColors();
+
+    // Initialize inline date range selector
+    initInlineDateRange();
 
     // Start clock
     updateClock();
@@ -52,6 +96,25 @@ async function initMonitor() {
     setInterval(updateStatus, STATUS_UPDATE_INTERVAL);
 
     console.log('Monitor page initialized');
+}
+
+/**
+ * Initialize the inline date range selector with saved value
+ */
+function initInlineDateRange() {
+    const inlineSelect = document.getElementById('stock-date-range-inline');
+    if (inlineSelect) {
+        inlineSelect.value = stockSettings.dateRange;
+    }
+}
+
+/**
+ * Handle inline date range change
+ */
+function onDateRangeChange(value) {
+    stockSettings.dateRange = value;
+    saveStockSettings(stockSettings.symbols, stockSettings.names, value, stockSettings.maxDataPoints);
+    updateStockChart();
 }
 
 /**
@@ -140,13 +203,21 @@ async function updateStockChart() {
     console.log('Updating stock chart...');
 
     try {
+        // Get current settings
+        const { symbols, names, dateRange, maxDataPoints } = stockSettings;
+        const rangeDays = DATE_RANGE_OPTIONS[dateRange]?.days || 30;
+
         // Fetch stock data from backend
         const response = await fetch('/api/stocks/daily-change', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ symbols: STOCK_SYMBOLS })
+            body: JSON.stringify({
+                symbols: symbols,
+                days: rangeDays,
+                max_points: maxDataPoints
+            })
         });
 
         if (!response.ok) {
@@ -163,18 +234,18 @@ async function updateStockChart() {
         const traces = [];
         const stockData = data.data;
 
-        // Get date range (last 30 days of trading)
-        const dates = stockData[STOCK_SYMBOLS[0]]?.dates || [];
+        // Get date range
+        const dates = stockData[symbols[0]]?.dates || [];
 
         // Create a trace for each stock
-        STOCK_SYMBOLS.forEach(symbol => {
-            if (stockData[symbol]) {
+        symbols.forEach(symbol => {
+            if (stockData[symbol] && stockData[symbol].cumulative_return) {
                 traces.push({
                     x: stockData[symbol].dates,
-                    y: stockData[symbol].percent_changes,
+                    y: stockData[symbol].cumulative_return,
                     type: 'scatter',
                     mode: 'lines',
-                    name: STOCK_NAMES[symbol],
+                    name: names[symbol] || symbol,
                     line: { width: 2 }
                 });
             }
@@ -198,7 +269,7 @@ async function updateStockChart() {
                 showgrid: true
             },
             yaxis: {
-                title: 'Daily % Change',
+                title: 'Return %',
                 gridcolor: `rgba(${themeRgb}, 0.1)`,
                 showgrid: true,
                 zeroline: true,
@@ -343,41 +414,121 @@ async function updateStatus() {
 }
 
 /**
- * Open weather settings modal
+ * Open unified settings modal
  */
-function openWeatherSettings() {
-    document.getElementById('weather-address').value = weatherLocation;
-    document.getElementById('weatherModal').style.display = 'block';
+function openSettingsModal() {
+    // Populate weather location
+    document.getElementById('weather-address').value = weatherLocation || '';
+
+    // Populate stock symbols
+    const symbolsText = stockSettings.symbols.map(symbol => {
+        const name = stockSettings.names[symbol] || symbol;
+        return `${symbol}:${name}`;
+    }).join('\n');
+    document.getElementById('stock-symbols').value = symbolsText;
+
+    // Populate max data points
+    const maxPointsInput = document.getElementById('stock-max-points');
+    if (maxPointsInput) {
+        maxPointsInput.value = stockSettings.maxDataPoints;
+    }
+
+    document.getElementById('settingsModal').style.display = 'block';
 }
 
 /**
- * Close weather settings modal
+ * Close settings modal
  */
-function closeWeatherSettings() {
-    document.getElementById('weatherModal').style.display = 'none';
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
 }
 
 /**
- * Save weather settings
+ * Save all settings
  */
-function saveWeatherSettings() {
+function saveSettings() {
+    // Save weather settings
     const address = document.getElementById('weather-address').value.trim();
-
     if (address) {
         weatherLocation = address;
         localStorage.setItem('weatherLocation', address);
-        closeWeatherSettings();
-        updateWeather();
-    } else {
-        alert('Please enter a valid address or location');
     }
+
+    // Save stock settings
+    const symbolsText = document.getElementById('stock-symbols').value.trim();
+    const dateRange = stockSettings.dateRange; // Use current date range (controlled by inline selector)
+
+    if (symbolsText) {
+        // Parse symbols and names
+        const lines = symbolsText.split('\n').filter(line => line.trim());
+        const symbols = [];
+        const names = {};
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.includes(':')) {
+                const [symbol, name] = trimmed.split(':').map(s => s.trim());
+                if (symbol) {
+                    symbols.push(symbol.toUpperCase());
+                    names[symbol.toUpperCase()] = name || symbol.toUpperCase();
+                }
+            } else if (trimmed) {
+                const symbol = trimmed.toUpperCase();
+                symbols.push(symbol);
+                names[symbol] = symbol;
+            }
+        }
+
+        if (symbols.length > 0) {
+            // Get max data points from the input
+            const maxDataPointsInput = document.getElementById('stock-max-points');
+            const maxDataPoints = maxDataPointsInput ? parseInt(maxDataPointsInput.value, 10) || DEFAULT_MAX_DATA_POINTS : stockSettings.maxDataPoints;
+
+            // Save settings
+            stockSettings = { symbols, names, dateRange, maxDataPoints };
+            saveStockSettings(symbols, names, dateRange, maxDataPoints);
+        }
+    }
+
+    closeSettingsModal();
+
+    // Refresh data
+    updateWeather();
+    updateStockChart();
+}
+
+/**
+ * Reset all settings to defaults
+ */
+function resetSettings() {
+    // Reset stock settings
+    stockSettings = {
+        symbols: [...DEFAULT_STOCK_SYMBOLS],
+        names: { ...DEFAULT_STOCK_NAMES },
+        dateRange: '1m',
+        maxDataPoints: DEFAULT_MAX_DATA_POINTS
+    };
+    saveStockSettings(stockSettings.symbols, stockSettings.names, stockSettings.dateRange, stockSettings.maxDataPoints);
+
+    // Sync the inline date range selector
+    const inlineSelect = document.getElementById('stock-date-range-inline');
+    if (inlineSelect) {
+        inlineSelect.value = stockSettings.dateRange;
+    }
+
+    // Clear weather location (will prompt for new location)
+    weatherLocation = null;
+    localStorage.removeItem('weatherLocation');
+
+    // Re-populate the form with defaults
+    openSettingsModal();
 }
 
 // Close modals when clicking outside
 window.onclick = function(event) {
-    const weatherModal = document.getElementById('weatherModal');
-    if (event.target === weatherModal) {
-        closeWeatherSettings();
+    const settingsModal = document.getElementById('settingsModal');
+    if (event.target === settingsModal) {
+        closeSettingsModal();
     }
 };
 
