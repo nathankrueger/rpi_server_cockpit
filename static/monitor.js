@@ -234,19 +234,41 @@ async function updateStockChart() {
         const traces = [];
         const stockData = data.data;
 
-        // Get date range
-        const dates = stockData[symbols[0]]?.dates || [];
+        // Collect all date labels for X-axis tick labels
+        // Use the first symbol's labels as reference for tick positions
+        let tickvals = [];
+        let ticktext = [];
+        const firstSymbolData = stockData[symbols[0]];
+        if (firstSymbolData && firstSymbolData.date_labels) {
+            const labels = firstSymbolData.date_labels;
+            const numTicks = Math.min(10, labels.length); // Show ~10 tick labels
+            const step = Math.max(1, Math.floor(labels.length / numTicks));
+            for (let i = 0; i < labels.length; i += step) {
+                tickvals.push(i);
+                ticktext.push(labels[i]);
+            }
+            // Always include the last label
+            if (tickvals[tickvals.length - 1] !== labels.length - 1) {
+                tickvals.push(labels.length - 1);
+                ticktext.push(labels[labels.length - 1]);
+            }
+        }
 
         // Create a trace for each stock
         symbols.forEach(symbol => {
-            if (stockData[symbol] && stockData[symbol].cumulative_return) {
+            const symData = stockData[symbol];
+            if (symData && symData.cumulative_return) {
+                // Use indices for X if available, otherwise fall back to date_labels
+                const xData = symData.indices || symData.date_labels || [];
                 traces.push({
-                    x: stockData[symbol].dates,
-                    y: stockData[symbol].cumulative_return,
+                    x: xData,
+                    y: symData.cumulative_return,
+                    text: symData.date_labels,  // For hover text
                     type: 'scatter',
                     mode: 'lines',
                     name: names[symbol] || symbol,
-                    line: { width: 2 }
+                    line: { width: 2 },
+                    hovertemplate: '%{text}<br>%{fullData.name}: %{y:.2f}%<extra></extra>'
                 });
             }
         });
@@ -261,12 +283,16 @@ async function updateStockChart() {
             plot_bgcolor: 'rgba(0,0,0,0.3)',
             font: {
                 family: 'Courier New, monospace',
-                color: themeColor
+                color: themeColor,
+                size: 10
             },
             xaxis: {
-                title: 'Date',
                 gridcolor: `rgba(${themeRgb}, 0.1)`,
-                showgrid: true
+                showgrid: true,
+                tickvals: tickvals.length > 0 ? tickvals : undefined,
+                ticktext: ticktext.length > 0 ? ticktext : undefined,
+                tickangle: 0,
+                tickfont: { size: 9 }
             },
             yaxis: {
                 title: 'Return %',
@@ -278,19 +304,22 @@ async function updateStockChart() {
             },
             legend: {
                 orientation: 'h',
-                y: -0.2,
-                bgcolor: 'rgba(0, 0, 0, 0.9)',
+                y: -0.15,
+                x: 0.5,
+                xanchor: 'center',
+                bgcolor: 'rgba(40, 40, 50, 0.95)',
                 bordercolor: themeColor,
                 borderwidth: 1,
                 font: {
-                    color: themeColor
+                    color: themeColor,
+                    size: 10
                 }
             },
             margin: {
                 l: 50,
                 r: 20,
-                t: 20,
-                b: 80
+                t: 10,
+                b: 70
             },
             hovermode: 'x unified'
         };

@@ -1036,31 +1036,41 @@ def get_stock_daily_change():
                     # Calculate cumulative % return from period start
                     # All values are relative to the first price in the period
                     base_price = filtered_data[0][1]
-                    raw_data = []  # List of (timestamp, cumulative_return)
+                    raw_data = []  # List of (index, timestamp, cumulative_return)
 
-                    for t, price in filtered_data:
+                    for idx, (t, price) in enumerate(filtered_data):
                         cumulative_return = ((price - base_price) / base_price) * 100
-                        raw_data.append((t, round(cumulative_return, 4)))
+                        raw_data.append((idx, t, round(cumulative_return, 4)))
 
                     # Apply LTTB downsampling if needed
+                    # Use index as X for LTTB to preserve visual shape without time gaps
                     if len(raw_data) > max_points:
-                        raw_data = lttb_downsample(raw_data, max_points)
+                        lttb_input = [(idx, val) for idx, t, val in raw_data]
+                        downsampled_indices = set()
+                        downsampled = lttb_downsample(lttb_input, max_points)
+                        downsampled_indices = {int(idx) for idx, _ in downsampled}
+                        raw_data = [item for item in raw_data if item[0] in downsampled_indices]
 
-                    # Format dates based on interval granularity
+                    # Format dates for labels - compact format for axis ticks
                     if interval in ['5m', '15m', '30m', '1h']:
-                        date_format = '%Y-%m-%d %H:%M'
+                        date_format = '%m/%d'  # Just month/day for intraday
+                    elif interval == '1d':
+                        date_format = '%b %d'  # "Jan 15" for daily
                     else:
-                        date_format = '%Y-%m-%d'
+                        date_format = '%b %y'  # "Jan 25" for weekly/longer
 
-                    dates = [datetime.fromtimestamp(t).strftime(date_format) for t, _ in raw_data]
-                    cumulative_returns = [v for _, v in raw_data]
+                    # Create sequential indices and formatted date labels
+                    indices = list(range(len(raw_data)))
+                    date_labels = [datetime.fromtimestamp(t).strftime(date_format) for _, t, _ in raw_data]
+                    cumulative_returns = [val for _, _, val in raw_data]
 
                     stock_data[symbol] = {
-                        'dates': dates,
+                        'indices': indices,
+                        'date_labels': date_labels,
                         'cumulative_return': cumulative_returns,
                         'interval': interval,
                         'raw_points': len(timestamps),
-                        'displayed_points': len(dates),
+                        'displayed_points': len(raw_data),
                         'base_price': round(base_price, 2)
                     }
                 else:
