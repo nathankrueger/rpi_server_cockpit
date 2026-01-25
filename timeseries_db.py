@@ -78,6 +78,19 @@ class TimeseriesDB:
                     VALUES ('sampling_rate_ms', '5000')
                 ''')
 
+                # Table for external timeseries metadata (remote sensors, etc.)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS external_timeseries (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        units TEXT NOT NULL DEFAULT '',
+                        category TEXT NOT NULL DEFAULT 'External',
+                        tags TEXT NOT NULL DEFAULT '[]',
+                        description TEXT NOT NULL DEFAULT '',
+                        gateway TEXT DEFAULT NULL
+                    )
+                ''')
+
                 conn.commit()
             finally:
                 conn.close()
@@ -436,3 +449,124 @@ class TimeseriesDB:
             return os.path.getsize(self.db_path)
         except Exception:
             return 0
+
+    def register_external_timeseries(self, timeseries_id: str, name: str, units: str = '',
+                                      category: str = 'External', tags: List[str] = None,
+                                      description: str = '', gateway: str = None) -> bool:
+        """
+        Register an external timeseries (e.g., from a remote sensor).
+
+        Args:
+            timeseries_id: Unique ID for this timeseries
+            name: Display name
+            units: Unit of measurement (e.g., "°F", "%")
+            category: Category for grouping (default: "External")
+            tags: List of searchable tags
+            description: Human-readable description
+            gateway: Optional gateway ID that provides this timeseries
+
+        Returns:
+            True if newly registered, False if already existed (updated)
+        """
+        if tags is None:
+            tags = []
+
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                # Check if it already exists
+                cursor.execute('SELECT id FROM external_timeseries WHERE id = ?', (timeseries_id,))
+                existed = cursor.fetchone() is not None
+
+                cursor.execute('''
+                    INSERT OR REPLACE INTO external_timeseries (id, name, units, category, tags, description, gateway)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (timeseries_id, name, units, category, json.dumps(tags), description, gateway))
+                conn.commit()
+                return not existed
+            finally:
+                conn.close()
+
+    def get_external_timeseries(self, timeseries_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get metadata for an external timeseries.
+
+        Args:
+            timeseries_id: ID of the timeseries
+
+        Returns:
+            Dict with id, name, units, category, tags, description, gateway or None if not found
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, name, units, category, tags, description, gateway
+                    FROM external_timeseries WHERE id = ?
+                ''', (timeseries_id,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'units': row['units'],
+                        'category': row['category'],
+                        'tags': json.loads(row['tags']),
+                        'description': row['description'],
+                        'gateway': row['gateway']
+                    }
+                return None
+            finally:
+                conn.close()
+
+    def list_external_timeseries(self) -> List[Dict[str, Any]]:
+        """
+        List all registered external timeseries.
+
+        Returns:
+            List of dicts with id, name, units, category, tags, description, gateway
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, name, units, category, tags, description, gateway
+                    FROM external_timeseries ORDER BY name
+                ''')
+                return [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'units': row['units'],
+                        'category': row['category'],
+                        'tags': json.loads(row['tags']),
+                        'description': row['description'],
+                        'gateway': row['gateway']
+                    }
+                    for row in cursor.fetchall()
+                ]
+            finally:
+                conn.close()
+
+    def delete_external_timeseries(self, timeseries_id: str) -> bool:
+        """
+        Delete an external timeseries registration (does not delete its data).
+
+        Args:
+            timeseries_id: ID of the timeseries to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM external_timeseries WHERE id = ?', (timeseries_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()

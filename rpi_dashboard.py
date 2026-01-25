@@ -1248,13 +1248,6 @@ internet_monitor_thread.start()
 from timeseries_collector import start_collector
 start_collector()
 
-# Start the remote sensor client (connects to gateway(s) for remote sensor data)
-try:
-    from remote_sensor_client import start_remote_sensors
-    start_remote_sensors()
-except Exception as e:
-    print(f"Warning: Could not start remote sensor client: {e}")
-
 # Create a WSGI application wrapper for gunicorn
 # This allows gunicorn to serve the Flask-SocketIO app
 def create_app():

@@ -1,6 +1,0 @@
-{
-    "gateways": [
-        {"host": "pz2w1", "port": 5001}
-    ],
-    "reconnect_delay_sec": 5.0
-}
