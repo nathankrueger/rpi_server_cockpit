@@ -795,6 +795,16 @@ function toggleFullscreen(chartDiv) {
     }
 }
 
+// Exit fullscreen on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const fullscreenChart = document.querySelector('.chart-fullscreen');
+        if (fullscreenChart) {
+            toggleFullscreen(fullscreenChart);
+        }
+    }
+});
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCharts);
