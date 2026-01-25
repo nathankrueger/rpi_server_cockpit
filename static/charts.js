@@ -404,104 +404,143 @@ async function updateCharts(autoUpdate = false) {
     }
 }
 
+// Build traces and layout for a chart
+function buildChartConfig(units, seriesList) {
+    const traces = seriesList.map((ts, traceIndex) => {
+        const x = ts.data.map(point => new Date(point.timestamp * 1000));
+        const y = ts.data.map(point => point.value);
+
+        return {
+            x: x,
+            y: y,
+            mode: 'lines',
+            name: ts.name,
+            line: {
+                width: 2,
+                color: getColorForTrace(traceIndex),
+                shape: smoothingEnabled ? 'spline' : 'linear'
+            }
+        };
+    });
+
+    const showLegend = seriesList.length > 1;
+    const rightMargin = showLegend ? 150 : 20;
+
+    const layout = {
+        title: {
+            text: `${units} Timeseries`,
+            font: { color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41' }
+        },
+        paper_bgcolor: 'rgba(0, 0, 0, 0)',
+        plot_bgcolor: 'rgba(0, 0, 0, 0.5)',
+        xaxis: {
+            title: 'Time',
+            color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
+            gridcolor: 'rgba(0, 255, 65, 0.1)',
+            fixedrange: false
+        },
+        yaxis: {
+            title: units,
+            color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
+            gridcolor: 'rgba(0, 255, 65, 0.1)',
+            fixedrange: false
+        },
+        showlegend: showLegend,
+        legend: {
+            font: {
+                color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
+                size: 10
+            },
+            bgcolor: 'rgba(0, 0, 0, 0.7)',
+            bordercolor: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
+            borderwidth: 1,
+            x: 1.01,
+            y: 1,
+            xanchor: 'left',
+            yanchor: 'top',
+            orientation: 'v',
+            tracegroupgap: 2
+        },
+        margin: { l: 60, r: rightMargin, t: 50, b: 50 },
+        autosize: true
+    };
+
+    return { traces, layout };
+}
+
+// Track current chart units for detecting structure changes
+let currentChartUnits = [];
+
 // Render charts grouped by units
 function renderCharts(groupedByUnits) {
     const container = document.getElementById('charts-container');
-
-    // Save current scroll position
     const scrollY = window.scrollY;
+    const newUnits = Object.keys(groupedByUnits);
 
-    container.innerHTML = '';
+    // Check if we can do an in-place update (same chart structure)
+    const canUpdateInPlace = newUnits.length === currentChartUnits.length &&
+        newUnits.every((unit, i) => unit === currentChartUnits[i]);
 
-    Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
-        // Create chart container
-        const chartDiv = document.createElement('div');
-        chartDiv.className = 'chart-wrapper';
-        chartDiv.id = `chart-${index}`;
+    if (canUpdateInPlace && newUnits.length > 0) {
+        // Update charts in-place using Plotly.react (no blink)
+        Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
+            const chartDiv = document.getElementById(`chart-${index}`);
+            if (chartDiv) {
+                const { traces, layout } = buildChartConfig(units, seriesList);
+                Plotly.react(chartDiv.id, traces, layout);
+            }
+        });
+    } else {
+        // Structure changed - need full rebuild
+        // Save fullscreen state before clearing
+        const fullscreenChart = container.querySelector('.chart-fullscreen');
+        let fullscreenChartIndex = null;
+        if (fullscreenChart) {
+            const chartId = fullscreenChart.id;
+            fullscreenChartIndex = parseInt(chartId.replace('chart-', ''), 10);
+            document.body.classList.remove('chart-fullscreen-active');
+        }
 
-        container.appendChild(chartDiv);
+        container.innerHTML = '';
+        currentChartUnits = newUnits;
 
-        // Prepare traces for Plotly
-        const traces = seriesList.map((ts, traceIndex) => {
-            // Convert timestamps to Date objects
-            const x = ts.data.map(point => new Date(point.timestamp * 1000));
-            const y = ts.data.map(point => point.value);
+        Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
+            const chartDiv = document.createElement('div');
+            chartDiv.className = 'chart-wrapper';
+            chartDiv.id = `chart-${index}`;
+            container.appendChild(chartDiv);
 
-            return {
-                x: x,
-                y: y,
-                mode: 'lines',
-                name: ts.name,
-                line: {
-                    width: 2,
-                    color: getColorForTrace(traceIndex),
-                    shape: smoothingEnabled ? 'spline' : 'linear'
-                }
-            };
+            const { traces, layout } = buildChartConfig(units, seriesList);
+
+            Plotly.newPlot(chartDiv.id, traces, layout, {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            });
+
+            addFullscreenToggle(chartDiv);
         });
 
-        // Determine if we need to show the legend (only if multiple series)
-        const showLegend = seriesList.length > 1;
-        const rightMargin = showLegend ? 150 : 20;
+        // Show message if no data
+        if (newUnits.length === 0) {
+            container.innerHTML = '<div class="no-data-message">No data available for the selected time range.</div>';
+        }
 
-        // Chart layout
-        const layout = {
-            title: {
-                text: `${units} Timeseries`,
-                font: { color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41' }
-            },
-            paper_bgcolor: 'rgba(0, 0, 0, 0)',
-            plot_bgcolor: 'rgba(0, 0, 0, 0.5)',
-            xaxis: {
-                title: 'Time',
-                color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
-                gridcolor: 'rgba(0, 255, 65, 0.1)',
-                fixedrange: false
-            },
-            yaxis: {
-                title: units,
-                color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
-                gridcolor: 'rgba(0, 255, 65, 0.1)',
-                fixedrange: false
-            },
-            showlegend: showLegend,
-            legend: {
-                font: {
-                    color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
-                    size: 10
-                },
-                bgcolor: 'rgba(0, 0, 0, 0.7)',
-                bordercolor: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
-                borderwidth: 1,
-                x: 1.01,
-                y: 1,
-                xanchor: 'left',
-                yanchor: 'top',
-                orientation: 'v',
-                tracegroupgap: 2
-            },
-            margin: { l: 60, r: rightMargin, t: 50, b: 50 },
-            autosize: true
-        };
-
-        // Render chart
-        Plotly.newPlot(chartDiv.id, traces, layout, {
-            responsive: true,
-            displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-            displaylogo: false
-        });
-
-        // Add double-tap to fullscreen functionality
-        addFullscreenToggle(chartDiv);
-    });
-
-    // Show message if no data
-    if (Object.keys(groupedByUnits).length === 0) {
-        container.innerHTML = '<div class="no-data-message">No data available for the selected time range.</div>';
+        // Restore fullscreen state if applicable
+        if (fullscreenChartIndex !== null && fullscreenChartIndex < newUnits.length) {
+            const chartToRestore = document.getElementById(`chart-${fullscreenChartIndex}`);
+            if (chartToRestore) {
+                chartToRestore.classList.add('chart-fullscreen');
+                document.body.classList.add('chart-fullscreen-active');
+                requestAnimationFrame(() => {
+                    Plotly.Plots.resize(chartToRestore);
+                });
+            }
+        }
     }
 
-    // Restore scroll position after rendering
+    // Restore scroll position
     requestAnimationFrame(() => {
         window.scrollTo(0, scrollY);
     });
