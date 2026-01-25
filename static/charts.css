@@ -364,7 +364,7 @@
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 0 20px rgba(var(--foreground-color-rgb, var(--chart-green-rgb)), 0.3);
-    min-height: 400px;
+    height: 400px;
     overflow: hidden;
     position: relative;
 }

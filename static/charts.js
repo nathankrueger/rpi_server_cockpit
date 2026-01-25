@@ -483,6 +483,7 @@ function renderCharts(groupedByUnits) {
 
     if (canUpdateInPlace && newUnits.length > 0) {
         // Update charts in-place using Plotly.react (no blink)
+        // CSS constrains chart-wrapper height, so no dimension management needed
         Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
             const chartDiv = document.getElementById(`chart-${index}`);
             if (chartDiv) {
@@ -777,7 +778,7 @@ function toggleFullscreen(chartDiv) {
         chartDiv.classList.remove('chart-fullscreen');
         document.body.classList.remove('chart-fullscreen-active');
 
-        // Resize chart immediately and after animation
+        // Resize chart to fit container (CSS constrains to 400px height)
         Plotly.Plots.resize(chartDiv);
         setTimeout(() => {
             Plotly.Plots.resize(chartDiv);
@@ -787,7 +788,7 @@ function toggleFullscreen(chartDiv) {
         chartDiv.classList.add('chart-fullscreen');
         document.body.classList.add('chart-fullscreen-active');
 
-        // Resize chart immediately and after animation
+        // Resize chart to fill screen
         Plotly.Plots.resize(chartDiv);
         setTimeout(() => {
             Plotly.Plots.resize(chartDiv);
