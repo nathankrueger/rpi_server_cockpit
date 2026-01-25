@@ -778,7 +778,7 @@ function toggleFullscreen(chartDiv) {
         chartDiv.classList.remove('chart-fullscreen');
         document.body.classList.remove('chart-fullscreen-active');
 
-        // Resize chart to fit container (CSS constrains to 400px height)
+        // Resize chart to fit container (CSS constrains to a fixed height)
         Plotly.Plots.resize(chartDiv);
         setTimeout(() => {
             Plotly.Plots.resize(chartDiv);
