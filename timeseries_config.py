@@ -7,16 +7,38 @@ and a centralized registry of all configured timeseries.
 To add a new timeseries:
 1. Create a class that inherits from TimeseriesBase
 2. Implement getName(), getCurrentValue(), and getUnits()
-3. Add an instance to the TIMESERIES list
+3. That's it! The class is automatically discovered and registered.
+
+To exclude a timeseries from auto-discovery, set the class attribute:
+    _exclude_from_discovery = True
 """
 
 from abc import ABC, abstractmethod
 from typing import Any
+import inspect
 import psutil
+
+
+# Registry for dynamically discovered timeseries classes
+_timeseries_registry: list[type] = []
+
+
+def _register_timeseries(cls: type) -> None:
+    """Register a timeseries class for auto-instantiation."""
+    if cls not in _timeseries_registry:
+        _timeseries_registry.append(cls)
 
 
 class TimeseriesBase(ABC):
     """Base class for all timeseries data sources."""
+
+    _exclude_from_discovery: bool = False
+
+    def __init_subclass__(cls, **kwargs):
+        """Automatically register subclasses for discovery."""
+        super().__init_subclass__(**kwargs)
+        if not inspect.isabstract(cls) and not getattr(cls, '_exclude_from_discovery', False):
+            _register_timeseries(cls)
 
     @abstractmethod
     def getName(self) -> str:
@@ -235,14 +257,35 @@ class DiskUsageTimeseries(TimeseriesBase):
         return "Root filesystem disk usage percentage"
 
 
-# Centralized list of all timeseries - add or remove entries here
-TIMESERIES = [
-    CPUTemperatureTimeseries(),
-    GPUTemperatureTimeseries(),
-    CPUUsageTimeseries(),
-    RAMUsageTimeseries(),
-    DiskUsageTimeseries(),
-]
+def _discover_timeseries() -> list[TimeseriesBase]:
+    """
+    Dynamically instantiate all registered timeseries classes.
+
+    Returns:
+        list: Instances of all discovered TimeseriesBase subclasses
+    """
+    instances = []
+    for cls in _timeseries_registry:
+        try:
+            instances.append(cls())
+        except Exception as e:
+            # Skip classes that fail to instantiate
+            print(f"Warning: Failed to instantiate {cls.__name__}: {e}")
+    return instances
+
+
+# Dynamically populated list of all timeseries
+TIMESERIES = _discover_timeseries()
+
+# Auto-load sensor-based timeseries from data_log package
+# New sensors added to data_log are automatically discovered
+try:
+    from sensor_adapter import load_sensor_timeseries
+    _sensor_timeseries = load_sensor_timeseries()
+    TIMESERIES.extend(_sensor_timeseries)
+except ImportError:
+    # sensor_adapter or data_log not available - continue with built-in timeseries only
+    pass
 
 # Create a dictionary for quick lookups by ID
 TIMESERIES_MAP = {ts.getId(): ts for ts in TIMESERIES}
