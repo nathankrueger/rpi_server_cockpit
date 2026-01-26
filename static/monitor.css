@@ -131,8 +131,8 @@
 
 /* Analog Clock */
 #analog-clock {
-    width: 150px;
-    height: 150px;
+    width: 160px;
+    height: 160px;
 }
 
 .clock-face {
@@ -140,12 +140,52 @@
     height: 100%;
 }
 
-.clock-circle {
+/* Chronograph bezel */
+.clock-bezel-outer {
     fill: none;
+    stroke: var(--theme-primary);
+    stroke-width: 1;
+    opacity: 0.4;
+}
+
+.clock-circle {
+    fill: rgba(0, 0, 0, 0.3);
     stroke: var(--theme-primary);
     stroke-width: 2;
 }
 
+.clock-bezel-inner {
+    fill: none;
+    stroke: var(--theme-primary);
+    stroke-width: 0.5;
+    opacity: 0.3;
+}
+
+/* Tick marks */
+.clock-ticks line {
+    transform-origin: 100px 100px;
+}
+
+.tick-minor {
+    stroke: var(--theme-primary);
+    stroke-width: 1;
+    opacity: 0.5;
+}
+
+.tick-major {
+    stroke: var(--theme-primary);
+    stroke-width: 2;
+    opacity: 0.85;
+}
+
+.tick-quarter {
+    stroke: var(--theme-primary);
+    stroke-width: 3;
+    opacity: 1;
+    filter: drop-shadow(0 0 2px var(--theme-primary));
+}
+
+/* Clock hands */
 .clock-hand {
     stroke: var(--theme-primary);
     stroke-linecap: round;
@@ -153,20 +193,34 @@
 }
 
 .hour-hand {
-    stroke-width: 4;
+    stroke-width: 5;
+    opacity: 0.95;
 }
 
 .minute-hand {
     stroke-width: 3;
+    opacity: 0.9;
 }
 
 .second-hand {
-    stroke-width: 2;
-    stroke: #ff0000;
+    stroke-width: 1.5;
+    stroke: #ff3333;
+    filter: drop-shadow(0 0 3px #ff3333);
+}
+
+/* Center cap (chronograph style) */
+.clock-center-outer {
+    fill: rgba(0, 0, 0, 0.5);
+    stroke: var(--theme-primary);
+    stroke-width: 1;
 }
 
 .clock-center {
     fill: var(--theme-primary);
+}
+
+.clock-center-dot {
+    fill: #ff3333;
 }
 
 /* Digital Time and Date */
@@ -283,7 +337,128 @@
 
 /* Sensor Card */
 .sensor-card {
-    /* Will contain chart similar to stock card */
+    /* Container for sensor data display */
+}
+
+.sensor-data-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 10px 0;
+}
+
+.sensor-item {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+    border-radius: 6px;
+    padding: 12px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.3s ease;
+}
+
+.sensor-item:hover {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 10px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.sensor-name {
+    color: var(--theme-primary-dim);
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.sensor-value {
+    color: var(--theme-primary);
+    font-size: 1.3em;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.sensor-item.sensor-no-data {
+    opacity: 0.6;
+}
+
+.sensor-item.sensor-no-data .sensor-value {
+    color: var(--theme-primary-dim);
+    font-size: 0.9em;
+    font-weight: normal;
+}
+
+.sensor-data-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--theme-primary-dim);
+    font-style: italic;
+}
+
+/* Sensor Settings - Selection List */
+.sensor-selection-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+    border-radius: 6px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.sensor-category-header {
+    color: var(--theme-primary);
+    font-size: 0.9em;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+    text-transform: uppercase;
+}
+
+.sensor-category-header:first-child {
+    margin-top: 0;
+}
+
+.sensor-checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.sensor-checkbox-item:hover {
+    background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.sensor-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+    accent-color: var(--theme-primary);
+}
+
+.sensor-checkbox-label {
+    color: var(--theme-primary);
+    flex: 1;
+    font-size: 0.95em;
+}
+
+.sensor-checkbox-units {
+    color: var(--theme-primary-dim);
+    font-size: 0.85em;
+    margin-left: 8px;
+    font-style: italic;
+}
+
+.loading-text {
+    color: var(--theme-primary-dim);
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
 }
 
 /* Force all text to use theme color */
@@ -351,5 +526,13 @@
 
     .chart-container {
         min-height: 250px;
+    }
+
+    .sensor-data-container {
+        grid-template-columns: 1fr;
+    }
+
+    .sensor-value {
+        font-size: 1.1em;
     }
 }

@@ -60,9 +60,52 @@ const STOCK_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const WEATHER_UPDATE_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const STATUS_UPDATE_INTERVAL = 5000; // 5 seconds
 const CLOCK_UPDATE_INTERVAL = 1000; // 1 second
+const DEFAULT_SENSOR_UPDATE_INTERVAL = 5; // 5 seconds (in seconds, not milliseconds)
 
 // Weather settings (persistent in localStorage)
 let weatherLocation = localStorage.getItem('weatherLocation') || null;
+
+// Sensor settings
+let availableTimeseries = [];
+let selectedSensorIds = new Set();
+let sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL; // in seconds
+let sensorIntervalId = null;
+
+/**
+ * Load sensor settings from localStorage
+ */
+function loadSensorSettings() {
+    const saved = localStorage.getItem('selectedSensors');
+    if (saved) {
+        selectedSensorIds = new Set(JSON.parse(saved));
+    }
+    const savedInterval = localStorage.getItem('sensorUpdateInterval');
+    if (savedInterval) {
+        sensorUpdateInterval = parseInt(savedInterval, 10);
+    }
+    return selectedSensorIds;
+}
+
+/**
+ * Save sensor settings to localStorage
+ */
+function saveSensorSettings() {
+    localStorage.setItem('selectedSensors', JSON.stringify([...selectedSensorIds]));
+    localStorage.setItem('sensorUpdateInterval', sensorUpdateInterval.toString());
+}
+
+/**
+ * Start or restart the sensor update interval
+ */
+function startSensorUpdates() {
+    // Clear any existing interval
+    if (sensorIntervalId) {
+        clearInterval(sensorIntervalId);
+    }
+    
+    // Start new interval with current setting (convert seconds to milliseconds)
+    sensorIntervalId = setInterval(updateSensorDisplay, sensorUpdateInterval * 1000);
+}
 
 /**
  * Initialize the monitor page
@@ -85,15 +128,21 @@ async function initMonitor() {
         await initializeWeatherLocation();
     }
 
+    // Load sensor settings and available timeseries
+    loadSensorSettings();
+    await loadAvailableTimeseries();
+
     // Load initial data
     updateStockChart();
     updateWeather();
     updateStatus();
+    updateSensorDisplay();
 
     // Set up periodic updates
     setInterval(updateStockChart, STOCK_UPDATE_INTERVAL);
     setInterval(updateWeather, WEATHER_UPDATE_INTERVAL);
     setInterval(updateStatus, STATUS_UPDATE_INTERVAL);
+    startSensorUpdates();
 
     console.log('Monitor page initialized');
 }
@@ -443,6 +492,129 @@ async function updateStatus() {
 }
 
 /**
+ * Load available timeseries from the API
+ */
+async function loadAvailableTimeseries() {
+    try {
+        const response = await fetch('/api/timeseries/list');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        availableTimeseries = await response.json();
+        console.log(`Loaded ${availableTimeseries.length} available timeseries`);
+    } catch (error) {
+        console.error('Error loading timeseries list:', error);
+        availableTimeseries = [];
+    }
+}
+
+/**
+ * Update the sensor data display with latest values
+ */
+async function updateSensorDisplay() {
+    const container = document.getElementById('sensor-data');
+    
+    if (selectedSensorIds.size === 0) {
+        container.innerHTML = '<div class="sensor-data-empty">No sensors configured. Click ⚙ to add sensors.</div>';
+        return;
+    }
+
+    try {
+        // Fetch latest data for selected sensors
+        const response = await fetch('/api/timeseries/data/batch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                timeseries_ids: [...selectedSensorIds],
+                limit: 1  // Only need the latest value
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const sensorData = await response.json();
+
+        // Build the sensor display HTML
+        let html = '';
+        for (const sensor of sensorData) {
+            if (sensor.data && sensor.data.length > 0) {
+                const latestValue = sensor.data[sensor.data.length - 1].value;
+                const formattedValue = typeof latestValue === 'number' ? latestValue.toFixed(2) : latestValue;
+                html += `
+                    <div class="sensor-item">
+                        <span class="sensor-name">${sensor.name}:</span>
+                        <span class="sensor-value">${formattedValue} ${sensor.units || ''}</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="sensor-item sensor-no-data">
+                        <span class="sensor-name">${sensor.name}:</span>
+                        <span class="sensor-value">No data</span>
+                    </div>
+                `;
+            }
+        }
+
+        container.innerHTML = html || '<div class="sensor-data-empty">No sensor data available</div>';
+
+    } catch (error) {
+        console.error('Error updating sensor display:', error);
+        container.innerHTML = '<div class="sensor-data-empty">Error loading sensor data</div>';
+    }
+}
+
+/**
+ * Load sensor selection checkboxes in settings modal
+ */
+function loadSensorSelectionList() {
+    const container = document.getElementById('sensor-selection-list');
+    
+    if (availableTimeseries.length === 0) {
+        container.innerHTML = '<div class="loading-text">No timeseries available</div>';
+        return;
+    }
+
+    // Group timeseries by category
+    const byCategory = {};
+    for (const ts of availableTimeseries) {
+        const category = ts.category || 'Other';
+        if (!byCategory[category]) {
+            byCategory[category] = [];
+        }
+        byCategory[category].push(ts);
+    }
+
+    // Build checkbox list HTML
+    let html = '';
+    const categories = Object.keys(byCategory).sort();
+    
+    for (const category of categories) {
+        html += `<div class="sensor-category-header">${category}</div>`;
+        
+        for (const ts of byCategory[category]) {
+            const isChecked = selectedSensorIds.has(ts.id);
+            html += `
+                <label class="sensor-checkbox-item">
+                    <input type="checkbox" 
+                           class="sensor-checkbox" 
+                           data-sensor-id="${ts.id}" 
+                           ${isChecked ? 'checked' : ''}>
+                    <span class="sensor-checkbox-label">${ts.name}</span>
+                    ${ts.units ? `<span class="sensor-checkbox-units">(${ts.units})</span>` : ''}
+                </label>
+            `;
+        }
+    }
+
+    container.innerHTML = html;
+}
+
+/**
  * Open unified settings modal
  */
 function openSettingsModal() {
@@ -460,6 +632,15 @@ function openSettingsModal() {
     const maxPointsInput = document.getElementById('stock-max-points');
     if (maxPointsInput) {
         maxPointsInput.value = stockSettings.maxDataPoints;
+    }
+
+    // Populate sensor selection list
+    loadSensorSelectionList();
+
+    // Populate sensor update interval
+    const sensorIntervalInput = document.getElementById('sensor-update-interval');
+    if (sensorIntervalInput) {
+        sensorIntervalInput.value = sensorUpdateInterval;
     }
 
     document.getElementById('settingsModal').style.display = 'block';
@@ -519,11 +700,35 @@ function saveSettings() {
         }
     }
 
+    // Save sensor settings
+    const sensorCheckboxes = document.querySelectorAll('.sensor-checkbox');
+    selectedSensorIds.clear();
+    sensorCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedSensorIds.add(checkbox.dataset.sensorId);
+        }
+    });
+    
+    // Save sensor update interval
+    const sensorIntervalInput = document.getElementById('sensor-update-interval');
+    if (sensorIntervalInput) {
+        const newInterval = parseInt(sensorIntervalInput.value, 10);
+        if (newInterval >= 1 && newInterval <= 3600) {
+            sensorUpdateInterval = newInterval;
+        }
+    }
+    
+    saveSensorSettings();
+
     closeSettingsModal();
 
     // Refresh data
     updateWeather();
     updateStockChart();
+    updateSensorDisplay();
+    
+    // Restart sensor updates with new interval
+    startSensorUpdates();
 }
 
 /**
@@ -549,8 +754,19 @@ function resetSettings() {
     weatherLocation = null;
     localStorage.removeItem('weatherLocation');
 
+    // Clear sensor settings
+    selectedSensorIds.clear();
+    sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL;
+    saveSensorSettings();
+
     // Re-populate the form with defaults
     openSettingsModal();
+    
+    // Refresh sensor display
+    updateSensorDisplay();
+    
+    // Restart sensor updates with default interval
+    startSensorUpdates();
 }
 
 // Close modals when clicking outside

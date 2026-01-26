@@ -28,11 +28,97 @@
                     </div>
                     <div id="analog-clock">
                         <svg viewBox="0 0 200 200" class="clock-face">
+                            <!-- Outer bezel ring -->
+                            <circle cx="100" cy="100" r="97" class="clock-bezel-outer"/>
                             <circle cx="100" cy="100" r="95" class="clock-circle"/>
-                            <line x1="100" y1="100" x2="100" y2="40" class="clock-hand hour-hand" id="hour-hand"/>
+                            <circle cx="100" cy="100" r="93" class="clock-bezel-inner"/>
+
+                            <!-- Minute tick marks (60 total) -->
+                            <g class="clock-ticks">
+                                <!-- Minor ticks (every minute except 5-min marks) -->
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(6deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(12deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(18deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(24deg)"/>
+                                <!-- 5-min major tick at 30deg (1 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(30deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(36deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(42deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(48deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(54deg)"/>
+                                <!-- 5-min major tick at 60deg (2 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(60deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(66deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(72deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(78deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(84deg)"/>
+                                <!-- 5-min major tick at 90deg (3 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="20" class="tick-quarter" style="transform: rotate(90deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(96deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(102deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(108deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(114deg)"/>
+                                <!-- 5-min major tick at 120deg (4 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(120deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(126deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(132deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(138deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(144deg)"/>
+                                <!-- 5-min major tick at 150deg (5 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(150deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(156deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(162deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(168deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(174deg)"/>
+                                <!-- 5-min major tick at 180deg (6 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="20" class="tick-quarter" style="transform: rotate(180deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(186deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(192deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(198deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(204deg)"/>
+                                <!-- 5-min major tick at 210deg (7 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(210deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(216deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(222deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(228deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(234deg)"/>
+                                <!-- 5-min major tick at 240deg (8 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(240deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(246deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(252deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(258deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(264deg)"/>
+                                <!-- 5-min major tick at 270deg (9 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="20" class="tick-quarter" style="transform: rotate(270deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(276deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(282deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(288deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(294deg)"/>
+                                <!-- 5-min major tick at 300deg (10 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(300deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(306deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(312deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(318deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(324deg)"/>
+                                <!-- 5-min major tick at 330deg (11 o'clock) -->
+                                <line x1="100" y1="8" x2="100" y2="18" class="tick-major" style="transform: rotate(330deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(336deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(342deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(348deg)"/>
+                                <line x1="100" y1="8" x2="100" y2="14" class="tick-minor" style="transform: rotate(354deg)"/>
+                                <!-- 12 o'clock (0deg) - quarter mark -->
+                                <line x1="100" y1="8" x2="100" y2="20" class="tick-quarter" style="transform: rotate(0deg)"/>
+                            </g>
+
+                            <!-- Clock hands -->
+                            <line x1="100" y1="100" x2="100" y2="45" class="clock-hand hour-hand" id="hour-hand"/>
                             <line x1="100" y1="100" x2="100" y2="30" class="clock-hand minute-hand" id="minute-hand"/>
-                            <line x1="100" y1="100" x2="100" y2="25" class="clock-hand second-hand" id="second-hand"/>
+                            <line x1="100" y1="100" x2="100" y2="20" class="clock-hand second-hand" id="second-hand"/>
+
+                            <!-- Center cap (layered for depth) -->
+                            <circle cx="100" cy="100" r="8" class="clock-center-outer"/>
                             <circle cx="100" cy="100" r="5" class="clock-center"/>
+                            <circle cx="100" cy="100" r="2" class="clock-center-dot"/>
                         </svg>
                     </div>
                 </div>
@@ -79,11 +165,11 @@
                 </div>
             </div>
 
-            <!-- Sensor Data Section (Placeholder) -->
+            <!-- Sensor Data Section -->
             <div class="monitor-card sensor-card">
                 <div class="card-title">SENSOR DATA</div>
-                <div id="sensor-chart" class="chart-container chart-placeholder">
-                    <div class="placeholder-text">SENSOR DATA COMING SOON</div>
+                <div id="sensor-data" class="sensor-data-container">
+                    <div class="sensor-data-empty">No sensors configured. Click ⚙ to add sensors.</div>
                 </div>
             </div>
         </div>
@@ -111,9 +197,24 @@
                     <div class="setting-hint">One symbol per line. Use SYMBOL:Name format for custom display names.<br>Index symbols: ^IXIC (NASDAQ), ^DJI (Dow Jones), ^GSPC (S&P 500)</div>
                 </div>
                 <div class="setting-item">
-                    <label for="stock-max-points">MAX DATA POINTS</label>
+                    <label for="stock-max-points">MAX STOCK DATA POINTS</label>
                     <input type="number" id="stock-max-points" min="100" max="100000" step="100" value="10000">
                     <div class="setting-hint">Maximum data points per symbol. Uses LTTB downsampling to preserve visual fidelity.</div>
+                </div>
+
+                <!-- Sensor Settings Section -->
+                <div class="settings-section-title">SENSORS</div>
+                <div class="setting-item">
+                    <label>SELECT SENSORS TO DISPLAY</label>
+                    <div id="sensor-selection-list" class="sensor-selection-list">
+                        <div class="loading-text">Loading available sensors...</div>
+                    </div>
+                    <div class="setting-hint">Select which timeseries to display as sensors. Latest values will be shown.</div>
+                </div>
+                <div class="setting-item">
+                    <label for="sensor-update-interval">SENSOR UPDATE INTERVAL (seconds)</label>
+                    <input type="number" id="sensor-update-interval" min="1" max="3600" step="1" value="5">
+                    <div class="setting-hint">How often to refresh sensor values (1-3600 seconds).</div>
                 </div>
 
                 <div class="settings-buttons">
