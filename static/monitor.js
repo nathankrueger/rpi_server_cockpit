@@ -194,6 +194,21 @@ function applyThemeColors() {
     if (backgroundColor) {
         document.documentElement.style.setProperty('--background-color', backgroundColor);
     }
+
+    // Apply clock tick colors
+    const tickMinorColor = localStorage.getItem('clockTickMinorColor');
+    const tickMajorColor = localStorage.getItem('clockTickMajorColor');
+    const tickQuarterColor = localStorage.getItem('clockTickQuarterColor');
+
+    if (tickMinorColor) {
+        document.documentElement.style.setProperty('--clock-tick-minor-color', tickMinorColor);
+    }
+    if (tickMajorColor) {
+        document.documentElement.style.setProperty('--clock-tick-major-color', tickMajorColor);
+    }
+    if (tickQuarterColor) {
+        document.documentElement.style.setProperty('--clock-tick-quarter-color', tickQuarterColor);
+    }
 }
 
 /**
@@ -529,23 +544,37 @@ async function updateSensorDisplay() {
     sensorUpdateInProgress = true;
 
     try {
-        // Fetch latest data for selected sensors
-        const response = await fetch('/api/timeseries/data/batch', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                timeseries_ids: [...selectedSensorIds],
-                limit: 1  // Only need the latest value
-            })
-        });
+        // Calculate 24h time range
+        const now = Date.now() / 1000;  // Current time in seconds
+        const twentyFourHoursAgo = now - (24 * 60 * 60);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // Fetch latest data and 24h min/max in parallel
+        const [latestResponse, minmaxResponse] = await Promise.all([
+            fetch('/api/timeseries/data/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    timeseries_ids: [...selectedSensorIds],
+                    limit: 1  // Only need the latest value
+                })
+            }),
+            fetch('/api/timeseries/minmax/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    timeseries_ids: [...selectedSensorIds],
+                    start: twentyFourHoursAgo,
+                    end: now
+                })
+            })
+        ]);
+
+        if (!latestResponse.ok) {
+            throw new Error(`HTTP error! status: ${latestResponse.status}`);
         }
 
-        const sensorData = await response.json();
+        const sensorData = await latestResponse.json();
+        const minmaxData = minmaxResponse.ok ? await minmaxResponse.json() : {};
 
         // Build the sensor display HTML
         let html = '';
@@ -553,10 +582,17 @@ async function updateSensorDisplay() {
             if (sensor.data && sensor.data.length > 0) {
                 const latestValue = sensor.data[sensor.data.length - 1].value;
                 const formattedValue = typeof latestValue === 'number' ? latestValue.toFixed(2) : latestValue;
+                const minmax = minmaxData[sensor.id];
+                const minmaxHtml = minmax
+                    ? `<div class="sensor-minmax"><div>24H Min: ${minmax.min.toFixed(2)}</div><div>24H Max: ${minmax.max.toFixed(2)}</div></div>`
+                    : '';
                 html += `
                     <div class="sensor-item">
                         <span class="sensor-name">${sensor.name}:</span>
-                        <span class="sensor-value">${formattedValue} ${sensor.units || ''}</span>
+                        <div class="sensor-value-row">
+                            <span class="sensor-value">${formattedValue} ${sensor.units || ''}</span>
+                            ${minmaxHtml}
+                        </div>
                     </div>
                 `;
             } else {
@@ -633,6 +669,15 @@ function loadSensorSelectionList() {
  * Open unified settings modal
  */
 function openSettingsModal() {
+    // Populate clock tick colors
+    const tickMinorInput = document.getElementById('clock-tick-minor-color');
+    const tickMajorInput = document.getElementById('clock-tick-major-color');
+    const tickQuarterInput = document.getElementById('clock-tick-quarter-color');
+    const defaultColor = localStorage.getItem('foregroundColor') || '#00ff41';
+    tickMinorInput.value = localStorage.getItem('clockTickMinorColor') || defaultColor;
+    tickMajorInput.value = localStorage.getItem('clockTickMajorColor') || defaultColor;
+    tickQuarterInput.value = localStorage.getItem('clockTickQuarterColor') || defaultColor;
+
     // Populate weather location
     document.getElementById('weather-address').value = weatherLocation || '';
 
@@ -672,6 +717,17 @@ function closeSettingsModal() {
  * Save all settings
  */
 function saveSettings() {
+    // Save clock tick colors
+    const tickMinorColor = document.getElementById('clock-tick-minor-color').value;
+    const tickMajorColor = document.getElementById('clock-tick-major-color').value;
+    const tickQuarterColor = document.getElementById('clock-tick-quarter-color').value;
+    localStorage.setItem('clockTickMinorColor', tickMinorColor);
+    localStorage.setItem('clockTickMajorColor', tickMajorColor);
+    localStorage.setItem('clockTickQuarterColor', tickQuarterColor);
+    document.documentElement.style.setProperty('--clock-tick-minor-color', tickMinorColor);
+    document.documentElement.style.setProperty('--clock-tick-major-color', tickMajorColor);
+    document.documentElement.style.setProperty('--clock-tick-quarter-color', tickQuarterColor);
+
     // Save weather settings
     const address = document.getElementById('weather-address').value.trim();
     if (address) {
@@ -750,6 +806,14 @@ function saveSettings() {
  * Reset all settings to defaults
  */
 function resetSettings() {
+    // Reset clock tick colors (remove to use theme default)
+    localStorage.removeItem('clockTickMinorColor');
+    localStorage.removeItem('clockTickMajorColor');
+    localStorage.removeItem('clockTickQuarterColor');
+    document.documentElement.style.removeProperty('--clock-tick-minor-color');
+    document.documentElement.style.removeProperty('--clock-tick-major-color');
+    document.documentElement.style.removeProperty('--clock-tick-quarter-color');
+
     // Reset stock settings
     stockSettings = {
         symbols: [...DEFAULT_STOCK_SYMBOLS],

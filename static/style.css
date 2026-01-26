@@ -635,6 +635,36 @@ h1 {
     min-height: 100px;
 }
 
+.setting-item-inline {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.setting-item-inline label {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.setting-item input[type="color"] {
+    width: 50px;
+    height: 35px;
+    padding: 2px;
+    background: var(--theme-bg-medium);
+    border: 1px solid var(--theme-primary);
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.setting-item input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+
+.setting-item input[type="color"]::-webkit-color-swatch {
+    border-radius: 3px;
+    border: none;
+}
+
 .setting-select {
     width: 100%;
     background: var(--theme-bg-medium);

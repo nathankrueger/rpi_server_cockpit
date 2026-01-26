@@ -330,6 +330,34 @@ def ingest_timeseries_data():
     return jsonify({'success': True, 'count': 1})
 
 
+@timeseries_bp.route('/api/timeseries/minmax/batch', methods=['POST'])
+def get_timeseries_minmax_batch():
+    """
+    Get min/max values for multiple timeseries within a time range.
+    Works with both local (built-in) and external (registered) timeseries.
+
+    Request body:
+        {
+            "timeseries_ids": ["cpu_temperature", "gpu_temperature"],
+            "start": 1234567890.0,  // required
+            "end": 1234567900.0     // required
+        }
+
+    Returns:
+        JSON object mapping timeseries_id to {min, max} values
+    """
+    data = request.get_json()
+    timeseries_ids = data.get('timeseries_ids', [])
+    start_time = data.get('start')
+    end_time = data.get('end')
+
+    if start_time is None or end_time is None:
+        return jsonify({'error': 'start and end timestamps are required'}), 400
+
+    results = timeseries_db.query_minmax_batch(timeseries_ids, start_time, end_time)
+    return jsonify(results)
+
+
 @timeseries_bp.route('/api/timeseries/collect', methods=['POST'])
 def collect_data_now():
     """

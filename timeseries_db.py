@@ -570,3 +570,69 @@ class TimeseriesDB:
                 return cursor.rowcount > 0
             finally:
                 conn.close()
+
+    def query_minmax(self, timeseries_id: str, start_time: float, end_time: float) -> Optional[Dict[str, Any]]:
+        """
+        Query min and max values for a timeseries within a time range.
+
+        Args:
+            timeseries_id: ID of the timeseries
+            start_time: Start timestamp (Unix seconds)
+            end_time: End timestamp (Unix seconds)
+
+        Returns:
+            Dict with 'min' and 'max' keys, or None if no data found
+        """
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT MIN(value) as min_val, MAX(value) as max_val
+                    FROM timeseries_data
+                    WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+                ''', (timeseries_id, start_time, end_time))
+
+                row = cursor.fetchone()
+                if row and row['min_val'] is not None:
+                    return {
+                        'min': row['min_val'],
+                        'max': row['max_val']
+                    }
+                return None
+            finally:
+                conn.close()
+
+    def query_minmax_batch(self, timeseries_ids: List[str], start_time: float, end_time: float) -> Dict[str, Dict[str, Any]]:
+        """
+        Query min and max values for multiple timeseries within a time range.
+
+        Args:
+            timeseries_ids: List of timeseries IDs
+            start_time: Start timestamp (Unix seconds)
+            end_time: End timestamp (Unix seconds)
+
+        Returns:
+            Dict mapping timeseries_id to {'min': value, 'max': value}
+        """
+        results = {}
+        with self.lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                for ts_id in timeseries_ids:
+                    cursor.execute('''
+                        SELECT MIN(value) as min_val, MAX(value) as max_val
+                        FROM timeseries_data
+                        WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+                    ''', (ts_id, start_time, end_time))
+
+                    row = cursor.fetchone()
+                    if row and row['min_val'] is not None:
+                        results[ts_id] = {
+                            'min': row['min_val'],
+                            'max': row['max_val']
+                        }
+                return results
+            finally:
+                conn.close()

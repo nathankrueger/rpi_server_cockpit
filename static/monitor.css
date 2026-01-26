@@ -167,22 +167,22 @@
 }
 
 .tick-minor {
-    stroke: var(--theme-primary);
+    stroke: var(--clock-tick-minor-color, var(--theme-primary));
     stroke-width: 1;
     opacity: 0.5;
 }
 
 .tick-major {
-    stroke: var(--theme-primary);
+    stroke: var(--clock-tick-major-color, var(--theme-primary));
     stroke-width: 2;
     opacity: 0.85;
 }
 
 .tick-quarter {
-    stroke: var(--theme-primary);
+    stroke: var(--clock-tick-quarter-color, var(--theme-primary));
     stroke-width: 3;
     opacity: 1;
-    filter: drop-shadow(0 0 2px var(--theme-primary));
+    filter: drop-shadow(0 0 2px var(--clock-tick-quarter-color, var(--theme-primary)));
 }
 
 /* Clock hands */
@@ -370,6 +370,13 @@
     text-transform: uppercase;
 }
 
+.sensor-value-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .sensor-value {
     color: var(--theme-primary);
     font-size: 1.3em;
@@ -385,6 +392,17 @@
     color: var(--theme-primary-dim);
     font-size: 0.9em;
     font-weight: normal;
+}
+
+.sensor-minmax {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: var(--theme-primary-dim);
+    font-size: 0.55em;
+    opacity: 0.7;
+    line-height: 1.4;
+    white-space: nowrap;
 }
 
 .sensor-data-empty {
