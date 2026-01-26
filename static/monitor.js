@@ -70,6 +70,7 @@ let availableTimeseries = [];
 let selectedSensorIds = new Set();
 let sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL; // in seconds
 let sensorIntervalId = null;
+let sensorUpdateInProgress = false; // Guard against concurrent requests
 
 /**
  * Load sensor settings from localStorage
@@ -513,11 +514,19 @@ async function loadAvailableTimeseries() {
  */
 async function updateSensorDisplay() {
     const container = document.getElementById('sensor-data');
-    
+
     if (selectedSensorIds.size === 0) {
         container.innerHTML = '<div class="sensor-data-empty">No sensors configured. Click ⚙ to add sensors.</div>';
         return;
     }
+
+    // Skip if a request is already in progress (prevents overlapping requests on fast intervals)
+    if (sensorUpdateInProgress) {
+        console.log('Sensor update skipped - previous request still in progress');
+        return;
+    }
+
+    sensorUpdateInProgress = true;
 
     try {
         // Fetch latest data for selected sensors
@@ -564,7 +573,13 @@ async function updateSensorDisplay() {
 
     } catch (error) {
         console.error('Error updating sensor display:', error);
-        container.innerHTML = '<div class="sensor-data-empty">Error loading sensor data</div>';
+        // Only show error message if container doesn't already have valid sensor data
+        // This prevents flickering when a single request fails
+        if (!container.querySelector('.sensor-item')) {
+            container.innerHTML = '<div class="sensor-data-empty">Error loading sensor data</div>';
+        }
+    } finally {
+        sensorUpdateInProgress = false;
     }
 }
 
