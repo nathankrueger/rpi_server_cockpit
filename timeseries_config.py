@@ -277,16 +277,6 @@ def _discover_timeseries() -> list[TimeseriesBase]:
 # Dynamically populated list of all timeseries
 TIMESERIES = _discover_timeseries()
 
-# Auto-load sensor-based timeseries from data_log package
-# New sensors added to data_log are automatically discovered
-try:
-    from sensor_adapter import load_sensor_timeseries
-    _sensor_timeseries = load_sensor_timeseries()
-    TIMESERIES.extend(_sensor_timeseries)
-except ImportError:
-    # sensor_adapter or data_log not available - continue with built-in timeseries only
-    pass
-
 # Create a dictionary for quick lookups by ID
 TIMESERIES_MAP = {ts.getId(): ts for ts in TIMESERIES}
 
