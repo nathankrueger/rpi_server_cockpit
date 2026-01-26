@@ -13,6 +13,7 @@ let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
 let smoothingEnabled = false;
 let maxDatapoints = 10000; // maximum datapoints per chart
+let chartUpdateInProgress = false; // Guard against concurrent requests
 
 // Color management (shared with dashboard.js via localStorage)
 function hexToRgb(hex) {
@@ -349,6 +350,14 @@ async function updateCharts(autoUpdate = false) {
         return;
     }
 
+    // Skip if a request is already in progress (prevents overlapping requests when tab resumes)
+    if (chartUpdateInProgress) {
+        console.log('Chart update skipped - previous request still in progress');
+        return;
+    }
+
+    chartUpdateInProgress = true;
+
     try {
         console.log('Updating charts...');
 
@@ -401,6 +410,8 @@ async function updateCharts(autoUpdate = false) {
         console.error('Error fetching timeseries data:', error);
         document.getElementById('charts-container').innerHTML =
             '<div class="error-message">Error loading chart data. Please try again.</div>';
+    } finally {
+        chartUpdateInProgress = false;
     }
 }
 
@@ -802,6 +813,27 @@ document.addEventListener('keydown', (e) => {
         const fullscreenChart = document.querySelector('.chart-fullscreen');
         if (fullscreenChart) {
             toggleFullscreen(fullscreenChart);
+        }
+    }
+});
+
+// Handle tab visibility changes to prevent stale intervals from queuing up
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        // Tab became hidden - pause auto-refresh to prevent queued intervals
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            console.log('Tab hidden - paused auto-refresh');
+        }
+    } else {
+        // Tab became visible - restart auto-refresh if enabled
+        if (autoRefreshEnabled && !autoRefreshInterval) {
+            // Do an immediate refresh to catch up
+            updateCharts(true);
+            // Restart the interval
+            autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
+            console.log('Tab visible - resumed auto-refresh');
         }
     }
 });
