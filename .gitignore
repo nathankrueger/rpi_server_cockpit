@@ -4,3 +4,5 @@ timeseries.db
 config/*.local.json
 .env
 .claude
+*.db-shm
+*.db-wal
