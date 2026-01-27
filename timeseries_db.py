@@ -605,7 +605,7 @@ class TimeseriesDB:
 
     def query_minmax_batch(self, timeseries_ids: List[str], start_time: float, end_time: float) -> Dict[str, Dict[str, Any]]:
         """
-        Query min and max values for multiple timeseries within a time range.
+        Query min, max, and oldest values for multiple timeseries within a time range.
 
         Args:
             timeseries_ids: List of timeseries IDs
@@ -613,7 +613,7 @@ class TimeseriesDB:
             end_time: End timestamp (Unix seconds)
 
         Returns:
-            Dict mapping timeseries_id to {'min': value, 'max': value}
+            Dict mapping timeseries_id to {'min': value, 'max': value, 'oldest': value}
         """
         results = {}
         with self.lock:
@@ -621,6 +621,7 @@ class TimeseriesDB:
             try:
                 cursor = conn.cursor()
                 for ts_id in timeseries_ids:
+                    # Get min and max
                     cursor.execute('''
                         SELECT MIN(value) as min_val, MAX(value) as max_val
                         FROM timeseries_data
@@ -629,9 +630,21 @@ class TimeseriesDB:
 
                     row = cursor.fetchone()
                     if row and row['min_val'] is not None:
+                        # Get the oldest value in the range for trend calculation
+                        cursor.execute('''
+                            SELECT value
+                            FROM timeseries_data
+                            WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+                            ORDER BY timestamp ASC
+                            LIMIT 1
+                        ''', (ts_id, start_time, end_time))
+                        oldest_row = cursor.fetchone()
+                        oldest_val = oldest_row['value'] if oldest_row else None
+
                         results[ts_id] = {
                             'min': row['min_val'],
-                            'max': row['max_val']
+                            'max': row['max_val'],
+                            'oldest': oldest_val
                         }
                 return results
             finally:

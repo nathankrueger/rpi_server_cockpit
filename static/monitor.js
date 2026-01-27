@@ -61,6 +61,7 @@ const WEATHER_UPDATE_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const STATUS_UPDATE_INTERVAL = 5000; // 5 seconds
 const CLOCK_UPDATE_INTERVAL = 1000; // 1 second
 const DEFAULT_SENSOR_UPDATE_INTERVAL = 5; // 5 seconds (in seconds, not milliseconds)
+const DEFAULT_SENSOR_MINMAX_HOURS = 24; // 24 hours for min/max range
 
 // Weather settings (persistent in localStorage)
 let weatherLocation = localStorage.getItem('weatherLocation') || null;
@@ -69,6 +70,7 @@ let weatherLocation = localStorage.getItem('weatherLocation') || null;
 let availableTimeseries = [];
 let selectedSensorIds = new Set();
 let sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL; // in seconds
+let sensorMinmaxHours = DEFAULT_SENSOR_MINMAX_HOURS; // hours for min/max range
 let sensorIntervalId = null;
 let sensorUpdateInProgress = false; // Guard against concurrent requests
 
@@ -84,6 +86,10 @@ function loadSensorSettings() {
     if (savedInterval) {
         sensorUpdateInterval = parseInt(savedInterval, 10);
     }
+    const savedMinmaxHours = localStorage.getItem('sensorMinmaxHours');
+    if (savedMinmaxHours) {
+        sensorMinmaxHours = parseInt(savedMinmaxHours, 10);
+    }
     return selectedSensorIds;
 }
 
@@ -93,6 +99,7 @@ function loadSensorSettings() {
 function saveSensorSettings() {
     localStorage.setItem('selectedSensors', JSON.stringify([...selectedSensorIds]));
     localStorage.setItem('sensorUpdateInterval', sensorUpdateInterval.toString());
+    localStorage.setItem('sensorMinmaxHours', sensorMinmaxHours.toString());
 }
 
 /**
@@ -544,11 +551,11 @@ async function updateSensorDisplay() {
     sensorUpdateInProgress = true;
 
     try {
-        // Calculate 24h time range
+        // Calculate time range based on settings
         const now = Date.now() / 1000;  // Current time in seconds
-        const twentyFourHoursAgo = now - (24 * 60 * 60);
+        const rangeStart = now - (sensorMinmaxHours * 60 * 60);
 
-        // Fetch latest data and 24h min/max in parallel
+        // Fetch latest data and min/max in parallel
         const [latestResponse, minmaxResponse] = await Promise.all([
             fetch('/api/timeseries/data/batch', {
                 method: 'POST',
@@ -563,7 +570,7 @@ async function updateSensorDisplay() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     timeseries_ids: [...selectedSensorIds],
-                    start: twentyFourHoursAgo,
+                    start: rangeStart,
                     end: now
                 })
             })
@@ -576,6 +583,11 @@ async function updateSensorDisplay() {
         const sensorData = await latestResponse.json();
         const minmaxData = minmaxResponse.ok ? await minmaxResponse.json() : {};
 
+        // Format the time range label
+        const rangeLabel = sensorMinmaxHours >= 24
+            ? `${Math.floor(sensorMinmaxHours / 24)}D`
+            : `${sensorMinmaxHours}H`;
+
         // Build the sensor display HTML
         let html = '';
         for (const sensor of sensorData) {
@@ -583,14 +595,32 @@ async function updateSensorDisplay() {
                 const latestValue = sensor.data[sensor.data.length - 1].value;
                 const formattedValue = typeof latestValue === 'number' ? latestValue.toFixed(2) : latestValue;
                 const minmax = minmaxData[sensor.id];
+
+                // Calculate trend arrow based on slope
+                let trendHtml = '';
+                if (minmax && minmax.oldest !== null && typeof latestValue === 'number') {
+                    const slope = latestValue - minmax.oldest;
+                    let arrowClass = 'trend-flat';
+                    let arrowChar = '→';
+                    if (slope > 0.01) {
+                        arrowClass = 'trend-up';
+                        arrowChar = '↑';
+                    } else if (slope < -0.01) {
+                        arrowClass = 'trend-down';
+                        arrowChar = '↓';
+                    }
+                    trendHtml = `<div class="sensor-trend ${arrowClass}">${arrowChar}</div>`;
+                }
+
                 const minmaxHtml = minmax
-                    ? `<div class="sensor-minmax"><div>24H Min: ${minmax.min.toFixed(2)}</div><div>24H Max: ${minmax.max.toFixed(2)}</div></div>`
+                    ? `<div class="sensor-minmax"><div>${rangeLabel} Min: ${minmax.min.toFixed(2)}</div><div>${rangeLabel} Max: ${minmax.max.toFixed(2)}</div></div>`
                     : '';
                 html += `
                     <div class="sensor-item">
-                        <span class="sensor-name">${sensor.name}:</span>
+                        <span class="sensor-name" title="${sensor.name}">${sensor.name}:</span>
                         <div class="sensor-value-row">
                             <span class="sensor-value">${formattedValue} ${sensor.units || ''}</span>
+                            ${trendHtml}
                             ${minmaxHtml}
                         </div>
                     </div>
@@ -598,7 +628,7 @@ async function updateSensorDisplay() {
             } else {
                 html += `
                     <div class="sensor-item sensor-no-data">
-                        <span class="sensor-name">${sensor.name}:</span>
+                        <span class="sensor-name" title="${sensor.name}">${sensor.name}:</span>
                         <span class="sensor-value">No data</span>
                     </div>
                 `;
@@ -703,6 +733,12 @@ function openSettingsModal() {
         sensorIntervalInput.value = sensorUpdateInterval;
     }
 
+    // Populate sensor minmax hours
+    const sensorMinmaxInput = document.getElementById('sensor-minmax-hours');
+    if (sensorMinmaxInput) {
+        sensorMinmaxInput.value = sensorMinmaxHours;
+    }
+
     document.getElementById('settingsModal').style.display = 'block';
 }
 
@@ -788,7 +824,16 @@ function saveSettings() {
             sensorUpdateInterval = newInterval;
         }
     }
-    
+
+    // Save sensor minmax hours
+    const sensorMinmaxInput = document.getElementById('sensor-minmax-hours');
+    if (sensorMinmaxInput) {
+        const newHours = parseInt(sensorMinmaxInput.value, 10);
+        if (newHours >= 1 && newHours <= 168) {
+            sensorMinmaxHours = newHours;
+        }
+    }
+
     saveSensorSettings();
 
     closeSettingsModal();
@@ -836,6 +881,7 @@ function resetSettings() {
     // Clear sensor settings
     selectedSensorIds.clear();
     sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL;
+    sensorMinmaxHours = DEFAULT_SENSOR_MINMAX_HOURS;
     saveSensorSettings();
 
     // Re-populate the form with defaults
