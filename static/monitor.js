@@ -18,6 +18,7 @@ const DEFAULT_STOCK_NAMES = {
 const DATE_RANGE_OPTIONS = {
     '1w': { label: '1 Week', days: 7 },
     '1m': { label: '1 Month', days: 30 },
+    '6m': { label: '6 Months', days: 182 },
     '1y': { label: '1 Year', days: 365 },
     '5y': { label: '5 Years', days: 1825 },
     '10y': { label: '10 Years', days: 3650 },
