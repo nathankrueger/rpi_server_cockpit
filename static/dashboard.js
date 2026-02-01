@@ -1293,6 +1293,9 @@ async function openSettingsModal() {
     matrixAnimationRate.value = localStorage.getItem('matrixAnimationRate') || 120;
     automationOutputFontSize.value = localStorage.getItem('automationOutputFontSize') || 12;
 
+    const compactModeEnabled = document.getElementById('compact-mode-enabled');
+    compactModeEnabled.checked = localStorage.getItem('compactModeEnabled') === 'true'; // Default to false
+
     const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#00ff41';
     const savedForegroundColor = localStorage.getItem('foregroundColor') || '#00ff41';
     const savedGroupColor = localStorage.getItem('groupColor') || '#0080ff';
@@ -1359,6 +1362,7 @@ async function saveSettings() {
     const foregroundColor = document.getElementById('foreground-color').value;
     const groupColor = document.getElementById('group-color').value;
     const automationOutputFontSize = parseInt(document.getElementById('automation-output-font-size').value);
+    const compactModeEnabled = document.getElementById('compact-mode-enabled').checked;
 
     // Validate inputs (UI uses milliseconds, server uses seconds)
     if (isNaN(statusUpdateRate) || statusUpdateRate < 1000 || statusUpdateRate > 300000) {
@@ -1425,6 +1429,7 @@ async function saveSettings() {
     localStorage.setItem('foregroundColor', foregroundColor);
     localStorage.setItem('groupColor', groupColor);
     localStorage.setItem('automationOutputFontSize', automationOutputFontSize);
+    localStorage.setItem('compactModeEnabled', compactModeEnabled);
 
     // Apply colors immediately
     applyColors(foregroundColor, backgroundColor, groupColor);
@@ -1437,6 +1442,13 @@ async function saveSettings() {
         enableMatrixEffect();
     } else {
         disableMatrixEffect();
+    }
+
+    // Apply compact mode immediately
+    if (compactModeEnabled) {
+        document.body.classList.add('compact-mode');
+    } else {
+        document.body.classList.remove('compact-mode');
     }
 
     // Close modal
@@ -1454,6 +1466,12 @@ async function init() {
     // Apply saved font size
     const automationOutputFontSize = parseInt(localStorage.getItem('automationOutputFontSize')) || 12;
     document.documentElement.style.setProperty('--automation-output-font-size', `${automationOutputFontSize}px`);
+
+    // Apply compact mode if enabled
+    const compactModeEnabled = localStorage.getItem('compactModeEnabled') === 'true';
+    if (compactModeEnabled) {
+        document.body.classList.add('compact-mode');
+    }
 
     restoreCollapsedStates();
     await loadAndRenderServices();

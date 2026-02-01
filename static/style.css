@@ -835,3 +835,79 @@ body::before {
         font-size: 1em;
     }
 }
+
+/* Compact mode styles */
+body.compact-mode .service-card {
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+    gap: 8px;
+}
+
+body.compact-mode .service-card:hover {
+    transform: none;
+}
+
+body.compact-mode .service-header {
+    width: 100%;
+    flex: 0 0 100%;
+    margin: 0;
+}
+
+body.compact-mode .service-name {
+    font-size: 1.1em;
+}
+
+body.compact-mode .status-text {
+    display: none;
+}
+
+body.compact-mode .automation-args-container {
+    flex: 1;
+    min-width: 120px;
+    margin: 0;
+}
+
+body.compact-mode .toggle-container {
+    margin: 0;
+}
+
+/* Service cards (no args input) - toggle takes full width, button left, control right */
+body.compact-mode .service-card:not(:has(.automation-args-container)) .toggle-container {
+    flex: 0 0 100%;
+    width: 100%;
+    justify-content: space-between;
+}
+
+/* Automation cards (with args input) - toggle stays next to args */
+body.compact-mode .service-card:has(.automation-args-container) .toggle-container {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+body.compact-mode .automation-group {
+    padding: 10px;
+    gap: 8px;
+}
+
+body.compact-mode .automation-group-header {
+    padding: 5px;
+    margin: -5px -5px 3px -5px;
+}
+
+body.compact-mode .automation-group-content {
+    gap: 8px;
+}
+
+body.compact-mode .automation-group-title {
+    font-size: 0.95em;
+}
+
+body.compact-mode .automation-output {
+    flex: 0 0 100%;
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 10px;
+}

@@ -56,6 +56,11 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 └── socketio_handlers.py # WebSocket event handlers
 ```
 
+### Important RULES:
+* You WILL ALWAYS keep CLAUDE.md up to date as you make changes.
+* You *WILL NOT* commit secrets to git (e.g. .env).
+* You will as the user when something important is worth committing to your long term memory in the form of CLAUDE.md or similar.
+
 ### Key Patterns
 
 **Async Modes**: Uses `eventlet` in production, `threading` in debug mode (controlled by `DEBUG_MODE` env var).
@@ -65,6 +70,10 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 **Config Merging**: Configuration files in `config/` use a base + local override pattern. Base configs (`*.json`) are version-controlled; local overrides (`*.local.json`) are gitignored and merged at runtime.
 
 **Timeseries Auto-Discovery**: New timeseries are automatically registered when a class inherits from `TimeseriesBase` - no manual registration needed.
+
+**Settings per Page**: Each page has it's own settings dialog, accessible via the menu at the bottom.  Settings are relative to the page alone, and are typically stored in localStorage.
+
+**Mobile Compatibility**: This website should be usable on both touch-based mobile browsers and Desktop machines.
 
 ### WebSocket Events
 
