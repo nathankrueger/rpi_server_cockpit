@@ -14,15 +14,14 @@ const DEFAULT_STOCK_NAMES = {
     '^GSPC': 'S&P 500'
 };
 
-// Date range options (in days, 0 = all time)
+// Date range options (in days)
 const DATE_RANGE_OPTIONS = {
     '1w': { label: '1 Week', days: 7 },
     '1m': { label: '1 Month', days: 30 },
     '6m': { label: '6 Months', days: 182 },
     '1y': { label: '1 Year', days: 365 },
     '5y': { label: '5 Years', days: 1825 },
-    '10y': { label: '10 Years', days: 3650 },
-    'all': { label: 'All Time', days: 0 }
+    '10y': { label: '10 Years', days: 3650 }
 };
 
 // Default max data points for LTTB downsampling
@@ -278,7 +277,7 @@ async function updateStockChart() {
     try {
         // Get current settings
         const { symbols, names, dateRange, maxDataPoints } = stockSettings;
-        const rangeDays = DATE_RANGE_OPTIONS[dateRange]?.days || 30;
+        const rangeDays = DATE_RANGE_OPTIONS[dateRange]?.days ?? 30;
 
         // Fetch stock data from backend
         const response = await fetch('/api/stocks/daily-change', {
@@ -314,16 +313,26 @@ async function updateStockChart() {
         const firstSymbolData = stockData[symbols[0]];
         if (firstSymbolData && firstSymbolData.date_labels) {
             const labels = firstSymbolData.date_labels;
-            const numTicks = Math.min(10, labels.length); // Show ~10 tick labels
+
+            // Calculate number of ticks based on container width
+            // Each label is approximately 60-70px wide (e.g., "Jan 15")
+            const chartContainer = document.getElementById('stock-chart');
+            const containerWidth = chartContainer ? chartContainer.clientWidth : 400;
+            const labelWidth = 70; // Approximate width of a date label in pixels
+            const maxLabels = Math.max(3, Math.floor(containerWidth / labelWidth));
+            const numTicks = Math.min(maxLabels, labels.length);
+
             const step = Math.max(1, Math.floor(labels.length / numTicks));
             for (let i = 0; i < labels.length; i += step) {
                 tickvals.push(i);
                 ticktext.push(labels[i]);
             }
-            // Always include the last label
-            if (tickvals[tickvals.length - 1] !== labels.length - 1) {
-                tickvals.push(labels.length - 1);
-                ticktext.push(labels[labels.length - 1]);
+            // Include the last label only if it's far enough from the previous tick
+            const lastTickIndex = tickvals[tickvals.length - 1];
+            const lastLabelIndex = labels.length - 1;
+            if (lastTickIndex !== lastLabelIndex && (lastLabelIndex - lastTickIndex) > step / 2) {
+                tickvals.push(lastLabelIndex);
+                ticktext.push(labels[lastLabelIndex]);
             }
         }
 
@@ -909,3 +918,17 @@ if (document.readyState === 'loading') {
 } else {
     initMonitor();
 }
+
+// Debounced resize handler to recalculate stock chart ticks on window resize
+let resizeTimeout = null;
+window.addEventListener('resize', () => {
+    if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+    }
+    resizeTimeout = setTimeout(() => {
+        // Only update if the stock chart exists
+        if (document.getElementById('stock-chart')) {
+            updateStockChart();
+        }
+    }, 250); // 250ms debounce
+});
