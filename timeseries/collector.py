@@ -7,8 +7,9 @@ timeseries and stores the data in the database.
 
 import threading
 import time
-from timeseries_config import get_all_timeseries
-from timeseries_routes import get_timeseries_db
+
+from .config import get_all_timeseries
+from .routes import get_timeseries_db
 
 
 class TimeseriesCollector:

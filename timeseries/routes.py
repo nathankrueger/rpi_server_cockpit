@@ -7,8 +7,9 @@ and charting functionality.
 
 from flask import Blueprint, jsonify, request, render_template
 from datetime import datetime
-from timeseries_config import get_all_timeseries, get_timeseries, get_timeseries_info
-from timeseries_db import TimeseriesDB
+
+from .config import get_all_timeseries, get_timeseries, get_timeseries_info
+from .db import TimeseriesDB
 
 
 # Create a Blueprint for timeseries routes

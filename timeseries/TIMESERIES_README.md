@@ -15,15 +15,21 @@ A comprehensive, data-driven timeseries charting framework for the Raspberry Pi 
 
 ## Architecture
 
-### Files Created
+### Package Structure
 
-1. **`timeseries_config.py`** - Central configuration with base class and timeseries definitions
-2. **`timeseries_db.py`** - SQLite database manager for timeseries data storage
-3. **`timeseries_routes.py`** - Flask Blueprint with all REST API endpoints
-4. **`timeseries_collector.py`** - Background thread for automatic data collection
-5. **`templates/charts.html`** - Chart visualization page template
-6. **`static/charts.js`** - Frontend chart rendering and interaction logic
-7. **`static/charts.css`** - Styling for the charts page
+```
+timeseries/
+├── __init__.py      - Package exports (TimeseriesBase, timeseries_bp, start_collector, etc.)
+├── config.py        - Base class and timeseries definitions (auto-discovery)
+├── db.py            - SQLite database manager for timeseries data storage
+├── routes.py        - Flask Blueprint with all REST API endpoints
+└── collector.py     - Background thread for automatic data collection
+```
+
+**Related frontend files:**
+- `templates/charts.html` - Chart visualization page template
+- `static/charts.js` - Frontend chart rendering and interaction logic
+- `static/charts.css` - Styling for the charts page
 
 ### Database Schema
 
@@ -40,9 +46,7 @@ A comprehensive, data-driven timeseries charting framework for the Raspberry Pi 
 
 ## Adding a New Timeseries
 
-### Step 1: Create a Timeseries Class
-
-Create a new class in `timeseries_config.py` that inherits from `TimeseriesBase`:
+Create a new class in `timeseries/config.py` that inherits from `TimeseriesBase`:
 
 ```python
 class MyCustomTimeseries(TimeseriesBase):
@@ -64,22 +68,9 @@ class MyCustomTimeseries(TimeseriesBase):
         return "psi"  # or "%", "°F", "MB", etc.
 ```
 
-### Step 2: Add to Configuration
+That's it! The class is **automatically discovered** via `__init_subclass__` - no manual registration needed.
 
-Add an instance to the `TIMESERIES` list in `timeseries_config.py`:
-
-```python
-TIMESERIES = [
-    CPUTemperatureTimeseries(),
-    GPUTemperatureTimeseries(),
-    CPUUsageTimeseries(),
-    RAMUsageTimeseries(),
-    DiskUsageTimeseries(),
-    MyCustomTimeseries(),  # <-- Add your new timeseries here
-]
-```
-
-That's it! The framework handles everything else automatically:
+The framework handles everything else automatically:
 - Data collection at configured intervals
 - Database storage
 - API exposure
@@ -235,7 +226,7 @@ def getCurrentValue(self) -> Any:
 You can manually clean up old data using the database manager:
 
 ```python
-from timeseries_routes import get_timeseries_db
+from timeseries import get_timeseries_db
 from datetime import datetime, timedelta
 
 db = get_timeseries_db()
