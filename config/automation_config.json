@@ -30,6 +30,17 @@
       "enabled": true
     },
     {
+      "name": "node_cmd",
+      "display_name": "NODE COMMAND",
+      "script_path": "./automation_scripts/node_cmd.sh",
+      "button_text": "RUN CMD",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true
+    },
+    {
       "name": "reboot",
       "display_name": "REBOOT",
       "script_path": "./automation_scripts/reboot.sh",

@@ -1,4 +1,5 @@
 """Automation API routes."""
+import os
 import shlex
 import subprocess
 import threading
@@ -122,13 +123,19 @@ def run_automation(automation_name):
             else:
                 cmd = ['/bin/bash', script_path]
 
+            # Build environment with optional custom env vars from config
+            proc_env = os.environ.copy()
+            if 'env' in automation_config and isinstance(automation_config['env'], dict):
+                proc_env.update(automation_config['env'])
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                env=proc_env
             )
 
             with automation_lock:
