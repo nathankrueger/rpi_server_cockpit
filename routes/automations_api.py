@@ -220,9 +220,11 @@ def cancel_automation(automation_name):
         state = automation_state[automation_name]
 
         if not state['running']:
+            # Return success - automation is already not running, which is the desired state
+            # This handles race conditions where the automation finishes before cancel is processed
             return jsonify({
-                'success': False,
-                'error': 'Automation not running'
+                'success': True,
+                'message': 'Automation already completed'
             })
 
         # Get the process reference
