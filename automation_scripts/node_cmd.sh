@@ -179,7 +179,7 @@ if [[ "$DISCOVER" == true ]]; then
     echo "Gateway: $URL"
     echo ""
 
-    RESPONSE=$(curl -s -w "\n%{http_code}" --connect-timeout "$TIMEOUT" --max-time 30 "$URL" 2>&1)
+    RESPONSE=$(curl -s -w "\n%{http_code}" --connect-timeout "$TIMEOUT" --max-time 180 "$URL" 2>&1)
     CURL_EXIT=$?
 elif [[ "$WAIT_RESPONSE" == true ]]; then
     # GET request - wait for response
