@@ -21,6 +21,7 @@ fi
 # Default values
 NODE_ID=""
 BROADCAST=false
+DISCOVER=false
 COMMAND=""
 CMD_ARGS=""
 CLI_GATEWAY_HOST=""
@@ -31,18 +32,21 @@ TIMEOUT=5
 # Function to display usage
 usage() {
     echo "Usage: $0 (-n <node_id> | -b) -c <command> [-a <args>] [-g <host>] [-p <port>] [-w] [-t <timeout>]"
+    echo "       $0 -d [-a <retries>] [-g <host>] [-p <port>] [-t <timeout>]"
     echo ""
     echo "Options:"
     echo "  -n <node_id>    Target node ID (e.g., ab01)"
     echo "  -b              Broadcast command to all nodes"
     echo "  -c <command>    Command to send (e.g., ping, params)"
-    echo "  -a <args>       Optional command arguments (comma-separated)"
+    echo "  -d              Discover all reachable nodes"
+    echo "  -a <args>       Optional command arguments (comma-separated; for -d: retry count)"
     echo "  -g <host>       Gateway hostname (overrides GATEWAY_HOST env var)"
     echo "  -p <port>       Gateway port (overrides GATEWAY_PORT env var)"
     echo "  -w              Wait for response (uses GET endpoint)"
     echo "  -t <timeout>    Connection timeout in seconds (default: 5)"
     echo ""
     echo "Note: -n and -b are mutually exclusive. -w requires -n (no broadcast)."
+    echo "      -d is a standalone operation (no -c, -n, -b, or -w needed)."
     echo ""
     echo "Environment variables (used if -g/-p not specified):"
     echo "  GATEWAY_HOST    Gateway hostname (default: localhost)"
@@ -53,6 +57,8 @@ usage() {
     echo "  $0 -n ab01 -c params -w             # Read node parameters"
     echo "  $0 -n ab01 -c txpwr -a 22           # Set TX power to 22 dBm"
     echo "  $0 -b -c ping                       # Broadcast ping"
+    echo "  $0 -d                               # Discover all reachable nodes"
+    echo "  $0 -d -a 5                          # Discover with 5 retries"
     exit 1
 }
 
@@ -80,6 +86,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -b|--broadcast)
             BROADCAST=true
+            shift
+            ;;
+        -d|--discover)
+            DISCOVER=true
             shift
             ;;
         -c|--command)
@@ -117,24 +127,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate inputs
-if [[ -z "$COMMAND" ]]; then
-    echo "Error: Command (-c) is required"
-    usage
-fi
+if [[ "$DISCOVER" == true ]]; then
+    # Discovery mode: -c, -n, -b, -w are not used
+    if [[ -n "$COMMAND" ]] || [[ -n "$NODE_ID" ]] || [[ "$BROADCAST" == true ]] || [[ "$WAIT_RESPONSE" == true ]]; then
+        echo "Error: -d is standalone (do not combine with -c, -n, -b, or -w)"
+        usage
+    fi
+else
+    if [[ -z "$COMMAND" ]]; then
+        echo "Error: Command (-c) or discover (-d) is required"
+        usage
+    fi
 
-if [[ -z "$NODE_ID" ]] && [[ "$BROADCAST" == false ]]; then
-    echo "Error: Either node ID (-n) or broadcast (-b) is required"
-    usage
-fi
+    if [[ -z "$NODE_ID" ]] && [[ "$BROADCAST" == false ]]; then
+        echo "Error: Either node ID (-n) or broadcast (-b) is required"
+        usage
+    fi
 
-if [[ -n "$NODE_ID" ]] && [[ "$BROADCAST" == true ]]; then
-    echo "Error: Cannot specify both -n and -b. Use one or the other."
-    usage
-fi
+    if [[ -n "$NODE_ID" ]] && [[ "$BROADCAST" == true ]]; then
+        echo "Error: Cannot specify both -n and -b. Use one or the other."
+        usage
+    fi
 
-if [[ "$WAIT_RESPONSE" == true ]] && [[ -z "$NODE_ID" ]]; then
-    echo "Error: -w requires a node ID (-n), broadcast not supported for response wait"
-    usage
+    if [[ "$WAIT_RESPONSE" == true ]] && [[ -z "$NODE_ID" ]]; then
+        echo "Error: -w requires a node ID (-n), broadcast not supported for response wait"
+        usage
+    fi
 fi
 
 # Set gateway connection (CLI args take precedence over env vars)
@@ -150,8 +168,20 @@ else
     GATEWAY_PORT="${GATEWAY_PORT:-5001}"
 fi
 
-# Determine request type based on -w flag
-if [[ "$WAIT_RESPONSE" == true ]]; then
+# Determine request type
+if [[ "$DISCOVER" == true ]]; then
+    # GET /discover[?retries=N]
+    URL="http://$GATEWAY_HOST:$GATEWAY_PORT/discover"
+    if [[ -n "$CMD_ARGS" ]]; then
+        URL="$URL?retries=$CMD_ARGS"
+    fi
+    echo "Discovering reachable nodes..."
+    echo "Gateway: $URL"
+    echo ""
+
+    RESPONSE=$(curl -s -w "\n%{http_code}" --connect-timeout "$TIMEOUT" --max-time 30 "$URL" 2>&1)
+    CURL_EXIT=$?
+elif [[ "$WAIT_RESPONSE" == true ]]; then
     # GET request - wait for response
     QUERY=$(build_query_string "$CMD_ARGS")
     URL="http://$GATEWAY_HOST:$GATEWAY_PORT/$COMMAND/$NODE_ID$QUERY"
