@@ -75,7 +75,14 @@ def run_automation(automation_name):
         print(f"Invalid automation name: {automation_name}")
         return jsonify({'success': False, 'error': 'Invalid automation'}), 400
 
-    # Check if automation is already running
+    # Get arguments from request body
+    data = request.get_json() or {}
+    args = data.get('args', '').strip()
+
+    script_path = automation_config['script_path']
+    job_id = str(uuid.uuid4())
+
+    # Atomically check if running AND set running=True to prevent race conditions
     with automation_lock:
         if automation_state[automation_name]['running']:
             print(f"Automation {automation_name} is already running")
@@ -84,27 +91,22 @@ def run_automation(automation_name):
                 'error': 'Automation already running'
             }), 400
 
-    # Get arguments from request body
-    data = request.get_json() or {}
-    args = data.get('args', '').strip()
+        # Set running=True immediately while holding the lock
+        automation_state[automation_name] = {
+            'job_id': job_id,
+            'running': True,
+            'output': 'Starting...\n',
+            'return_code': None,
+            'process': None
+        }
 
-    script_path = automation_config['script_path']
-    job_id = str(uuid.uuid4())
     print(f"Starting automation {automation_name} with job_id {job_id}" + (f" and args: {args}" if args else ""))
+
+    # Broadcast initial state (outside lock)
+    broadcast_automation_state(automation_name)
 
     def run_script():
         try:
-            # Initialize the automation state
-            with automation_lock:
-                automation_state[automation_name] = {
-                    'job_id': job_id,
-                    'running': True,
-                    'output': 'Starting...\n',
-                    'return_code': None,
-                    'process': None
-                }
-            broadcast_automation_state(automation_name)
-
             # Build command with arguments if provided
             if args:
                 # Use shlex to safely split arguments
@@ -174,9 +176,6 @@ def run_automation(automation_name):
     else:
         # Use eventlet greenthreads in production
         eventlet.spawn(run_script)
-
-    # Give it a tiny moment to initialize
-    time.sleep(0.1)
 
     response = jsonify({
         'success': True,

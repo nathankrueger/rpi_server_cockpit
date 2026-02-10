@@ -32,13 +32,38 @@
     {
       "name": "node_cmd",
       "display_name": "NODE COMMAND",
-      "script_path": "./automation_scripts/node_cmd.sh",
+      "script_path": "../data_log/scripts/node_cmd.sh",
       "button_text": "RUN CMD",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
       },
-      "enabled": true
+      "enabled": true,
+      "group": "Node Control"
+    },
+    {
+      "name": "echo_test",
+      "display_name": "ECHO TEST",
+      "script_path": "../data_log/scripts/echo_test.sh",
+      "button_text": "RUN TEST",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true,
+      "group": "Node Control"
+    },
+    {
+      "name": "discover_test",
+      "display_name": "DISCOVER TEST",
+      "script_path": "../data_log/scripts/discover_test.sh",
+      "button_text": "RUN TEST",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true,
+      "group": "Node Control"
     },
     {
       "name": "reboot",

@@ -424,7 +424,7 @@ function createAutomationCard(automation) {
                 ${automation.button_text}
             </button>
             <button class="details-btn clear-btn" onclick="clearAutomationOutput('${automation.name}')" id="${automation.name}-clear-btn" style="display: none;">
-                CLEAR OUTPUT
+                CLEAR
             </button>
         </div>
         <div class="automation-output" id="${automation.name}-output" style="display: none;">
