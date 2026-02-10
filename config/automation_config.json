@@ -33,7 +33,7 @@
       "name": "node_cmd",
       "display_name": "NODE COMMAND",
       "script_path": "../data_log/scripts/node_cmd.sh",
-      "button_text": "RUN CMD",
+      "button_text": "EXECUTE",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
