@@ -42,6 +42,18 @@
       "group": "Node Control"
     },
     {
+      "name": "gateway_cmd",
+      "display_name": "NODE COMMAND",
+      "script_path": "../data_log/scripts/gateway_cmd.sh",
+      "button_text": "EXECUTE",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true,
+      "group": "Node Control"
+    },
+    {
       "name": "echo_test",
       "display_name": "ECHO TEST",
       "script_path": "../data_log/scripts/echo_test.sh",
@@ -58,6 +70,18 @@
       "display_name": "DISCOVER TEST",
       "script_path": "../data_log/scripts/discover_test.sh",
       "button_text": "RUN TEST",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true,
+      "group": "Node Control"
+    },
+    {
+      "name": "radio_reconfig",
+      "display_name": "RADIO RECONFIG",
+      "script_path": "../data_log/scripts/set_radio_params.sh",
+      "button_text": "RECONFIG",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
