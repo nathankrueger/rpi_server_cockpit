@@ -90,6 +90,18 @@
       "group": "Node Control"
     },
     {
+      "name": "test_radio_reconfig",
+      "display_name": "TEST RADIO RECONFIG",
+      "script_path": "../data_log/scripts/test_radio_rcfg.sh",
+      "button_text": "TEST",
+      "env": {
+        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_PORT": "5001"
+      },
+      "enabled": true,
+      "group": "Node Control"
+    },
+    {
       "name": "reboot",
       "display_name": "REBOOT",
       "script_path": "./automation_scripts/reboot.sh",
