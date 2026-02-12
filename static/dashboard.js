@@ -65,6 +65,14 @@ let automationClearedState = {};
 // Track which automation is currently shown in the fullscreen modal
 let currentExpandedAutomation = null;
 
+// Command history for automation args inputs
+// Each automation has its own history array
+let automationCommandHistory = {};
+// Track current position in history (-1 means at "new command" position)
+let automationHistoryIndex = {};
+// Store pending input when user navigates history
+let automationPendingInput = {};
+
 // Service status functions
 let servicesConfig = [];
 
@@ -442,13 +450,21 @@ function createAutomationCard(automation) {
             });
         }
 
-        // Add Enter key listener to arguments input
+        // Add keyboard listeners to arguments input
         const argsInput = document.getElementById(`${automation.name}-args`);
         if (argsInput) {
-            argsInput.addEventListener('keypress', (e) => {
+            argsInput.addEventListener('keydown', (e) => {
+                const name = automation.name;
+
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    runAutomation(automation.name);
+                    runAutomation(name);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    navigateAutomationHistory(name, argsInput, -1);
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    navigateAutomationHistory(name, argsInput, 1);
                 }
             });
         }
@@ -1031,6 +1047,55 @@ function updateAutomationUI(automationName, state) {
     }
 }
 
+// Navigate through command history for automation args input
+function navigateAutomationHistory(automationName, inputElement, direction) {
+    // Initialize history for this automation if needed
+    if (!automationCommandHistory[automationName]) {
+        automationCommandHistory[automationName] = [];
+    }
+
+    const history = automationCommandHistory[automationName];
+    if (history.length === 0) return;
+
+    // Initialize index if needed (-1 means at "new command" position)
+    if (automationHistoryIndex[automationName] === undefined) {
+        automationHistoryIndex[automationName] = -1;
+    }
+
+    const currentIndex = automationHistoryIndex[automationName];
+
+    // Going up (back in history)
+    if (direction === -1) {
+        // Save pending input when first entering history
+        if (currentIndex === -1) {
+            automationPendingInput[automationName] = inputElement.value;
+        }
+
+        // Move back in history (newer items are at end, older at start)
+        const newIndex = currentIndex === -1 ? history.length - 1 : Math.max(0, currentIndex - 1);
+        automationHistoryIndex[automationName] = newIndex;
+        inputElement.value = history[newIndex];
+    }
+    // Going down (forward in history)
+    else if (direction === 1) {
+        if (currentIndex === -1) return; // Already at newest position
+
+        const newIndex = currentIndex + 1;
+
+        if (newIndex >= history.length) {
+            // Back to "new command" position - restore pending input
+            automationHistoryIndex[automationName] = -1;
+            inputElement.value = automationPendingInput[automationName] || '';
+        } else {
+            automationHistoryIndex[automationName] = newIndex;
+            inputElement.value = history[newIndex];
+        }
+    }
+
+    // Move cursor to end of input
+    inputElement.selectionStart = inputElement.selectionEnd = inputElement.value.length;
+}
+
 async function runAutomation(automationName) {
     const btn = document.getElementById(`${automationName}-btn`);
 
@@ -1046,6 +1111,21 @@ async function runAutomation(automationName) {
     // Get arguments from input field
     const argsInput = document.getElementById(`${automationName}-args`);
     const args = argsInput ? argsInput.value.trim() : '';
+
+    // Save to command history if non-empty
+    if (args) {
+        if (!automationCommandHistory[automationName]) {
+            automationCommandHistory[automationName] = [];
+        }
+        const history = automationCommandHistory[automationName];
+        // Avoid duplicates at the end
+        if (history.length === 0 || history[history.length - 1] !== args) {
+            history.push(args);
+        }
+    }
+    // Reset history navigation state
+    automationHistoryIndex[automationName] = -1;
+    automationPendingInput[automationName] = '';
 
     // Disable button temporarily
     btn.disabled = true;
