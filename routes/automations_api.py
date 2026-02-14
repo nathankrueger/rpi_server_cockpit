@@ -39,7 +39,11 @@ def broadcast_automation_state(automation_name, incremental_output=None):
         state.pop('process', None)
 
         # If incremental output is provided, replace full output with just the increment
+        # But don't broadcast incremental updates if the automation was cancelled
         if incremental_output is not None:
+            if not state['running']:
+                # Automation was cancelled, don't broadcast incremental output
+                return
             state['output'] = incremental_output
             state['incremental'] = True
         else:
@@ -146,18 +150,30 @@ def run_automation(automation_name):
             # Read output line by line and broadcast updates
             for line in process.stdout:
                 with automation_lock:
+                    # Check if cancelled - if so, stop processing output
+                    if not automation_state[automation_name]['running']:
+                        break
                     automation_state[automation_name]['output'] += line
                 # Broadcast incremental update outside the lock
                 broadcast_automation_state(automation_name, incremental_output=line)
 
             process.wait()
 
+            # Only update final state if not already cancelled
             with automation_lock:
-                automation_state[automation_name]['running'] = False
-                automation_state[automation_name]['return_code'] = process.returncode
-                automation_state[automation_name]['process'] = None
-                automation_state[automation_name]['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
-            broadcast_automation_state(automation_name)
+                if automation_state[automation_name]['running']:
+                    # Normal completion - wasn't cancelled
+                    automation_state[automation_name]['running'] = False
+                    automation_state[automation_name]['return_code'] = process.returncode
+                    automation_state[automation_name]['process'] = None
+                    automation_state[automation_name]['completed_at'] = datetime.now().strftime('%H:%M:%S %m/%d/%y')
+                    should_broadcast = True
+                else:
+                    # Was cancelled - don't overwrite the cancellation state
+                    should_broadcast = False
+
+            if should_broadcast:
+                broadcast_automation_state(automation_name)
 
         except Exception as e:
             with automation_lock:
