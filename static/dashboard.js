@@ -421,22 +421,22 @@ function createAutomationCard(automation) {
     card.innerHTML = `
         <div class="service-header">
             <span class="service-name">${automation.display_name}</span>
-            <div class="status-indicator yellow" id="${automation.name}-indicator"></div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="status-inline" id="${automation.name}-status">READY</span>
+                <div class="status-indicator yellow" id="${automation.name}-indicator"></div>
+            </div>
         </div>
-        <div class="status-text" id="${automation.name}-status">READY</div>
         <div class="automation-args-container">
-            <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)" autocorrect="off" spellcheck="false">
-        </div>
-        <div class="toggle-container">
-            <button class="details-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">
-                ${automation.button_text}
-            </button>
-            <button class="details-btn clear-btn" onclick="clearAutomationOutput('${automation.name}')" id="${automation.name}-clear-btn" style="display: none;">
-                CLEAR
-            </button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)" autocorrect="off" spellcheck="false" style="flex: 1;">
+                <button class="details-btn icon-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">&#9658;</button>
+            </div>
         </div>
         <div class="automation-output" id="${automation.name}-output" style="display: none;">
-            <div style="font-size: 0.8em; color: #00ff41; margin-bottom: 5px; text-shadow: 0 0 3px #00ff41;">OUTPUT:</div>
+            <div class="output-header">
+                <span class="output-label">OUTPUT:</span>
+                <button class="clear-btn-compact" onclick="clearAutomationOutput('${automation.name}')" id="${automation.name}-clear-btn" style="display: none;">CLEAR</button>
+            </div>
             <div class="modal-output" style="max-height: 150px;" id="${automation.name}-output-text"></div>
         </div>
     `;
@@ -1022,7 +1022,7 @@ function updateAutomationUI(automationName, state) {
     } else {
         btn.classList.remove('cancel');
         const config = automationConfigs[automationName];
-        btn.textContent = config ? config.button_text : 'RUN';
+        btn.textContent = '\u25B6';
         btn.disabled = false;
         delete btn.dataset.jobId;
 
@@ -1146,7 +1146,7 @@ async function runAutomation(automationName) {
             alert(`ERROR: ${result.error || 'Failed to start automation'}`);
             const config = automationConfigs[automationName];
             btn.disabled = false;
-            btn.textContent = config ? config.button_text : 'RUN';
+            btn.textContent = '\u25B6';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
@@ -1154,7 +1154,7 @@ async function runAutomation(automationName) {
         alert(`CRITICAL ERROR: ${error.message}`);
         const config = automationConfigs[automationName];
         btn.disabled = false;
-        btn.textContent = config ? config.button_text : 'RUN';
+        btn.textContent = '\u25B6';
     }
 }
 
@@ -1184,7 +1184,7 @@ async function cancelAutomation(automationName) {
             btn.disabled = false;
             btn.classList.remove('cancel');
             const config = automationConfigs[automationName];
-            btn.textContent = config ? config.button_text : 'RUN';
+            btn.textContent = '\u25B6';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
@@ -1193,7 +1193,7 @@ async function cancelAutomation(automationName) {
         btn.disabled = false;
         btn.classList.remove('cancel');
         const config = automationConfigs[automationName];
-        btn.textContent = config ? config.button_text : 'RUN';
+        btn.textContent = '\u25B6';
     }
 }
 

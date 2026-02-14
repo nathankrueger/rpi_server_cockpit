@@ -75,7 +75,7 @@ h1 {
     background: rgba(40, 40, 50, 0.95);
     border: 2px solid var(--theme-primary);
     border-radius: 10px;
-    padding: 25px;
+    padding: 15px;
     box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.3);
     transition: all 0.3s ease;
     position: relative;
@@ -109,7 +109,7 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .service-name {
@@ -123,6 +123,9 @@ h1 {
 .status-indicator {
     width: 20px;
     height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    flex-shrink: 0;
     border-radius: 50%;
     transition: all 0.3s ease;
     position: relative;
@@ -232,6 +235,50 @@ h1 {
 .details-btn.clear-btn:hover {
     background: rgba(255, 255, 0, 0.4);
     box-shadow: 0 0 10px #ffff00;
+}
+
+.details-btn.icon-btn {
+    padding: 5px 8px;
+    font-size: 1em;
+    min-width: 32px;
+}
+
+.output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.output-header .output-label {
+    font-size: 0.8em;
+    color: var(--theme-primary);
+    text-shadow: 0 0 3px var(--theme-primary);
+}
+
+.clear-btn-compact {
+    padding: 2px 8px;
+    background: rgba(255, 255, 0, 0.2);
+    border: 1px solid #ffff00;
+    border-radius: 3px;
+    color: #ffff00;
+    cursor: pointer;
+    font-size: 0.65em;
+    transition: all 0.3s;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 3px #ffff00;
+}
+
+.clear-btn-compact:hover {
+    background: rgba(255, 255, 0, 0.4);
+    box-shadow: 0 0 8px #ffff00;
+}
+
+.status-inline {
+    font-size: 0.75em;
+    color: var(--theme-primary);
+    text-shadow: 0 0 3px var(--theme-primary);
+    margin-left: 8px;
 }
 
 .details-btn.secondary {
@@ -379,7 +426,7 @@ h1 {
     border: 2px solid var(--theme-primary);
     border-radius: 10px;
     margin: 5% auto;
-    padding: 30px;
+    padding: 20px;
     width: 80%;
     max-width: 800px;
     max-height: 70vh;
@@ -391,7 +438,7 @@ h1 {
 .modal-header {
     color: var(--theme-primary);
     font-size: 1.5em;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     text-shadow: 0 0 10px var(--theme-primary);
     text-align: center;
     letter-spacing: 2px;
@@ -416,7 +463,7 @@ h1 {
     background: var(--theme-bg-medium);
     border: 1px solid var(--theme-primary);
     border-radius: 5px;
-    padding: 15px;
+    padding: 12px;
     color: var(--theme-primary);
     font-family: 'Courier New', monospace;
     font-size: var(--automation-output-font-size);
@@ -424,18 +471,18 @@ h1 {
     word-wrap: break-word;
     max-height: 50vh;
     overflow-y: auto;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .automation-output {
-    margin-top: 15px;
-    padding-top: 15px;
+    margin-top: 10px;
+    padding-top: 10px;
     border-top: 1px solid rgba(var(--theme-primary-rgb), 0.3);
 }
 
 .automation-args-container {
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 .automation-args-input {
@@ -446,7 +493,7 @@ h1 {
     padding: 8px 10px;
     color: var(--theme-primary);
     font-family: 'Courier New', monospace;
-    font-size: 0.85em;
+    font-size: 0.75em;
     transition: all 0.3s;
     box-shadow: inset 0 0 5px rgba(var(--theme-primary-rgb), 0.2);
 }
@@ -838,12 +885,12 @@ body::before {
 
 /* Compact mode styles */
 body.compact-mode .service-card {
-    padding: 10px 12px;
+    padding: 8px 10px;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
     align-content: flex-start;
-    gap: 8px;
+    gap: 6px;
 }
 
 body.compact-mode .service-card:hover {
@@ -861,6 +908,16 @@ body.compact-mode .service-name {
 }
 
 body.compact-mode .status-text {
+    font-size: 0.65em;
+    margin: 0;
+}
+
+/* Only hide status indicator for service cards (not automation cards) */
+body.compact-mode .service-card:not(:has(.automation-args-container)) .status-indicator {
+    display: none;
+}
+
+body.compact-mode .toggle-label {
     display: none;
 }
 
@@ -874,11 +931,56 @@ body.compact-mode .toggle-container {
     margin: 0;
 }
 
-/* Service cards (no args input) - toggle takes full width, button left, control right */
+/* Service cards (no args input) - grid layout */
+body.compact-mode .service-card:not(:has(.automation-args-container)) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: start;
+    gap: 2px 8px;
+}
+
+body.compact-mode .service-card:not(:has(.automation-args-container)) .service-header {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+}
+
+body.compact-mode .service-card:not(:has(.automation-args-container)) .status-text {
+    grid-column: 1;
+    grid-row: 2;
+}
+
 body.compact-mode .service-card:not(:has(.automation-args-container)) .toggle-container {
-    flex: 0 0 100%;
-    width: 100%;
-    justify-content: space-between;
+    grid-column: 2;
+    grid-row: 1 / 3;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+body.compact-mode .service-card:not(:has(.automation-args-container)) .details-btn {
+    order: 2;
+    padding: 2px 8px;
+    font-size: 0.65em;
+    background: rgba(0, 255, 0, 0.1);
+}
+
+/* Shorter toggle switch in compact mode for service cards */
+body.compact-mode .service-card:not(:has(.automation-args-container)) .toggle-switch {
+    width: 40px;
+    height: 20px;
+}
+
+body.compact-mode .service-card:not(:has(.automation-args-container)) .toggle-slider {
+    width: 16px;
+    height: 16px;
+    top: 2px;
+    left: 2px;
+}
+
+body.compact-mode .service-card:not(:has(.automation-args-container)) .toggle-switch.active .toggle-slider {
+    transform: translateX(20px);
 }
 
 /* Automation cards (with args input) - toggle stays next to args */
@@ -910,4 +1012,57 @@ body.compact-mode .automation-output {
     width: 100%;
     margin-top: 10px;
     padding-top: 10px;
+}
+
+/* System stats compact mode */
+body.compact-mode .system-stats {
+    gap: 10px;
+    margin-top: 10px;
+}
+
+body.compact-mode .stat-card {
+    padding: 10px;
+}
+
+body.compact-mode .stat-title {
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+body.compact-mode .stat-value {
+    font-size: 1.8em;
+}
+
+/* Section separators compact mode */
+body.compact-mode .matrix-separator {
+    margin: 8px 0;
+}
+
+body.compact-mode .matrix-separator::before {
+    font-size: 0.75em;
+    padding: 0 12px;
+    letter-spacing: 2px;
+}
+
+/* Modal compact mode */
+body.compact-mode .modal-content {
+    padding: 12px;
+    margin: 3% auto;
+    border-radius: 8px;
+}
+
+body.compact-mode .modal-header {
+    font-size: 1.2em;
+    margin-bottom: 8px;
+}
+
+body.compact-mode .modal-output {
+    padding: 8px;
+    line-height: 1.3;
+}
+
+body.compact-mode .modal-close {
+    top: 5px;
+    right: 12px;
+    font-size: 1.5em;
 }

@@ -4,21 +4,18 @@
       "name": "sync_music",
       "display_name": "SYNC MUSIC",
       "script_path": "./automation_scripts/sync_music.sh",
-      "button_text": "RUN SYNC",
       "enabled": true
     },
     {
       "name": "ping_ts",
       "display_name": "PING TAILSCALE",
       "script_path": "./automation_scripts/ping_ts_hosts.sh",
-      "button_text": "PING",
       "enabled": true
     },
     {
       "name": "enable_media_library",
       "display_name": "DLNA MEDIA LIBRARY",
       "script_path": "./automation_scripts/media_library.sh",
-      "button_text": "RUN CMD",
       "enabled": true
     },
     {
@@ -26,14 +23,12 @@
       "display_name": "SMART PLUG CONTROL",
       "script_path": "./automation_scripts/kasa.sh",
       "args": "-i 192.168.1.47 --toggle",
-      "button_text": "EXECUTE",
       "enabled": true
     },
     {
       "name": "node_cmd",
       "display_name": "NODE COMMAND",
       "script_path": "../data_log/scripts/node_cmd.sh",
-      "button_text": "EXECUTE",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -45,7 +40,6 @@
       "name": "gateway_cmd",
       "display_name": "GATEWAY COMMAND",
       "script_path": "../data_log/scripts/gateway_cmd.sh",
-      "button_text": "EXECUTE",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -57,7 +51,6 @@
       "name": "radio_reconfig",
       "display_name": "RADIO RECONFIG",
       "script_path": "../data_log/scripts/set_radio_params.sh",
-      "button_text": "RECONFIG",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -69,7 +62,6 @@
       "name": "echo_test",
       "display_name": "ECHO TEST",
       "script_path": "../data_log/scripts/echo_test.sh",
-      "button_text": "RUN TEST",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -81,7 +73,6 @@
       "name": "discover_test",
       "display_name": "DISCOVER TEST",
       "script_path": "../data_log/scripts/discover_test.sh",
-      "button_text": "RUN TEST",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -93,7 +84,6 @@
       "name": "test_radio_reconfig",
       "display_name": "TEST RADIO RECONFIG",
       "script_path": "../data_log/scripts/test_radio_rcfg.sh",
-      "button_text": "TEST",
       "env": {
         "GATEWAY_HOST": "pz2w1",
         "GATEWAY_PORT": "5001"
@@ -105,7 +95,6 @@
       "name": "reboot",
       "display_name": "REBOOT",
       "script_path": "./automation_scripts/reboot.sh",
-      "button_text": "REBOOT",
       "enabled": true,
       "group": "System Control"
     },
@@ -113,7 +102,6 @@
       "name": "update_os",
       "display_name": "UPDATE OS",
       "script_path": "./automation_scripts/update_os.sh",
-      "button_text": "UPDATE",
       "enabled": true,
       "group": "System Control"
     },
@@ -121,7 +109,6 @@
       "name": "stress_test",
       "display_name": "STRESS TEST",
       "script_path": "./automation_scripts/make_heat.sh",
-      "button_text": "GO",
       "enabled": true,
       "group": "Diagnostic"
     },
@@ -129,7 +116,6 @@
       "name": "proc_list",
       "display_name": "PROCESS LIST",
       "script_path": "./automation_scripts/proc_list.sh",
-      "button_text": "LIST PROCESSES",
       "enabled": true,
       "group": "Diagnostic"
     },
@@ -137,7 +123,6 @@
       "name": "restart_webserver",
       "display_name": "RESTART WEBSERVER",
       "script_path": "./automation_scripts/restart_webserver.sh",
-      "button_text": "RESTART",
       "enabled": true,
       "group": "System Control"
     }
