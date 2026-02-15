@@ -316,6 +316,24 @@ h1 {
     cursor: not-allowed;
 }
 
+.toggle-switch.pending {
+    cursor: wait;
+    border-color: #ffaa00;
+    background-color: rgba(255, 170, 0, 0.3);
+    box-shadow: inset 0 0 10px rgba(255, 170, 0, 0.5);
+    animation: pulse-toggle 1.5s ease-in-out infinite;
+}
+
+.toggle-switch.pending .toggle-slider {
+    background-color: #ffaa00;
+    box-shadow: 0 0 10px #ffaa00;
+}
+
+@keyframes pulse-toggle {
+    0%, 100% { box-shadow: inset 0 0 10px rgba(255, 170, 0, 0.5), 0 0 5px rgba(255, 170, 0, 0.3); }
+    50% { box-shadow: inset 0 0 15px rgba(255, 170, 0, 0.8), 0 0 15px rgba(255, 170, 0, 0.6); }
+}
+
 .toggle-slider {
     position: absolute;
     top: 3px;

@@ -76,6 +76,9 @@ let automationPendingInput = {};
 // Service status functions
 let servicesConfig = [];
 
+// Track pending service operations: { serviceId: 'start' | 'stop' }
+let pendingServiceOps = {};
+
 async function loadAndRenderServices() {
     try {
         const response = await fetch('/api/services');
@@ -812,6 +815,20 @@ function updateServiceUI(service, statusData) {
     const isRunning = typeof statusData === 'boolean' ? statusData : statusData.running;
     const memoryBytes = typeof statusData === 'object' ? statusData.memory_bytes : null;
 
+    // Clear pending only when the state matches what was requested
+    if (pendingServiceOps[service]) {
+        const expectedRunning = pendingServiceOps[service] === 'start';
+        if (isRunning === expectedRunning) {
+            delete pendingServiceOps[service];
+            toggle.classList.remove('pending');
+            // Brief cooldown before re-enabling to prevent rapid toggling
+            setTimeout(() => toggle.classList.remove('disabled'), 1500);
+        }
+        // Otherwise keep pulsing — state hasn't changed yet
+    } else {
+        toggle.classList.remove('pending', 'disabled');
+    }
+
     if (isRunning) {
         indicator.className = 'status-indicator green';
         const memoryStr = formatMemory(memoryBytes);
@@ -841,12 +858,13 @@ function updateInternetUI(isConnected) {
 async function toggleService(service) {
     const toggle = document.getElementById(`${service}-toggle`);
 
-    if (toggle.classList.contains('disabled')) return;
+    if (toggle.classList.contains('disabled') || toggle.classList.contains('pending')) return;
 
     const isActive = toggle.classList.contains('active');
     const action = isActive ? 'stop' : 'start';
 
-    toggle.classList.add('disabled');
+    toggle.classList.add('disabled', 'pending');
+    pendingServiceOps[service] = action;
 
     try {
         const response = await fetch(`/api/control/${service}`, {
@@ -860,16 +878,18 @@ async function toggleService(service) {
         const result = await response.json();
 
         if (result.success) {
-            // Fetch updated status after a short delay for the service to start/stop
-            // (WebSocket will also push updates, but this provides quicker feedback)
-            setTimeout(fetchInitialStatus, 1000);
+            // Fetch updated status for faster feedback.
+            // Pending state stays until updateServiceUI sees the expected state.
+            fetchInitialStatus();
         } else {
+            delete pendingServiceOps[service];
+            toggle.classList.remove('disabled', 'pending');
             alert(`SYSTEM ERROR: Failed to ${action} ${service}\n${result.error}`);
         }
     } catch (error) {
+        delete pendingServiceOps[service];
+        toggle.classList.remove('disabled', 'pending');
         alert(`CRITICAL ERROR: ${error.message}`);
-    } finally {
-        toggle.classList.remove('disabled');
     }
 }
 
