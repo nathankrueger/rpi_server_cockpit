@@ -153,8 +153,8 @@ class GPUTemperatureTimeseries(TimeseriesBase):
 
     def getCurrentValue(self) -> Any:
         try:
-            import subprocess
-            result = subprocess.run(
+            from utils.subprocess_helper import run as subprocess_run
+            result = subprocess_run(
                 ['vcgencmd', 'measure_temp'],
                 capture_output=True,
                 text=True,

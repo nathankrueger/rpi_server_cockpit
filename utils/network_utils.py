@@ -1,5 +1,5 @@
 """Network and internet connectivity utilities."""
-import subprocess
+from utils.subprocess_helper import run as subprocess_run
 
 
 def check_internet_connectivity():
@@ -8,7 +8,7 @@ def check_internet_connectivity():
 
     for host in hosts:
         try:
-            result = subprocess.run(
+            result = subprocess_run(
                 ['ping', '-c', '1', '-W', '2', host],
                 capture_output=True,
                 timeout=3

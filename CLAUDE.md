@@ -48,6 +48,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 │   ├── routes.py        # Timeseries API endpoints
 │   └── collector.py     # Background data collection
 ├── utils/               # Utility functions
+│   ├── subprocess_helper.py # Central subprocess.run() wrapper (tpool-safe)
 │   ├── service_utils.py # systemd/process control
 │   ├── system_utils.py  # CPU, RAM, disk stats
 │   └── data_utils.py    # LTTB downsampling algorithm
@@ -74,6 +75,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 **Settings per Page**: Each page has it's own settings dialog, accessible via the menu at the bottom.  Settings are relative to the page alone, and are typically stored in localStorage.
 
 **Mobile Compatibility**: This website should be usable on both touch-based mobile browsers and Desktop machines.
+
+**Subprocess Execution (tpool)**: All subprocess calls MUST go through `utils.subprocess_helper.run()` instead of `subprocess.run()` directly. Under eventlet, `subprocess.run()` blocks the green thread event loop because Python 3.10+ subprocess uses `selectors.EpollSelector` internally, which eventlet doesn't fully monkey-patch. The helper wraps calls in `eventlet.tpool.execute()` so they run in real OS threads and the event loop stays responsive. In debug mode (no eventlet), it falls back to plain `subprocess.run()`. This is critical — without it, any slow subprocess call (e.g. `systemctl stop tailscaled` taking several seconds) will freeze the entire webserver, blocking all HTTP requests and WebSocket broadcasts.
 
 ### WebSocket Events
 

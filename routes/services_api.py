@@ -1,11 +1,10 @@
 """Service-related API routes."""
-import subprocess
-
 from flask import Blueprint, jsonify, request
 
 from config_loader import get_all_services, get_service_config
 from app_state import service_status_lock, service_status_cache
 from utils import check_service_status, check_process_running, control_service, control_process
+from utils.subprocess_helper import run as subprocess_run
 
 services_bp = Blueprint('services', __name__)
 
@@ -53,7 +52,7 @@ def get_service_details(service):
     try:
         # Use service_name from config
         service_name = service_config['service_name']
-        result = subprocess.run(
+        result = subprocess_run(
             ['systemctl', 'status', service_name],
             capture_output=True,
             text=True,

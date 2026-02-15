@@ -1,7 +1,8 @@
 """System statistics collection utilities."""
 import socket
-import subprocess
 import time
+
+from utils.subprocess_helper import run as subprocess_run
 
 import psutil
 
@@ -15,7 +16,7 @@ def get_uname() -> str:
     """Get kernel version string."""
     global _uname_cache
     if not _uname_cache:
-        _uname_cache = subprocess.run(
+        _uname_cache = subprocess_run(
             ['uname', '-r'],
             capture_output=True,
             text=True,
@@ -31,7 +32,7 @@ def get_top_cpu_processes(n=5):
     """
     try:
         # ps aux sorted by CPU, get top n+1 (skip header)
-        result = subprocess.run(
+        result = subprocess_run(
             ['ps', '-eo', 'pid,pcpu,comm', '--sort=-pcpu', '--no-headers'],
             capture_output=True,
             text=True,
@@ -81,7 +82,7 @@ def get_system_stats():
 
     # GPU Temperature (convert C to F)
     try:
-        result = subprocess.run(
+        result = subprocess_run(
             ['vcgencmd', 'measure_temp'],
             capture_output=True,
             text=True,

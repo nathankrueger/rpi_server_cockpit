@@ -1,15 +1,16 @@
 """Service status checking and control utilities."""
 import os
-import subprocess
 import time
 
 import psutil
+
+from utils.subprocess_helper import run as _run
 
 
 def check_service_status(service_name):
     """Check if a systemd service is active."""
     try:
-        result = subprocess.run(
+        result = _run(
             ['systemctl', 'is-active', service_name],
             capture_output=True,
             text=True,
@@ -24,7 +25,7 @@ def check_service_status(service_name):
 def check_process_running(process_name):
     """Check if a process is running by name."""
     try:
-        result = subprocess.run(
+        result = _run(
             ['pgrep', '-x', process_name],
             capture_output=True,
             text=True,
@@ -49,7 +50,7 @@ def get_service_memory_usage(service_config):
         if service_config['check_type'] == 'systemd':
             # Get main PID from systemd
             service_name = service_config['service_name']
-            result = subprocess.run(
+            result = _run(
                 ['systemctl', 'show', '-p', 'MainPID', service_name],
                 capture_output=True,
                 text=True,
@@ -117,7 +118,7 @@ def get_service_memory_usage(service_config):
 def control_service(service_name, action, on_start_callback=None, on_stop_callback=None):
     """Start or stop a systemd service."""
     try:
-        result = subprocess.run(
+        result = _run(
             ['sudo', 'systemctl', action, service_name],
             capture_output=True,
             text=True,
@@ -150,7 +151,7 @@ def control_process(process_name, action, on_start_callback=None, on_stop_callba
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             daemon_helper = os.path.join(script_dir, 'daemon_helper.sh')
 
-            result = subprocess.run(
+            result = _run(
                 [daemon_helper, process_name],
                 capture_output=True,
                 text=True,
@@ -175,7 +176,7 @@ def control_process(process_name, action, on_start_callback=None, on_stop_callba
             if not check_process_running(process_name):
                 return True, 'Process is not running'
 
-            result = subprocess.run(
+            result = _run(
                 ['pkill', '-x', process_name],
                 capture_output=True,
                 text=True,

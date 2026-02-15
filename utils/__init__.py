@@ -1,4 +1,5 @@
 """Utility modules for the Raspberry Pi Dashboard."""
+from .subprocess_helper import run as subprocess_run
 from .server_config import load_server_config, save_server_config, init_server_config
 from .service_utils import (
     check_service_status,
