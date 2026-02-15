@@ -392,6 +392,13 @@
     color: #ff0000;
 }
 
+.error-details {
+    margin-top: 12px;
+    font-size: 11px;
+    color: rgba(255, 0, 0, 0.6);
+    word-break: break-word;
+}
+
 /* Navigation buttons - now handled by nav-dock.css */
 
 /* Settings Modal Adjustments */

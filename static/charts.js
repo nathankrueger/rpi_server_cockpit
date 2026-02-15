@@ -85,8 +85,8 @@ async function initCharts() {
     // Load available timeseries
     await loadAvailableTimeseries();
 
-    // Set default time range (last 24 hours)
-    setQuickRange(3600);
+    // Set default time range (last hour) - skip auto-update, handled by await below
+    setQuickRange(3600, true);
 
     // Load settings
     loadChartSettings();
@@ -119,8 +119,8 @@ async function initCharts() {
         autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
     }
 
-    // Initial chart update
-    await updateCharts();
+    // Initial chart update (autoUpdate=true to set end time to now)
+    await updateCharts(true);
 }
 
 // Load list of available timeseries
@@ -314,15 +314,17 @@ function saveSelection() {
 }
 
 // Set quick time range
-function setQuickRange(seconds) {
+function setQuickRange(seconds, skipUpdate = false) {
     const now = new Date();
     const start = new Date(now.getTime() - seconds * 1000);
 
     document.getElementById('end-time').value = formatDatetimeLocal(now);
     document.getElementById('start-time').value = formatDatetimeLocal(start);
 
-    // Auto-update charts when quick range is selected
-    updateCharts(true); // Pass true to indicate this is from a quick range/auto-refresh
+    // Auto-update charts when quick range is selected (skip during init)
+    if (!skipUpdate) {
+        updateCharts(true); // Pass true to indicate this is from a quick range/auto-refresh
+    }
 }
 
 // Format date for datetime-local input
@@ -387,6 +389,17 @@ async function updateCharts(autoUpdate = false) {
             })
         });
 
+        if (!response.ok) {
+            let errorDetail = `HTTP ${response.status}`;
+            try {
+                const errorBody = await response.json();
+                errorDetail = errorBody.error || errorDetail;
+            } catch {
+                errorDetail += `: ${response.statusText}`;
+            }
+            throw new Error(errorDetail);
+        }
+
         const timeseriesData = await response.json();
         console.log('Received timeseries data:', timeseriesData.map(ts => ({
             id: ts.id,
@@ -408,8 +421,9 @@ async function updateCharts(autoUpdate = false) {
 
     } catch (error) {
         console.error('Error fetching timeseries data:', error);
+        const escaped = String(error.message).replace(/</g, '&lt;').replace(/>/g, '&gt;');
         document.getElementById('charts-container').innerHTML =
-            '<div class="error-message">Error loading chart data. Please try again.</div>';
+            `<div class="error-message">Error loading chart data. Please try again.<div class="error-details">${escaped}</div></div>`;
     } finally {
         chartUpdateInProgress = false;
     }

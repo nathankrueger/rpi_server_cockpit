@@ -113,42 +113,48 @@ def get_timeseries_data_batch():
         JSON array of timeseries data objects
     """
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': 'Invalid JSON body'}), 400
+
     timeseries_ids = data.get('timeseries_ids', [])
     start_time = data.get('start')
     end_time = data.get('end')
     limit = data.get('limit', 1000)
     max_datapoints = data.get('max_datapoints')
 
-    results = []
-    for ts_id in timeseries_ids:
-        # Check local timeseries first
-        ts = get_timeseries(ts_id)
-        if ts:
-            name = ts.getName()
-            units = ts.getUnits()
-        else:
-            # Check external timeseries
-            external = timeseries_db.get_external_timeseries(ts_id)
-            if external:
-                name = external['name']
-                units = external['units']
+    try:
+        results = []
+        for ts_id in timeseries_ids:
+            # Check local timeseries first
+            ts = get_timeseries(ts_id)
+            if ts:
+                name = ts.getName()
+                units = ts.getUnits()
             else:
-                continue  # Skip unknown timeseries
+                # Check external timeseries
+                external = timeseries_db.get_external_timeseries(ts_id)
+                if external:
+                    name = external['name']
+                    units = external['units']
+                else:
+                    continue  # Skip unknown timeseries
 
-        # Query data
-        if start_time is not None and end_time is not None:
-            ts_data = timeseries_db.query_range(ts_id, start_time, end_time, max_points=max_datapoints)
-        else:
-            ts_data = timeseries_db.query_latest(ts_id, limit)
+            # Query data
+            if start_time is not None and end_time is not None:
+                ts_data = timeseries_db.query_range(ts_id, start_time, end_time, max_points=max_datapoints)
+            else:
+                ts_data = timeseries_db.query_latest(ts_id, limit)
 
-        results.append({
-            'id': ts_id,
-            'name': name,
-            'units': units,
-            'data': ts_data
-        })
+            results.append({
+                'id': ts_id,
+                'name': name,
+                'units': units,
+                'data': ts_data
+            })
 
-    return jsonify(results)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @timeseries_bp.route('/api/timeseries/current')

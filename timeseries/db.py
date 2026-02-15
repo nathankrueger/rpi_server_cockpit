@@ -23,7 +23,7 @@ class TimeseriesDB:
             db_path: Path to the SQLite database file
         """
         self.db_path = db_path
-        self.lock = threading.Lock()
+        self.write_lock = threading.Lock()
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -34,7 +34,7 @@ class TimeseriesDB:
 
     def _init_db(self):
         """Initialize database schema."""
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -116,7 +116,7 @@ class TimeseriesDB:
             except (TypeError, ValueError):
                 float_value = None
 
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -135,7 +135,7 @@ class TimeseriesDB:
         Args:
             datapoints: List of dicts with 'timeseries_id', 'value', and optionally 'timestamp'
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -175,29 +175,29 @@ class TimeseriesDB:
         Returns:
             List of dicts with 'timestamp' and 'value' keys
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT timestamp, value
-                    FROM timeseries_data
-                    WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ?
-                    ORDER BY timestamp ASC
-                ''', (timeseries_id, start_time, end_time))
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, value
+                FROM timeseries_data
+                WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ?
+                ORDER BY timestamp ASC
+            ''', (timeseries_id, start_time, end_time))
 
-                data = [
-                    {'timestamp': row['timestamp'], 'value': row['value']}
-                    for row in cursor.fetchall()
-                ]
+            data = [
+                {'timestamp': row['timestamp'], 'value': row['value']}
+                for row in cursor.fetchall()
+            ]
 
-                # Apply downsampling if needed
-                if max_points and len(data) > max_points:
-                    data = self._downsample_lttb(data, max_points)
+            # Apply downsampling if needed
+            if max_points and len(data) > max_points:
+                data = self._downsample_lttb(data, max_points)
 
-                return data
-            finally:
-                conn.close()
+            return data
+        finally:
+            conn.close()
 
     def _downsample_lttb(self, data: List[Dict[str, Any]], threshold: int) -> List[Dict[str, Any]]:
         """
@@ -288,25 +288,25 @@ class TimeseriesDB:
         Returns:
             List of dicts with 'timestamp' and 'value' keys
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT timestamp, value
-                    FROM timeseries_data
-                    WHERE timeseries_id = ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                ''', (timeseries_id, limit))
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, value
+                FROM timeseries_data
+                WHERE timeseries_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ''', (timeseries_id, limit))
 
-                # Reverse to get chronological order
-                return list(reversed([
-                    {'timestamp': row['timestamp'], 'value': row['value']}
-                    for row in cursor.fetchall()
-                ]))
-            finally:
-                conn.close()
+            # Reverse to get chronological order
+            return list(reversed([
+                {'timestamp': row['timestamp'], 'value': row['value']}
+                for row in cursor.fetchall()
+            ]))
+        finally:
+            conn.close()
 
     def delete_old_data(self, timeseries_id: str, older_than: float):
         """
@@ -316,7 +316,7 @@ class TimeseriesDB:
             timeseries_id: ID of the timeseries
             older_than: Unix timestamp - delete points older than this
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -339,15 +339,15 @@ class TimeseriesDB:
         Returns:
             Setting value (as string) or default
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('SELECT value FROM timeseries_settings WHERE key = ?', (key,))
-                row = cursor.fetchone()
-                return row['value'] if row else default
-            finally:
-                conn.close()
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT value FROM timeseries_settings WHERE key = ?', (key,))
+            row = cursor.fetchone()
+            return row['value'] if row else default
+        finally:
+            conn.close()
 
     def set_setting(self, key: str, value: Any):
         """
@@ -357,7 +357,7 @@ class TimeseriesDB:
             key: Setting key
             value: Setting value (will be converted to string)
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -376,14 +376,14 @@ class TimeseriesDB:
         Returns:
             Dict mapping setting keys to values
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('SELECT key, value FROM timeseries_settings')
-                return {row['key']: row['value'] for row in cursor.fetchall()}
-            finally:
-                conn.close()
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT key, value FROM timeseries_settings')
+            return {row['key']: row['value'] for row in cursor.fetchall()}
+        finally:
+            conn.close()
 
     def vacuum(self):
         """
@@ -391,7 +391,7 @@ class TimeseriesDB:
         This is safe to run and won't lose any data.
         Should be run periodically (e.g., weekly) for maintenance.
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 print("Running VACUUM on timeseries database...")
@@ -405,7 +405,7 @@ class TimeseriesDB:
         Apply optimization settings to an existing database.
         This is safe and won't lose data, but requires a VACUUM to take full effect.
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -471,7 +471,7 @@ class TimeseriesDB:
         if tags is None:
             tags = []
 
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -498,28 +498,28 @@ class TimeseriesDB:
         Returns:
             Dict with id, name, units, category, tags, description, gateway or None if not found
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT id, name, units, category, tags, description, gateway
-                    FROM external_timeseries WHERE id = ?
-                ''', (timeseries_id,))
-                row = cursor.fetchone()
-                if row:
-                    return {
-                        'id': row['id'],
-                        'name': row['name'],
-                        'units': row['units'],
-                        'category': row['category'],
-                        'tags': json.loads(row['tags']),
-                        'description': row['description'],
-                        'gateway': row['gateway']
-                    }
-                return None
-            finally:
-                conn.close()
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, name, units, category, tags, description, gateway
+                FROM external_timeseries WHERE id = ?
+            ''', (timeseries_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'units': row['units'],
+                    'category': row['category'],
+                    'tags': json.loads(row['tags']),
+                    'description': row['description'],
+                    'gateway': row['gateway']
+                }
+            return None
+        finally:
+            conn.close()
 
     def list_external_timeseries(self) -> List[Dict[str, Any]]:
         """
@@ -528,28 +528,28 @@ class TimeseriesDB:
         Returns:
             List of dicts with id, name, units, category, tags, description, gateway
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT id, name, units, category, tags, description, gateway
-                    FROM external_timeseries ORDER BY name
-                ''')
-                return [
-                    {
-                        'id': row['id'],
-                        'name': row['name'],
-                        'units': row['units'],
-                        'category': row['category'],
-                        'tags': json.loads(row['tags']),
-                        'description': row['description'],
-                        'gateway': row['gateway']
-                    }
-                    for row in cursor.fetchall()
-                ]
-            finally:
-                conn.close()
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, name, units, category, tags, description, gateway
+                FROM external_timeseries ORDER BY name
+            ''')
+            return [
+                {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'units': row['units'],
+                    'category': row['category'],
+                    'tags': json.loads(row['tags']),
+                    'description': row['description'],
+                    'gateway': row['gateway']
+                }
+                for row in cursor.fetchall()
+            ]
+        finally:
+            conn.close()
 
     def delete_external_timeseries(self, timeseries_id: str) -> bool:
         """
@@ -561,7 +561,7 @@ class TimeseriesDB:
         Returns:
             True if deleted, False if not found
         """
-        with self.lock:
+        with self.write_lock:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -583,9 +583,9 @@ class TimeseriesDB:
         Returns:
             Dict with 'min' and 'max' keys, or None if no data found
         """
-        with self.lock:
-            conn = self._get_connection()
-            try:
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
                 cursor = conn.cursor()
                 cursor.execute('''
                     SELECT MIN(value) as min_val, MAX(value) as max_val
@@ -616,11 +616,11 @@ class TimeseriesDB:
             Dict mapping timeseries_id to {'min': value, 'max': value, 'oldest': value}
         """
         results = {}
-        with self.lock:
-            conn = self._get_connection()
-            try:
-                cursor = conn.cursor()
-                for ts_id in timeseries_ids:
+        # No lock needed for reads - WAL mode handles concurrent read access
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            for ts_id in timeseries_ids:
                     # Get min and max
                     cursor.execute('''
                         SELECT MIN(value) as min_val, MAX(value) as max_val
