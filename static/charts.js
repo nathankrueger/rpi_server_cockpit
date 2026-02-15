@@ -342,6 +342,31 @@ function parseDatetimeLocal(datetimeString) {
     return new Date(datetimeString).getTime() / 1000;
 }
 
+// Retry configuration for transient network errors (e.g. iOS Safari resume)
+const FETCH_TIMEOUT_MS = 10000;
+const RETRY_DELAYS_MS = [1000, 2000, 4000]; // 3 retries with backoff
+
+// Check if an error is a transient network error worth retrying
+function isNetworkError(error) {
+    // TypeError is what fetch() throws for network failures.
+    // iOS Safari: "Load failed", Chrome: "Failed to fetch", Firefox: "NetworkError"
+    if (error instanceof TypeError) return true;
+    // AbortError from our timeout controller
+    if (error.name === 'AbortError') return true;
+    return false;
+}
+
+// Fetch with an AbortController timeout so a hung request can't block forever
+async function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // Update all charts
 async function updateCharts(autoUpdate = false) {
     console.log('updateCharts called with autoUpdate =', autoUpdate);
@@ -377,53 +402,98 @@ async function updateCharts(autoUpdate = false) {
 
         console.log('Fetching chart data from', new Date(startTime * 1000), 'to', new Date(endTime * 1000));
 
-        // Fetch data for all selected timeseries
-        const response = await fetch('/api/timeseries/data/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                timeseries_ids: Array.from(selectedTimeseries),
-                start: startTime,
-                end: endTime,
-                max_datapoints: maxDatapoints
-            })
+        const requestBody = JSON.stringify({
+            timeseries_ids: Array.from(selectedTimeseries),
+            start: startTime,
+            end: endTime,
+            max_datapoints: maxDatapoints
         });
 
-        if (!response.ok) {
-            let errorDetail = `HTTP ${response.status}`;
+        // Retry loop: on transient network errors, retry silently while keeping
+        // existing charts visible. Only show an error after all retries fail.
+        let lastError = null;
+        const maxAttempts = 1 + RETRY_DELAYS_MS.length; // 1 initial + 3 retries
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
             try {
-                const errorBody = await response.json();
-                errorDetail = errorBody.error || errorDetail;
-            } catch {
-                errorDetail += `: ${response.statusText}`;
+                if (attempt > 0) {
+                    const delay = RETRY_DELAYS_MS[attempt - 1];
+                    console.log(`Retry ${attempt}/${RETRY_DELAYS_MS.length} after ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+
+                const response = await fetchWithTimeout('/api/timeseries/data/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: requestBody
+                }, FETCH_TIMEOUT_MS);
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}`;
+                    try {
+                        const errorBody = await response.json();
+                        errorDetail = errorBody.error || errorDetail;
+                    } catch {
+                        errorDetail += `: ${response.statusText}`;
+                    }
+                    throw new Error(errorDetail);
+                }
+
+                const timeseriesData = await response.json();
+                console.log('Received timeseries data:', timeseriesData.map(ts => ({
+                    id: ts.id,
+                    dataPoints: ts.data.length
+                })));
+
+                // Group by units
+                const groupedByUnits = {};
+                timeseriesData.forEach(ts => {
+                    if (!groupedByUnits[ts.units]) {
+                        groupedByUnits[ts.units] = [];
+                    }
+                    groupedByUnits[ts.units].push(ts);
+                });
+
+                // Render charts — success clears any previous error
+                renderCharts(groupedByUnits);
+                console.log('Charts rendered');
+                return; // Success — exit the function
+
+            } catch (error) {
+                lastError = error;
+                // Only retry on transient network errors, not server/application errors
+                if (!isNetworkError(error) || attempt === maxAttempts - 1) {
+                    break;
+                }
+                console.warn(`Chart fetch attempt ${attempt + 1} failed (${error.message}), will retry...`);
             }
-            throw new Error(errorDetail);
         }
 
-        const timeseriesData = await response.json();
-        console.log('Received timeseries data:', timeseriesData.map(ts => ({
-            id: ts.id,
-            dataPoints: ts.data.length
-        })));
-
-        // Group by units
-        const groupedByUnits = {};
-        timeseriesData.forEach(ts => {
-            if (!groupedByUnits[ts.units]) {
-                groupedByUnits[ts.units] = [];
+        // All attempts exhausted — show error
+        console.error('Error fetching timeseries data after retries:', lastError);
+        const escaped = String(lastError.message).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const container = document.getElementById('charts-container');
+        // Only replace content if there are no existing charts (preserve stale data)
+        const hasCharts = container.querySelector('.chart-wrapper');
+        if (hasCharts) {
+            // Overlay a dismissible banner instead of destroying the charts
+            let banner = document.getElementById('chart-error-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'chart-error-banner';
+                banner.className = 'error-banner';
+                container.insertBefore(banner, container.firstChild);
             }
-            groupedByUnits[ts.units].push(ts);
-        });
+            banner.innerHTML = `Chart update failed — will retry automatically. <span class="error-banner-detail">${escaped}</span>`;
+            banner.onclick = () => { banner.remove(); updateCharts(true); };
+        } else {
+            // No existing charts — show full error with tap-to-retry
+            container.innerHTML =
+                `<div class="error-message" onclick="this.remove(); updateCharts(true);" style="cursor:pointer;">` +
+                `Error loading chart data. Tap to retry.` +
+                `<div class="error-details">${escaped}</div></div>`;
+        }
 
-        // Render charts
-        renderCharts(groupedByUnits);
-        console.log('Charts rendered');
-
-    } catch (error) {
-        console.error('Error fetching timeseries data:', error);
-        const escaped = String(error.message).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        document.getElementById('charts-container').innerHTML =
-            `<div class="error-message">Error loading chart data. Please try again.<div class="error-details">${escaped}</div></div>`;
     } finally {
         chartUpdateInProgress = false;
     }
@@ -498,6 +568,10 @@ let currentChartUnits = [];
 
 // Render charts grouped by units
 function renderCharts(groupedByUnits) {
+    // Clear any error banner from a previous failed update
+    const banner = document.getElementById('chart-error-banner');
+    if (banner) banner.remove();
+
     const container = document.getElementById('charts-container');
     const scrollY = window.scrollY;
     const newUnits = Object.keys(groupedByUnits);
@@ -831,7 +905,12 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Handle tab visibility changes to prevent stale intervals from queuing up
+// Handle tab visibility changes to prevent stale intervals from queuing up.
+// On iOS Safari, the network stack may not be ready immediately when the app
+// resumes from background, so we delay the first fetch to let it stabilize.
+let visibilityResumeTimer = null;
+const VISIBILITY_RESUME_DELAY_MS = 1500;
+
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         // Tab became hidden - pause auto-refresh to prevent queued intervals
@@ -840,14 +919,26 @@ document.addEventListener('visibilitychange', () => {
             autoRefreshInterval = null;
             console.log('Tab hidden - paused auto-refresh');
         }
+        // Cancel any pending resume timer
+        if (visibilityResumeTimer) {
+            clearTimeout(visibilityResumeTimer);
+            visibilityResumeTimer = null;
+        }
     } else {
-        // Tab became visible - restart auto-refresh if enabled
+        // Tab became visible - restart auto-refresh if enabled, after a delay
+        // to let the network stack recover (critical for iOS Safari)
         if (autoRefreshEnabled && !autoRefreshInterval) {
-            // Do an immediate refresh to catch up
-            updateCharts(true);
-            // Restart the interval
-            autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
-            console.log('Tab visible - resumed auto-refresh');
+            console.log(`Tab visible - will resume auto-refresh in ${VISIBILITY_RESUME_DELAY_MS}ms`);
+            // Clear any error banner from a previous failed attempt
+            const banner = document.getElementById('chart-error-banner');
+            if (banner) banner.remove();
+
+            visibilityResumeTimer = setTimeout(() => {
+                visibilityResumeTimer = null;
+                updateCharts(true);
+                autoRefreshInterval = setInterval(() => updateCharts(true), autoRefreshRate);
+                console.log('Tab visible - resumed auto-refresh');
+            }, VISIBILITY_RESUME_DELAY_MS);
         }
     }
 });
