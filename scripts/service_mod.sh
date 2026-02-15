@@ -3,23 +3,25 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$SCRIPT_DIR"
+DEFAULT_SERVICE="pi-dashboard"
 
 usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Manage systemd services from the scripts/ folder.
+SERVICE_NAME defaults to "$DEFAULT_SERVICE" if omitted.
 
 OPTIONS:
-    -i, --install SERVICE_NAME      Install a service from scripts/ folder
-    -u, --uninstall SERVICE_NAME    Uninstall and fully remove a service
+    -i, --install [SERVICE_NAME]    Install a service from scripts/ folder
+    -u, --uninstall [SERVICE_NAME]  Uninstall and fully remove a service
     -U, --uninstall-all             Uninstall all registered services
-    -s, --stop SERVICE_NAME         Stop a running service
-    -S, --start SERVICE_NAME        Start a stopped service
-    -r, --restart SERVICE_NAME      Restart a service
+    -s, --stop [SERVICE_NAME]       Stop a running service
+    -S, --start [SERVICE_NAME]      Start a stopped service
+    -r, --restart [SERVICE_NAME]    Restart a service
     -l, --list                      List all services in scripts/ folder and their status
-    -f, --follow SERVICE_NAME       Follow service logs in real-time (Ctrl+C to stop)
-    -b, --logs SERVICE_NAME         Show service logs since last boot
+    -f, --follow [SERVICE_NAME]     Follow service logs in real-time (Ctrl+C to stop)
+    -b, --logs [SERVICE_NAME]       Show service logs since last boot
     -h, --help                      Show this help message
 
 EXAMPLES:
@@ -314,21 +316,11 @@ case "$1" in
         exit 0
         ;;
     -i|--install)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for install"
-            usage
-            exit 1
-        fi
-        install_service "$2"
+        install_service "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -u|--uninstall)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for uninstall"
-            usage
-            exit 1
-        fi
-        uninstall_service "$2"
+        uninstall_service "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -U|--uninstall-all)
@@ -336,48 +328,23 @@ case "$1" in
         exit 0
         ;;
     -s|--stop)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for stop"
-            usage
-            exit 1
-        fi
-        stop_service "$2"
+        stop_service "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -S|--start)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for start"
-            usage
-            exit 1
-        fi
-        start_service "$2"
+        start_service "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -r|--restart)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for restart"
-            usage
-            exit 1
-        fi
-        restart_service "$2"
+        restart_service "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -f|--follow)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for follow"
-            usage
-            exit 1
-        fi
-        follow_logs "$2"
+        follow_logs "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     -b|--logs)
-        if [ -z "$2" ]; then
-            echo "Error: Service name required for logs"
-            usage
-            exit 1
-        fi
-        show_logs "$2"
+        show_logs "${2:-$DEFAULT_SERVICE}"
         exit 0
         ;;
     *)
