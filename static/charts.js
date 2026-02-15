@@ -346,22 +346,31 @@ function parseDatetimeLocal(datetimeString) {
 const FETCH_TIMEOUT_MS = 10000;
 const RETRY_DELAYS_MS = [1000, 2000, 4000]; // 3 retries with backoff
 
-// Check if an error is a transient network error worth retrying
-function isNetworkError(error) {
+// Check if an error is transient and worth retrying
+function isRetriableError(error) {
     // TypeError is what fetch() throws for network failures.
     // iOS Safari: "Load failed", Chrome: "Failed to fetch", Firefox: "NetworkError"
     if (error instanceof TypeError) return true;
     // AbortError from our timeout controller
     if (error.name === 'AbortError') return true;
+    // 5xx server errors (e.g. 502/503 from reverse proxy during network recovery)
+    if (error.httpStatus && error.httpStatus >= 500) return true;
     return false;
 }
 
-// Fetch with an AbortController timeout so a hung request can't block forever
-async function fetchWithTimeout(url, options, timeoutMs) {
+// Fetch JSON with an AbortController timeout covering both the request AND body read,
+// so a stalled response body can't hang forever.
+async function fetchJsonWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(url, { ...options, signal: controller.signal });
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        // Read body as text first so a JSON parse failure on an error response
+        // doesn't mask the HTTP status with a confusing SyntaxError.
+        const text = await response.text();
+        let body = null;
+        try { body = JSON.parse(text); } catch { /* non-JSON response */ }
+        return { response, body };
     } finally {
         clearTimeout(timer);
     }
@@ -422,24 +431,20 @@ async function updateCharts(autoUpdate = false) {
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
-                const response = await fetchWithTimeout('/api/timeseries/data/batch', {
+                const { response, body } = await fetchJsonWithTimeout('/api/timeseries/data/batch', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: requestBody
                 }, FETCH_TIMEOUT_MS);
 
                 if (!response.ok) {
-                    let errorDetail = `HTTP ${response.status}`;
-                    try {
-                        const errorBody = await response.json();
-                        errorDetail = errorBody.error || errorDetail;
-                    } catch {
-                        errorDetail += `: ${response.statusText}`;
-                    }
-                    throw new Error(errorDetail);
+                    const errorDetail = (body && body.error) || `HTTP ${response.status}: ${response.statusText}`;
+                    const err = new Error(errorDetail);
+                    err.httpStatus = response.status;
+                    throw err;
                 }
 
-                const timeseriesData = await response.json();
+                const timeseriesData = body;
                 console.log('Received timeseries data:', timeseriesData.map(ts => ({
                     id: ts.id,
                     dataPoints: ts.data.length
@@ -461,8 +466,8 @@ async function updateCharts(autoUpdate = false) {
 
             } catch (error) {
                 lastError = error;
-                // Only retry on transient network errors, not server/application errors
-                if (!isNetworkError(error) || attempt === maxAttempts - 1) {
+                // Only retry on transient errors, not client/application errors
+                if (!isRetriableError(error) || attempt === maxAttempts - 1) {
                     break;
                 }
                 console.warn(`Chart fetch attempt ${attempt + 1} failed (${error.message}), will retry...`);
@@ -484,7 +489,7 @@ async function updateCharts(autoUpdate = false) {
                 banner.className = 'error-banner';
                 container.insertBefore(banner, container.firstChild);
             }
-            banner.innerHTML = `Chart update failed — will retry automatically. <span class="error-banner-detail">${escaped}</span>`;
+            banner.innerHTML = `Chart update failed. Tap to retry now. <span class="error-banner-detail">${escaped}</span>`;
             banner.onclick = () => { banner.remove(); updateCharts(true); };
         } else {
             // No existing charts — show full error with tap-to-retry

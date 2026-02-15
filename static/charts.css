@@ -422,6 +422,7 @@
     margin-top: 4px;
     font-size: 10px;
     color: rgba(255, 170, 0, 0.5);
+    word-break: break-word;
 }
 
 /* Navigation buttons - now handled by nav-dock.css */
