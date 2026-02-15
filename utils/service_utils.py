@@ -149,7 +149,7 @@ def control_process(process_name, action, on_start_callback=None, on_stop_callba
             # Use daemon helper script to properly detach the process
             # This ensures the process survives when the web server restarts
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            daemon_helper = os.path.join(script_dir, 'daemon_helper.sh')
+            daemon_helper = os.path.join(script_dir, 'scripts', 'daemon_helper.sh')
 
             result = _run(
                 [daemon_helper, process_name],

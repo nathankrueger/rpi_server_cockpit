@@ -586,22 +586,22 @@ class TimeseriesDB:
         # No lock needed for reads - WAL mode handles concurrent read access
         conn = self._get_connection()
         try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT MIN(value) as min_val, MAX(value) as max_val
-                    FROM timeseries_data
-                    WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
-                ''', (timeseries_id, start_time, end_time))
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT MIN(value) as min_val, MAX(value) as max_val
+                FROM timeseries_data
+                WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+            ''', (timeseries_id, start_time, end_time))
 
-                row = cursor.fetchone()
-                if row and row['min_val'] is not None:
-                    return {
-                        'min': row['min_val'],
-                        'max': row['max_val']
-                    }
-                return None
-            finally:
-                conn.close()
+            row = cursor.fetchone()
+            if row and row['min_val'] is not None:
+                return {
+                    'min': row['min_val'],
+                    'max': row['max_val']
+                }
+            return None
+        finally:
+            conn.close()
 
     def query_minmax_batch(self, timeseries_ids: List[str], start_time: float, end_time: float) -> Dict[str, Dict[str, Any]]:
         """
@@ -621,31 +621,31 @@ class TimeseriesDB:
         try:
             cursor = conn.cursor()
             for ts_id in timeseries_ids:
-                    # Get min and max
+                # Get min and max
+                cursor.execute('''
+                    SELECT MIN(value) as min_val, MAX(value) as max_val
+                    FROM timeseries_data
+                    WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+                ''', (ts_id, start_time, end_time))
+
+                row = cursor.fetchone()
+                if row and row['min_val'] is not None:
+                    # Get the oldest value in the range for trend calculation
                     cursor.execute('''
-                        SELECT MIN(value) as min_val, MAX(value) as max_val
+                        SELECT value
                         FROM timeseries_data
                         WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
+                        ORDER BY timestamp ASC
+                        LIMIT 1
                     ''', (ts_id, start_time, end_time))
+                    oldest_row = cursor.fetchone()
+                    oldest_val = oldest_row['value'] if oldest_row else None
 
-                    row = cursor.fetchone()
-                    if row and row['min_val'] is not None:
-                        # Get the oldest value in the range for trend calculation
-                        cursor.execute('''
-                            SELECT value
-                            FROM timeseries_data
-                            WHERE timeseries_id = ? AND timestamp >= ? AND timestamp <= ? AND value IS NOT NULL
-                            ORDER BY timestamp ASC
-                            LIMIT 1
-                        ''', (ts_id, start_time, end_time))
-                        oldest_row = cursor.fetchone()
-                        oldest_val = oldest_row['value'] if oldest_row else None
-
-                        results[ts_id] = {
-                            'min': row['min_val'],
-                            'max': row['max_val'],
-                            'oldest': oldest_val
-                        }
-                return results
-            finally:
-                conn.close()
+                    results[ts_id] = {
+                        'min': row['min_val'],
+                        'max': row['max_val'],
+                        'oldest': oldest_val
+                    }
+            return results
+        finally:
+            conn.close()
