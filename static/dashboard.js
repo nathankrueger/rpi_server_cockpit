@@ -53,6 +53,43 @@ window.addEventListener('resize', () => {
     initMatrix();
 });
 
+// --- Retry / resilience constants ---
+// When a fetch() call fails with a network error (e.g. stale keep-alive connection,
+// momentary eventlet hiccup), we don't immediately show an error. Instead we wait
+// briefly, then check the server's actual state before giving up. This eliminates
+// false "CRITICAL ERROR: Load failed" popups on transient network failures while
+// keeping the delay invisible to the user in the normal (successful) case.
+const RUN_AUTOMATION_RETRY_DELAY_MS = 2000;   // Delay before status-check after a failed run request
+const CANCEL_AUTOMATION_RETRY_DELAY_MS = 1000; // Delay before status-check after a failed cancel request
+
+// --- Toast notification system ---
+// Non-blocking replacement for alert(). Shows a temporary message that auto-dismisses,
+// allowing WebSocket updates to continue processing in the background.
+function showToast(message, type = 'error', durationMs = 4000) {
+    // Create container on first use
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    // Trigger entrance animation on next frame
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+
+    setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        toast.addEventListener('transitionend', () => toast.remove());
+        // Fallback removal in case transitionend doesn't fire
+        setTimeout(() => toast.remove(), 500);
+    }, durationMs);
+}
+
 // Store automation configurations
 let automationConfigs = {};
 
@@ -884,12 +921,12 @@ async function toggleService(service) {
         } else {
             delete pendingServiceOps[service];
             toggle.classList.remove('disabled', 'pending');
-            alert(`SYSTEM ERROR: Failed to ${action} ${service}\n${result.error}`);
+            showToast(`Failed to ${action} ${service}: ${result.error}`, 'error');
         }
     } catch (error) {
         delete pendingServiceOps[service];
         toggle.classList.remove('disabled', 'pending');
-        alert(`CRITICAL ERROR: ${error.message}`);
+        showToast(`Failed to ${action} ${service}. Please check your connection.`, 'error');
     }
 }
 
@@ -1160,19 +1197,67 @@ async function runAutomation(automationName) {
             body: JSON.stringify({ args: args })
         });
 
+        if (!response.ok) {
+            // Server returned an error status (4xx/5xx). Try to parse the JSON body
+            // for a meaningful error message; fall through to generic toast on failure.
+            try {
+                const result = await response.json();
+                showToast(result.error || `Server error (${response.status})`, 'error');
+            } catch {
+                showToast(`Server error (${response.status})`, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = '\u25B6';
+            return;
+        }
+
         const result = await response.json();
 
         if (!result.success) {
-            alert(`ERROR: ${result.error || 'Failed to start automation'}`);
-            const config = automationConfigs[automationName];
+            showToast(result.error || 'Failed to start automation', 'error');
             btn.disabled = false;
             btn.textContent = '\u25B6';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
-        console.error('Error running automation:', error);
-        alert(`CRITICAL ERROR: ${error.message}`);
-        const config = automationConfigs[automationName];
+        // Network error — the server may have received the request but the response
+        // was lost (stale keep-alive, eventlet hiccup, etc.). Wait briefly then check
+        // the actual server state before showing an error to the user.
+        // Button stays in "STARTING..." during this window — the WebSocket handler
+        // will correct it once server state is confirmed either way.
+        console.warn('Fetch failed for runAutomation, will verify server state:', error.message);
+
+        await new Promise(resolve => setTimeout(resolve, RUN_AUTOMATION_RETRY_DELAY_MS));
+
+        try {
+            const statusResp = await fetch(`/api/automation/${automationName}/status`);
+            const status = await statusResp.json();
+            if (status.running) {
+                // Automation IS running — the original POST succeeded, only the HTTP
+                // response was lost. WebSocket will handle the UI from here.
+                console.log('Automation started despite fetch error — server confirmed running');
+                return;
+            }
+            if (status.return_code !== null) {
+                // Automation is not running but has a return code. Two possibilities:
+                //   (a) Our POST succeeded, the automation ran and already finished (<2s)
+                //   (b) Stale return_code from a *previous* run; our POST never arrived
+                // We can't distinguish these without tracking job_id, so reset the button
+                // to a safe state and suppress the error toast. In case (b) the user will
+                // simply click run again. In case (a) the WebSocket already updated the UI.
+                console.log('Automation not running but has return_code=%s — resetting button', status.return_code);
+                btn.disabled = false;
+                btn.textContent = '\u25B6';
+                return;
+            }
+        } catch (statusError) {
+            // Status check also failed — genuine connectivity problem
+            console.error('Status check also failed:', statusError.message);
+        }
+
+        // If we get here, the automation genuinely did not start (return_code is null,
+        // meaning it was never run or was reset to initial state)
+        showToast('Failed to start automation. Please check your connection and try again.', 'error');
         btn.disabled = false;
         btn.textContent = '\u25B6';
     }
@@ -1195,24 +1280,54 @@ async function cancelAutomation(automationName) {
         });
 
         console.log('Cancel response status:', response.status);
+
+        if (!response.ok) {
+            try {
+                const result = await response.json();
+                showToast(result.error || `Server error (${response.status})`, 'error');
+            } catch {
+                showToast(`Server error (${response.status})`, 'error');
+            }
+            btn.disabled = false;
+            btn.classList.remove('cancel');
+            btn.textContent = '\u25B6';
+            return;
+        }
+
         const result = await response.json();
         console.log('Cancel result:', result);
 
         if (!result.success) {
             console.error('Cancel failed:', result.error);
-            alert(`ERROR: ${result.error || 'Failed to cancel automation'}`);
+            showToast(result.error || 'Failed to cancel automation', 'error');
             btn.disabled = false;
             btn.classList.remove('cancel');
-            const config = automationConfigs[automationName];
             btn.textContent = '\u25B6';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
-        console.error('Error cancelling automation:', error);
-        alert(`CRITICAL ERROR: ${error.message}`);
+        // Network error — wait briefly then check if the automation actually stopped
+        console.warn('Fetch failed for cancelAutomation, will verify server state:', error.message);
+
+        await new Promise(resolve => setTimeout(resolve, CANCEL_AUTOMATION_RETRY_DELAY_MS));
+
+        try {
+            const statusResp = await fetch(`/api/automation/${automationName}/status`);
+            const status = await statusResp.json();
+            if (!status.running) {
+                // Automation is NOT running — cancel effectively succeeded (or it
+                // finished on its own). WebSocket will handle the UI from here.
+                console.log('Automation stopped despite fetch error — server confirmed not running');
+                return;
+            }
+        } catch (statusError) {
+            console.error('Status check also failed:', statusError.message);
+        }
+
+        // If we get here, the cancel genuinely did not work
+        showToast('Failed to cancel automation. Please try again.', 'error');
         btn.disabled = false;
         btn.classList.remove('cancel');
-        const config = automationConfigs[automationName];
         btn.textContent = '\u25B6';
     }
 }
