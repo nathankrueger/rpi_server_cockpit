@@ -523,8 +523,7 @@ function buildChartConfig(units, seriesList) {
         };
     });
 
-    const showLegend = seriesList.length > 1;
-    const rightMargin = showLegend ? 150 : 20;
+    const rightMargin = 150;
 
     const layout = {
         title: {
@@ -545,7 +544,7 @@ function buildChartConfig(units, seriesList) {
             gridcolor: 'rgba(0, 255, 65, 0.1)',
             fixedrange: false
         },
-        showlegend: showLegend,
+        showlegend: true,
         legend: {
             font: {
                 color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
