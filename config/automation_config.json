@@ -30,7 +30,7 @@
       "display_name": "NODE COMMAND",
       "script_path": "../data_log/scripts/node_cmd.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
@@ -41,7 +41,7 @@
       "display_name": "GATEWAY COMMAND",
       "script_path": "../data_log/scripts/gateway_cmd.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
@@ -52,7 +52,7 @@
       "display_name": "RADIO RECONFIG",
       "script_path": "../data_log/scripts/set_radio_params.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
@@ -63,7 +63,7 @@
       "display_name": "ECHO TEST",
       "script_path": "../data_log/scripts/echo_test.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
@@ -74,7 +74,7 @@
       "display_name": "DISCOVER TEST",
       "script_path": "../data_log/scripts/discover_test.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
@@ -85,7 +85,7 @@
       "display_name": "TEST RADIO RECONFIG",
       "script_path": "../data_log/scripts/test_radio_rcfg.sh",
       "env": {
-        "GATEWAY_HOST": "pz2w1",
+        "GATEWAY_HOST": "localhost",
         "GATEWAY_PORT": "5001"
       },
       "enabled": true,
