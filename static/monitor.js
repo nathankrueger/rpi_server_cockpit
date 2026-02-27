@@ -438,36 +438,45 @@ async function updateWeather() {
         return;
     }
 
-    try {
-        const response = await fetch('/api/weather', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ location: weatherLocation })
-        });
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch('/api/weather', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ location: weatherLocation })
+            });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch weather data');
+            }
+
+            // Update UI with weather data
+            document.querySelector('.weather-temp').textContent = `${Math.round(data.temperature)}°F`;
+            document.querySelector('.weather-condition').textContent = data.condition;
+            document.querySelector('.weather-location').textContent = data.location;
+
+            console.log('Weather updated successfully');
+            return;
+        } catch (error) {
+            console.warn(`Weather fetch attempt ${attempt}/${maxRetries} failed:`, error.message);
+            if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, 5000 * attempt));
+            } else {
+                console.error('All weather fetch attempts failed');
+                document.querySelector('.weather-temp').textContent = '--°F';
+                document.querySelector('.weather-condition').textContent = 'Error loading weather';
+                document.querySelector('.weather-location').textContent = weatherLocation;
+            }
         }
-
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error(data.error || 'Failed to fetch weather data');
-        }
-
-        // Update UI with weather data
-        document.querySelector('.weather-temp').textContent = `${Math.round(data.temperature)}°F`;
-        document.querySelector('.weather-condition').textContent = data.condition;
-        document.querySelector('.weather-location').textContent = data.location;
-
-        console.log('Weather updated successfully');
-    } catch (error) {
-        console.error('Error updating weather:', error);
-        document.querySelector('.weather-temp').textContent = '--°F';
-        document.querySelector('.weather-condition').textContent = 'Error loading weather';
-        document.querySelector('.weather-location').textContent = weatherLocation;
     }
 }
 

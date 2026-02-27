@@ -1,5 +1,6 @@
 """External API routes (stocks, weather)."""
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -182,9 +183,21 @@ def get_weather():
         encoded_location = urllib.parse.quote(location)
         url = f"https://wttr.in/{encoded_location}?format=j1"
 
-        req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.68.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            weather_data = json.loads(response.read().decode())
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.68.0'})
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    weather_data = json.loads(response.read().decode())
+                break
+            except Exception as e:
+                last_error = e
+                print(f"Weather fetch attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 * (attempt + 1))
+        else:
+            raise last_error
 
         # Extract current weather
         current = weather_data['current_condition'][0]
