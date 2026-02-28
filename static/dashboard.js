@@ -1288,9 +1288,10 @@ async function cancelAutomation(automationName) {
             } catch {
                 showToast(`Server error (${response.status})`, 'error');
             }
+            // Re-enable the cancel button so user can retry — don't reset to play
+            // state since the automation may still be running on the server.
             btn.disabled = false;
-            btn.classList.remove('cancel');
-            btn.textContent = '\u25B6';
+            btn.textContent = 'CANCEL';
             return;
         }
 
@@ -1300,9 +1301,9 @@ async function cancelAutomation(automationName) {
         if (!result.success) {
             console.error('Cancel failed:', result.error);
             showToast(result.error || 'Failed to cancel automation', 'error');
+            // Re-enable the cancel button so user can retry
             btn.disabled = false;
-            btn.classList.remove('cancel');
-            btn.textContent = '\u25B6';
+            btn.textContent = 'CANCEL';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
@@ -1324,11 +1325,11 @@ async function cancelAutomation(automationName) {
             console.error('Status check also failed:', statusError.message);
         }
 
-        // If we get here, the cancel genuinely did not work
+        // Cancel failed — re-enable the button so user can retry. Keep it in
+        // cancel state since the automation is likely still running.
         showToast('Failed to cancel automation. Please try again.', 'error');
         btn.disabled = false;
-        btn.classList.remove('cancel');
-        btn.textContent = '\u25B6';
+        btn.textContent = 'CANCEL';
     }
 }
 
