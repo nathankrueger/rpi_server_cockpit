@@ -106,7 +106,8 @@ def get_timeseries_data_batch():
             "start": 1234567890.0,  // optional
             "end": 1234567900.0,    // optional
             "limit": 1000,          // optional (for latest query)
-            "max_datapoints": 10000 // optional (for downsampling with LTTB)
+            "max_datapoints": 10000, // optional (for downsampling)
+            "downsample_algorithm": "lttb" // optional: "lttb" (default) or "average"
         }
 
     Returns:
@@ -121,6 +122,7 @@ def get_timeseries_data_batch():
     end_time = data.get('end')
     limit = data.get('limit', 1000)
     max_datapoints = data.get('max_datapoints')
+    algorithm = data.get('downsample_algorithm', 'lttb')
 
     try:
         results = []
@@ -141,7 +143,7 @@ def get_timeseries_data_batch():
 
             # Query data
             if start_time is not None and end_time is not None:
-                ts_data = timeseries_db.query_range(ts_id, start_time, end_time, max_points=max_datapoints)
+                ts_data = timeseries_db.query_range(ts_id, start_time, end_time, max_points=max_datapoints, algorithm=algorithm)
             else:
                 ts_data = timeseries_db.query_latest(ts_id, limit)
 

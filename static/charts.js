@@ -13,6 +13,7 @@ let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
 let smoothingEnabled = false;
 let maxDatapoints = 10000; // maximum datapoints per chart
+let downsampleAlgorithm = 'lttb'; // 'lttb' or 'average'
 let chartUpdateInProgress = false; // Guard against concurrent requests
 
 // Color management (shared with dashboard.js via localStorage)
@@ -99,6 +100,13 @@ async function initCharts() {
         if (smoothingEnabled) {
             toggleSwitch.classList.add('active');
         }
+    }
+
+    // Load downsample algorithm preference
+    const savedAlgorithm = localStorage.getItem('downsampleAlgorithm');
+    if (savedAlgorithm) {
+        downsampleAlgorithm = savedAlgorithm;
+        document.getElementById('downsample-algorithm').value = savedAlgorithm;
     }
 
     // Enable auto-refresh by default (only on first visit)
@@ -415,7 +423,8 @@ async function updateCharts(autoUpdate = false) {
             timeseries_ids: Array.from(selectedTimeseries),
             start: startTime,
             end: endTime,
-            max_datapoints: maxDatapoints
+            max_datapoints: maxDatapoints,
+            downsample_algorithm: downsampleAlgorithm
         });
 
         // Retry loop: on transient network errors, retry silently while keeping
@@ -753,6 +762,13 @@ function toggleSmoothing() {
     }
 
     localStorage.setItem('smoothingEnabled', smoothingEnabled);
+    updateCharts();
+}
+
+// Change downsample algorithm
+function changeDownsampleAlgorithm() {
+    downsampleAlgorithm = document.getElementById('downsample-algorithm').value;
+    localStorage.setItem('downsampleAlgorithm', downsampleAlgorithm);
     updateCharts();
 }
 

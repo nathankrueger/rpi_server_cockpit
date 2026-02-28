@@ -162,7 +162,8 @@ class TimeseriesDB:
                 conn.close()
 
     def query_range(self, timeseries_id: str, start_time: float, end_time: float,
-                   max_points: Optional[int] = None) -> List[Dict[str, Any]]:
+                   max_points: Optional[int] = None,
+                   algorithm: str = 'lttb') -> List[Dict[str, Any]]:
         """
         Query datapoints for a timeseries within a time range.
 
@@ -170,7 +171,8 @@ class TimeseriesDB:
             timeseries_id: ID of the timeseries
             start_time: Start timestamp (Unix seconds)
             end_time: End timestamp (Unix seconds)
-            max_points: Optional maximum number of points to return (uses LTTB downsampling if set)
+            max_points: Optional maximum number of points to return (downsampled)
+            algorithm: Downsampling algorithm - 'lttb' (preserves peaks) or 'average' (smooths outliers)
 
         Returns:
             List of dicts with 'timestamp' and 'value' keys
@@ -191,7 +193,10 @@ class TimeseriesDB:
                 for row in cursor.fetchall()
             ]
 
-            # Apply downsampling if needed
+            # Apply smoothing/downsampling
+            if algorithm == 'average' and len(data) > 2:
+                data = self._smooth_moving_average(data)
+
             if max_points and len(data) > max_points:
                 data = self._downsample_lttb(data, max_points)
 
@@ -276,6 +281,47 @@ class TimeseriesDB:
         sampled.append(data[-1])
 
         return sampled
+
+    def _smooth_moving_average(self, data: List[Dict[str, Any]], window: int = 5) -> List[Dict[str, Any]]:
+        """
+        Apply a centered moving average to smooth out outliers and spikes.
+
+        Each interior point's value is replaced with the mean of its surrounding
+        window. This dampens single-point spikes and short transients while
+        preserving the overall trend. Point count stays the same — timestamps
+        are unchanged.
+
+        Args:
+            data: List of datapoints with 'timestamp' and 'value' keys
+            window: Number of points in the averaging window (must be odd, default 5)
+
+        Returns:
+            Smoothed list of datapoints (same length as input)
+        """
+        n = len(data)
+        if n <= window:
+            return data
+
+        half = window // 2
+        smoothed = []
+
+        for i in range(n):
+            start = max(0, i - half)
+            end = min(n, i + half + 1)
+
+            total = 0.0
+            count = 0
+            for j in range(start, end):
+                val = data[j]['value']
+                total += val if val is not None else 0
+                count += 1
+
+            smoothed.append({
+                'timestamp': data[i]['timestamp'],
+                'value': round(total / count, 4) if count > 0 else None
+            })
+
+        return smoothed
 
     def query_latest(self, timeseries_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """

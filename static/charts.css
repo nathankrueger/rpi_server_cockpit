@@ -591,3 +591,27 @@ body.chart-fullscreen-active {
     background-color: #00aa2b;
     box-shadow: 0 0 10px #00aa2b;
 }
+
+/* Downsample algorithm select */
+.smoothing-control select {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: var(--foreground-color, var(--chart-green));
+    border: 1px solid var(--foreground-color, var(--chart-green));
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.smoothing-control select:focus {
+    outline: none;
+    box-shadow: 0 0 8px var(--foreground-color, var(--chart-green));
+}
+
+.smoothing-control select option {
+    background-color: #111;
+    color: var(--foreground-color, var(--chart-green));
+}

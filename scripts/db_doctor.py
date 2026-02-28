@@ -126,8 +126,11 @@ def action_clear(sensor_names):
     conn.close()
 
     print(f"\nTotal: {total_deleted} data points deleted.")
+    _vacuum()
 
-    # Vacuum to reclaim space
+
+def _vacuum():
+    """Run VACUUM and report space savings."""
     size_before = os.path.getsize(DB_PATH)
     try:
         conn = get_connection()
@@ -144,9 +147,100 @@ def action_clear(sensor_names):
         print("VACUUM skipped (database busy). Space will be reclaimed later by auto_vacuum.")
 
 
-ACTIONS = {
-    'clear': action_clear,
-}
+@retry_on_locked
+def action_remove_above(sensor_names, threshold):
+    """Remove data points with value > threshold."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    counts = {}
+    for name in sensor_names:
+        cursor.execute(
+            'SELECT COUNT(*) as cnt FROM timeseries_data '
+            'WHERE timeseries_id = ? AND value > ?',
+            (name, threshold)
+        )
+        counts[name] = cursor.fetchone()['cnt']
+
+    total = sum(counts.values())
+    if total == 0:
+        print(f"No data points above {threshold} found.")
+        conn.close()
+        return
+
+    print(f"Points with value > {threshold}:")
+    for name in sensor_names:
+        print(f"  {name}: {counts[name]} points")
+    print()
+
+    answer = input("Proceed with deletion? [y/N] ").strip().lower()
+    if answer != 'y':
+        print("Aborted.")
+        conn.close()
+        return
+
+    total_deleted = 0
+    for name in sensor_names:
+        cursor.execute(
+            'DELETE FROM timeseries_data WHERE timeseries_id = ? AND value > ?',
+            (name, threshold)
+        )
+        deleted = cursor.rowcount
+        total_deleted += deleted
+        print(f"  {name}: {deleted} points removed")
+
+    conn.commit()
+    conn.close()
+    print(f"\nTotal: {total_deleted} points removed.")
+    _vacuum()
+
+
+@retry_on_locked
+def action_remove_below(sensor_names, threshold):
+    """Remove data points with value < threshold."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    counts = {}
+    for name in sensor_names:
+        cursor.execute(
+            'SELECT COUNT(*) as cnt FROM timeseries_data '
+            'WHERE timeseries_id = ? AND value < ?',
+            (name, threshold)
+        )
+        counts[name] = cursor.fetchone()['cnt']
+
+    total = sum(counts.values())
+    if total == 0:
+        print(f"No data points below {threshold} found.")
+        conn.close()
+        return
+
+    print(f"Points with value < {threshold}:")
+    for name in sensor_names:
+        print(f"  {name}: {counts[name]} points")
+    print()
+
+    answer = input("Proceed with deletion? [y/N] ").strip().lower()
+    if answer != 'y':
+        print("Aborted.")
+        conn.close()
+        return
+
+    total_deleted = 0
+    for name in sensor_names:
+        cursor.execute(
+            'DELETE FROM timeseries_data WHERE timeseries_id = ? AND value < ?',
+            (name, threshold)
+        )
+        deleted = cursor.rowcount
+        total_deleted += deleted
+        print(f"  {name}: {deleted} points removed")
+
+    conn.commit()
+    conn.close()
+    print(f"\nTotal: {total_deleted} points removed.")
+    _vacuum()
 
 
 def main():
@@ -154,29 +248,43 @@ def main():
         description='Timeseries database maintenance tool.'
     )
     parser.add_argument(
-        '-l', '--list',
-        action='store_true',
-        help='List all sensors in the database'
-    )
-    parser.add_argument(
-        '-s', '--sensor_name',
+        '-s', '--sensor',
         nargs='+',
         metavar='ID',
         help='Sensor ID(s) to operate on (e.g. garage_temp patio_humidity)'
     )
     parser.add_argument(
-        '-a', '--action',
-        choices=ACTIONS.keys(),
-        help='Action to perform'
+        '-l', '--list',
+        action='store_true',
+        help='List all sensors in the database'
+    )
+    parser.add_argument(
+        '--clear',
+        action='store_true',
+        help='Delete all data and metadata for the specified sensors'
+    )
+    parser.add_argument(
+        '--remove-above',
+        type=float,
+        metavar='N',
+        help='Remove data points with value > N'
+    )
+    parser.add_argument(
+        '--remove-below',
+        type=float,
+        metavar='N',
+        help='Remove data points with value < N'
     )
 
     args = parser.parse_args()
 
-    # Validate arg combinations
-    if not args.list and not args.action:
-        parser.error('one of -l/--list or -a/--action is required')
-    if args.action and not args.sensor_name:
-        parser.error('-s/--sensor_name is required when using -a/--action')
+    has_action = args.list or args.clear or args.remove_above is not None or args.remove_below is not None
+    needs_sensor = args.clear or args.remove_above is not None or args.remove_below is not None
+
+    if not has_action:
+        parser.error('no action specified (use --list, --clear, --remove-above, or --remove-below)')
+    if needs_sensor and not args.sensor:
+        parser.error('-s/--sensor is required for --clear, --remove-above, --remove-below')
 
     if not os.path.exists(DB_PATH):
         print(f"Error: database not found at {DB_PATH}", file=sys.stderr)
@@ -185,9 +293,12 @@ def main():
 
     if args.list:
         action_list()
-        return
-
-    ACTIONS[args.action](args.sensor_name)
+    if args.clear:
+        action_clear(args.sensor)
+    if args.remove_above is not None:
+        action_remove_above(args.sensor, args.remove_above)
+    if args.remove_below is not None:
+        action_remove_below(args.sensor, args.remove_below)
 
 
 if __name__ == '__main__':
