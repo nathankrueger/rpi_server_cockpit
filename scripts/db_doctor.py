@@ -10,17 +10,37 @@ import argparse
 import os
 import sqlite3
 import sys
+import time
 from datetime import datetime
 
 DB_PATH = 'timeseries.db'
 
+MAX_RETRIES = 5
+RETRY_DELAY = 2.0  # seconds
+
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 
+def retry_on_locked(func):
+    """Retry a function that may fail with 'database is locked'."""
+    def wrapper(*args, **kwargs):
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                return func(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if 'database is locked' in str(e) and attempt < MAX_RETRIES:
+                    print(f"  Database locked, retrying ({attempt}/{MAX_RETRIES})...")
+                    time.sleep(RETRY_DELAY * attempt)
+                else:
+                    raise
+    return wrapper
+
+
+@retry_on_locked
 def action_list():
     """List all distinct sensor IDs in the database with summary info."""
     conn = get_connection()
@@ -58,6 +78,7 @@ def action_list():
     print(f"\n{len(rows)} sensor(s) found.")
 
 
+@retry_on_locked
 def action_clear(sensor_names):
     """Delete all data and metadata for the given sensors."""
     conn = get_connection()

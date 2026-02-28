@@ -694,15 +694,6 @@ function toggleAutoRefresh() {
 function openSettingsModal() {
     document.getElementById('settings-modal').style.display = 'flex';
 
-    // Load current settings from server
-    fetch('/api/timeseries/settings')
-        .then(response => response.json())
-        .then(settings => {
-            document.getElementById('sampling-rate').value = settings.sampling_rate_ms;
-            document.getElementById('sampling-rate-input').value = settings.sampling_rate_ms;
-        })
-        .catch(error => console.error('Error loading settings:', error));
-
     // Load auto-refresh rate from localStorage
     const savedAutoRefreshRate = localStorage.getItem('autoRefreshRate') || '30';
     document.getElementById('auto-refresh-rate').value = savedAutoRefreshRate;
@@ -718,23 +709,9 @@ function closeSettingsModal() {
     document.getElementById('settings-modal').style.display = 'none';
 }
 
-async function saveSettings() {
-    const samplingRate = parseInt(document.getElementById('sampling-rate-input').value);
+function saveSettings() {
     const autoRefreshRateSeconds = parseInt(document.getElementById('auto-refresh-rate-input').value);
     const maxDatapointsValue = parseInt(document.getElementById('max-datapoints-input').value);
-
-    // Save sampling rate to server
-    try {
-        await fetch('/api/timeseries/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sampling_rate_ms: samplingRate
-            })
-        });
-    } catch (error) {
-        console.error('Error saving settings:', error);
-    }
 
     // Save auto-refresh rate to localStorage
     localStorage.setItem('autoRefreshRate', autoRefreshRateSeconds);
@@ -825,7 +802,6 @@ function syncSliderAndInput(sliderId, inputId) {
 
 // Update slider and input synchronization
 document.addEventListener('DOMContentLoaded', () => {
-    syncSliderAndInput('sampling-rate', 'sampling-rate-input');
     syncSliderAndInput('auto-refresh-rate', 'auto-refresh-rate-input');
     syncSliderAndInput('max-datapoints', 'max-datapoints-input');
 

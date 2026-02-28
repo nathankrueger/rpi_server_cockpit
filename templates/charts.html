@@ -81,14 +81,7 @@
         <div class="modal-content">
             <span class="modal-close" onclick="closeSettingsModal()">&times;</span>
             <div class="modal-header">CHART SETTINGS</div>
-            <div class="modal-body">
-                <div class="setting-item">
-                    <label for="sampling-rate">Data Sampling Rate (ms):</label>
-                    <input type="range" id="sampling-rate" min="1000" max="60000" step="1000" value="5000">
-                    <input type="number" id="sampling-rate-input" min="1000" max="60000" step="1000" value="5000" style="width: 80px; margin-left: 10px;"> ms
-                    <div class="setting-description">How often to collect timeseries data points</div>
-                </div>
-
+            <div class="settings-container">
                 <div class="setting-item">
                     <label for="auto-refresh-rate">Chart Auto-Refresh Rate (seconds):</label>
                     <input type="range" id="auto-refresh-rate" min="1" max="300" step="1" value="30">
@@ -103,7 +96,10 @@
                     <div class="setting-description">Limit datapoints for better performance. Data will be intelligently downsampled using LTTB algorithm to preserve visual features.</div>
                 </div>
 
-                <button class="save-settings-btn" onclick="saveSettings()">SAVE SETTINGS</button>
+                <div class="settings-buttons">
+                    <button class="details-btn" onclick="saveSettings()">SAVE</button>
+                    <button class="details-btn cancel" onclick="closeSettingsModal()">CANCEL</button>
+                </div>
             </div>
         </div>
     </div>

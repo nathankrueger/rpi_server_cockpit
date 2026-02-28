@@ -179,47 +179,6 @@ def get_current_values():
     return jsonify(results)
 
 
-@timeseries_bp.route('/api/timeseries/settings', methods=['GET'])
-def get_timeseries_settings():
-    """
-    Get all timeseries settings.
-
-    Returns:
-        JSON object with all settings
-    """
-    settings = timeseries_db.get_all_settings()
-
-    # Convert to appropriate types
-    return jsonify({
-        'sampling_rate_ms': int(settings.get('sampling_rate_ms', 5000)),
-    })
-
-
-@timeseries_bp.route('/api/timeseries/settings', methods=['POST'])
-def update_timeseries_settings():
-    """
-    Update timeseries settings.
-
-    Request body:
-        {
-            "sampling_rate_ms": 5000
-        }
-
-    Returns:
-        JSON object with success status
-    """
-    data = request.get_json()
-
-    # Validate and save sampling rate
-    if 'sampling_rate_ms' in data:
-        sampling_rate = data['sampling_rate_ms']
-        if not isinstance(sampling_rate, int) or sampling_rate < 100 or sampling_rate > 3600000:
-            return jsonify({'success': False, 'error': 'Invalid sampling rate (must be 100-3600000 ms)'}), 400
-        timeseries_db.set_setting('sampling_rate_ms', sampling_rate)
-
-    return jsonify({'success': True})
-
-
 @timeseries_bp.route('/api/timeseries/ingest', methods=['POST'])
 def ingest_timeseries_data():
     """

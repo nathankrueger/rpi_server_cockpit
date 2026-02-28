@@ -428,30 +428,10 @@
 /* Navigation buttons - now handled by nav-dock.css */
 
 /* Settings Modal Adjustments */
-.modal-body .setting-item {
+.settings-container .setting-item {
     margin-bottom: 25px;
 }
 
-.save-settings-btn {
-    width: 100%;
-    padding: 12px;
-    background: var(--foreground-color, var(--chart-green));
-    border: none;
-    border-radius: 4px;
-    color: black;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.3s;
-}
-
-.save-settings-btn:hover {
-    box-shadow: 0 0 20px rgba(var(--foreground-color-rgb, var(--chart-green-rgb)), 0.6);
-    transform: translateY(-2px);
-}
 
 /* Responsive Design */
 @media (max-width: 768px) {

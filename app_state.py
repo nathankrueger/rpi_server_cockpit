@@ -52,6 +52,7 @@ SERVER_CONFIG_DEFAULTS = {
     'system_stats_interval': 2.0,  # seconds
     'service_status_interval': 5.0,  # seconds
     'internet_check_interval': 5.0,  # seconds
+    'timeseries_sampling_interval': 60.0,  # seconds
 }
 
 # Server config will be initialized by utils/server_config.py

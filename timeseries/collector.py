@@ -8,6 +8,8 @@ timeseries and stores the data in the database.
 import threading
 import time
 
+import app_state
+from app_state import server_config_lock
 from .config import get_all_timeseries
 from .routes import get_timeseries_db
 
@@ -47,9 +49,9 @@ class TimeseriesCollector:
         """Main collection loop."""
         while self.running:
             try:
-                # Get sampling rate from database
-                sampling_rate_ms = int(self.db.get_setting('sampling_rate_ms', '5000'))
-                sampling_rate_seconds = sampling_rate_ms / 1000.0
+                # Get sampling interval from server config
+                with server_config_lock:
+                    sampling_rate_seconds = app_state.server_config['timeseries_sampling_interval']
 
                 # Collect data from all timeseries
                 datapoints = []
