@@ -28,7 +28,7 @@
       "name": "comfyui_looper",
       "display_name": "COMFYUI LOOPER",
       "script_path": "/home/nkrueger/dev/comfyui_looper/run_interactive.sh",
-      "args": "-z -url http://192.168.1.177:8188 -L 5020",
+      "args": "-z -u http://192.168.1.177:8188 -L 5020",
       "enabled": true 
     },
     {
