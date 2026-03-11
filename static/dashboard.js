@@ -1693,6 +1693,11 @@ async function init() {
     await loadAndRenderServices();
     await loadAutomations();
 
+    // Now that automation cards exist in the DOM, request current states
+    // from the server. The initial states sent on socket connect may have
+    // arrived before the DOM was ready and were silently dropped.
+    socket.emit('request_all_automation_states');
+
     // Load settings from localStorage or use defaults
     const matrixEffectEnabled = localStorage.getItem('matrixEffectEnabled') !== 'false'; // Default to true
 

@@ -40,3 +40,16 @@ def register_socketio_handlers(socketio):
                     'automation': automation_name,
                     'state': state
                 })
+
+    @socketio.on('request_all_automation_states')
+    def handle_request_all_states():
+        """Handle request for all automation states (after DOM is ready)."""
+        with automation_lock:
+            for automation_name, state in automation_state.items():
+                state_copy = state.copy()
+                state_copy.pop('process', None)
+                state_copy['incremental'] = False
+                emit('automation_update', {
+                    'automation': automation_name,
+                    'state': state_copy
+                })
