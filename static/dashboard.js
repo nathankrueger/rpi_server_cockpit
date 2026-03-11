@@ -468,7 +468,7 @@ function createAutomationCard(automation) {
         </div>
         <div class="automation-args-container">
             <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)" autocorrect="off" spellcheck="false" style="flex: 1;">
+                <input type="text" class="automation-args-input" id="${automation.name}-args" placeholder="Arguments (optional)" autocorrect="off" spellcheck="false" style="flex: 1;" value="${automation.args ? automation.args.replace(/"/g, '&quot;') : ''}">
                 <button class="details-btn icon-btn" onclick="runAutomation('${automation.name}')" id="${automation.name}-btn">&#9658;</button>
             </div>
         </div>

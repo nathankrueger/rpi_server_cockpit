@@ -10,6 +10,15 @@
       "enabled": true
     },
     {
+      "id": "gateway",
+      "display_name": "GATEWAY",
+      "check_type": "systemd",
+      "service_name": "gateway",
+      "control_type": "systemd",
+      "button_type": "details",
+      "enabled": true
+    },
+    {
       "id": "minidlna",
       "display_name": "MINIDLNA",
       "check_type": "systemd",
