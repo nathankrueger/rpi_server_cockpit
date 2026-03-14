@@ -46,6 +46,15 @@ service_status_lock = threading.Lock()
 internet_status_cache = {'connected': False}
 internet_status_lock = threading.Lock()
 
+# Track in-progress remote machine power operations (prevents double-clicks)
+remote_machine_operations = {}  # {machine_id: 'starting' | 'stopping'}
+remote_machine_ops_lock = threading.Lock()
+
+# Announced IPs from remote machines (populated via /api/announce, persisted to JSON)
+ANNOUNCED_IPS_FILE = os.path.join(os.path.dirname(__file__), 'config', 'announced_ips.json')
+announced_ips = {}  # {machine_id: ip_address}
+announced_ips_lock = threading.Lock()
+
 # Server configuration (mutable at runtime via API, persisted to JSON file)
 SERVER_CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config', 'server_config.local.json')
 SERVER_CONFIG_DEFAULTS = {

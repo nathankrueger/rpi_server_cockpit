@@ -1,0 +1,20 @@
+{
+  "remote_machines": [
+    {
+      "id": "desktop_pc",
+      "display_name": "Alienware R16",
+      "host": "auto",
+      "ssh_user": "natek",
+      "ssh_port": 22,
+      "ssh_key": null,
+      "shutdown_command": "shutdown.exe /s /t 0",
+      "plug_name": "Alienware PC",
+      "plug_ip": "192.168.1.59",
+      "link_url": null,
+      "group": "Remote Machines",
+      "enabled": true,
+      "shutdown_timeout": 60,
+      "post_shutdown_delay": 5
+    }
+  ]
+}

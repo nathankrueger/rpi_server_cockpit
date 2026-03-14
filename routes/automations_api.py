@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, request
 
 from config_loader import get_all_automations, get_automation_config
 from app_state import (
+    announced_ips,
+    announced_ips_lock,
     automation_state,
     automation_lock,
     DEBUG_MODE,
@@ -111,11 +113,19 @@ def run_automation(automation_name):
 
     def run_script():
         try:
+            # Substitute ${MACHINE_ID_IP} variables in args from announced IPs
+            with announced_ips_lock:
+                ip_snapshot = dict(announced_ips)
+            resolved_args = args
+            if resolved_args:
+                for machine_id, ip in ip_snapshot.items():
+                    resolved_args = resolved_args.replace(f"${{{machine_id.upper()}_IP}}", ip)
+
             # Build command with arguments if provided
-            if args:
+            if resolved_args:
                 # Use shlex to safely split arguments
                 try:
-                    arg_list = shlex.split(args)
+                    arg_list = shlex.split(resolved_args)
                     cmd = ['/bin/bash', script_path] + arg_list
                 except ValueError as e:
                     # If argument parsing fails, add error to output
@@ -131,6 +141,9 @@ def run_automation(automation_name):
 
             # Build environment with optional custom env vars from config
             proc_env = os.environ.copy()
+            # Inject announced IPs as env vars (e.g., DESKTOP_PC_IP=192.168.1.42)
+            for machine_id, ip in ip_snapshot.items():
+                proc_env[f"{machine_id.upper()}_IP"] = ip
             if 'env' in automation_config and isinstance(automation_config['env'], dict):
                 proc_env.update(automation_config['env'])
 

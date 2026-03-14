@@ -116,6 +116,10 @@ let servicesConfig = [];
 // Track pending service operations: { serviceId: 'start' | 'stop' }
 let pendingServiceOps = {};
 
+// Remote machine state
+let remoteMachinesConfig = [];
+let pendingRemoteMachineOps = {};
+
 async function loadAndRenderServices() {
     try {
         const response = await fetch('/api/services');
@@ -158,7 +162,10 @@ function renderServices() {
     });
 }
 
-function createServiceCard(service) {
+function createServiceCard(service, opts) {
+    const onToggle = (opts && opts.onToggle) || (() => toggleService(service.id));
+    const onDetails = (opts && opts.onDetails) || (() => showServiceDetails(service.id));
+
     const serviceCard = document.createElement('div');
     serviceCard.className = 'service-card';
 
@@ -194,7 +201,7 @@ function createServiceCard(service) {
     const detailsBtn = document.createElement('button');
     detailsBtn.className = 'details-btn';
     detailsBtn.textContent = 'DETAILS';
-    detailsBtn.onclick = () => showServiceDetails(service.id);
+    detailsBtn.onclick = onDetails;
     btnGroup.appendChild(detailsBtn);
 
     if (service.link_url) {
@@ -216,7 +223,7 @@ function createServiceCard(service) {
     const toggleSwitch = document.createElement('div');
     toggleSwitch.className = 'toggle-switch';
     toggleSwitch.id = `${service.id}-toggle`;
-    toggleSwitch.onclick = () => toggleService(service.id);
+    toggleSwitch.onclick = onToggle;
 
     const toggleSlider = document.createElement('div');
     toggleSlider.className = 'toggle-slider';
@@ -234,7 +241,7 @@ function createServiceCard(service) {
     return serviceCard;
 }
 
-function createServiceGroup(groupName, services) {
+function createServiceGroup(groupName, services, prebuiltCards) {
     const group = document.createElement('div');
     group.className = 'automation-group'; // Reuse automation-group styles
 
@@ -261,11 +268,15 @@ function createServiceGroup(groupName, services) {
     content.className = 'automation-group-content';
     content.id = `service-group-${groupName.replace(/\s+/g, '-').toLowerCase()}`;
 
-    // Add service cards to the group
-    services.forEach(service => {
-        const card = createServiceCard(service);
-        content.appendChild(card);
-    });
+    // Add cards — either pre-built or created from service configs
+    if (prebuiltCards) {
+        prebuiltCards.forEach(card => content.appendChild(card));
+    } else if (services) {
+        services.forEach(service => {
+            const card = createServiceCard(service);
+            content.appendChild(card);
+        });
+    }
 
     // Add click handler for collapse/expand
     header.addEventListener('click', () => {
@@ -285,12 +296,149 @@ function createServiceGroup(groupName, services) {
     return group;
 }
 
+// Remote machine loading and rendering
+async function loadAndRenderRemoteMachines() {
+    try {
+        const response = await fetch('/api/remote_machines');
+        remoteMachinesConfig = await response.json();
+        renderRemoteMachines();
+    } catch (error) {
+        console.error('Error loading remote machines:', error);
+    }
+}
+
+function renderRemoteMachines() {
+    const servicesSection = document.getElementById('services-section');
+
+    const grouped = {};
+    const ungrouped = [];
+
+    remoteMachinesConfig.forEach(machine => {
+        if (machine.group) {
+            if (!grouped[machine.group]) grouped[machine.group] = [];
+            grouped[machine.group].push(machine);
+        } else {
+            ungrouped.push(machine);
+        }
+    });
+
+    ungrouped.forEach(machine => {
+        const card = createServiceCard(machine, {
+            onToggle: () => toggleRemoteMachine(machine.id),
+            onDetails: () => showRemoteMachineDetails(machine.id),
+        });
+        servicesSection.appendChild(card);
+    });
+
+    Object.keys(grouped).forEach(groupName => {
+        const cards = grouped[groupName].map(machine =>
+            createServiceCard(machine, {
+                onToggle: () => toggleRemoteMachine(machine.id),
+                onDetails: () => showRemoteMachineDetails(machine.id),
+            })
+        );
+        const groupContainer = createServiceGroup(groupName, null, cards);
+        servicesSection.appendChild(groupContainer);
+    });
+}
+
+async function toggleRemoteMachine(machineId) {
+    const toggle = document.getElementById(`${machineId}-toggle`);
+    if (toggle.classList.contains('disabled') || toggle.classList.contains('pending')) return;
+
+    const isActive = toggle.classList.contains('active');
+    const action = isActive ? 'stop' : 'start';
+
+    toggle.classList.add('disabled', 'pending');
+    pendingRemoteMachineOps[machineId] = action;
+
+    try {
+        const response = await fetch(`/api/remote_machine/control/${machineId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+            delete pendingRemoteMachineOps[machineId];
+            toggle.classList.remove('disabled', 'pending');
+            showToast(`Failed to ${action} ${machineId}: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        delete pendingRemoteMachineOps[machineId];
+        toggle.classList.remove('disabled', 'pending');
+        showToast(`Failed to ${action} ${machineId}.`, 'error');
+    }
+}
+
+async function showRemoteMachineDetails(machineId) {
+    const modal = document.getElementById('serviceModal');
+    const title = document.getElementById('modal-title');
+    const output = document.getElementById('modal-output');
+
+    title.textContent = `${machineId.toUpperCase()} STATUS`;
+    output.textContent = 'Loading...';
+    modal.style.display = 'block';
+
+    try {
+        const response = await fetch(`/api/remote_machine/details/${machineId}`);
+        const data = await response.json();
+        if (data.success) {
+            output.textContent = data.output;
+        } else {
+            output.textContent = `ERROR: ${data.error}`;
+        }
+    } catch (error) {
+        output.textContent = `ERROR: Failed to fetch details\n${error.message}`;
+    }
+}
+
+function updateRemoteMachineUI(machineId, statusData) {
+    const indicator = document.getElementById(`${machineId}-indicator`);
+    const statusText = document.getElementById(`${machineId}-status`);
+    const toggle = document.getElementById(`${machineId}-toggle`);
+
+    if (!indicator || !statusText || !toggle) return;
+
+    const isRunning = typeof statusData === 'boolean' ? statusData : statusData.running;
+
+    // Clear pending when state matches expectation
+    if (pendingRemoteMachineOps[machineId]) {
+        const expectedRunning = pendingRemoteMachineOps[machineId] === 'start';
+        if (isRunning === expectedRunning) {
+            delete pendingRemoteMachineOps[machineId];
+            toggle.classList.remove('pending');
+            setTimeout(() => toggle.classList.remove('disabled'), 1500);
+        }
+    } else {
+        toggle.classList.remove('pending', 'disabled');
+    }
+
+    if (isRunning) {
+        indicator.className = 'status-indicator green';
+        statusText.textContent = 'ONLINE';
+        toggle.classList.add('active');
+    } else {
+        indicator.className = 'status-indicator red';
+        statusText.textContent = 'OFFLINE';
+        toggle.classList.remove('active');
+    }
+}
+
 // Handle service status update (from WebSocket or initial fetch)
 function handleServiceStatusUpdate(status) {
     // Dynamically update all configured services
     servicesConfig.forEach(service => {
         if (status.hasOwnProperty(service.id)) {
             updateServiceUI(service.id, status[service.id]);
+        }
+    });
+
+    // Update remote machines (status keys are prefixed with rm_)
+    remoteMachinesConfig.forEach(machine => {
+        const key = `rm_${machine.id}`;
+        if (status.hasOwnProperty(key)) {
+            updateRemoteMachineUI(machine.id, status[key]);
         }
     });
 
@@ -968,6 +1116,13 @@ socket.on('system_stats', (stats) => {
 // Handle service status pushed from server
 socket.on('service_status', (status) => {
     handleServiceStatusUpdate(status);
+});
+
+socket.on('remote_machine_progress', (data) => {
+    const statusText = document.getElementById(`${data.machine_id}-status`);
+    if (statusText) {
+        statusText.textContent = data.message;
+    }
 });
 
 // Helper function to check if a scrollable element is at or near the bottom
@@ -1695,6 +1850,7 @@ async function init() {
 
     restoreCollapsedStates();
     await loadAndRenderServices();
+    await loadAndRenderRemoteMachines();
     await loadAutomations();
 
     // Now that automation cards exist in the DOM, request current states

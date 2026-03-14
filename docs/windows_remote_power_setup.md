@@ -158,17 +158,72 @@ shutdown.exe /s /t 0
 
 This should immediately begin shutting down the Windows PC.
 
-## Step 8: Find Your PC's IP Address
+## Step 8: Auto-Announce IP to the Pi
 
-On the Windows PC, run:
+Since your router doesn't support static IP assignment, the PC's WiFi IP can change. This step makes the PC announce its current IP to the Pi dashboard on every boot.
+
+### Create the announcement script
+
+Save this as `C:\Scripts\announce_ip.ps1`:
 
 ```powershell
-ipconfig
+# Wait for network to be ready
+Start-Sleep -Seconds 15
+
+# Get the Wi-Fi IPv4 address
+$ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
+       Where-Object { $_.PrefixOrigin -eq "Dhcp" }).IPAddress
+
+if (-not $ip) {
+    # Fallback: try any non-loopback IPv4
+    $ip = (Get-NetIPAddress -AddressFamily IPv4 |
+           Where-Object { $_.IPAddress -ne "127.0.0.1" -and $_.PrefixOrigin -eq "Dhcp" } |
+           Select-Object -First 1).IPAddress
+}
+
+if ($ip) {
+    $body = @{ machine_id = "desktop_pc"; ip = $ip } | ConvertTo-Json
+    try {
+        Invoke-RestMethod -Uri "http://PI_HOSTNAME_OR_IP:5000/api/announce" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 10
+        Write-Output "Announced IP $ip to Pi dashboard"
+    } catch {
+        Write-Output "Failed to announce IP: $_"
+    }
+} else {
+    Write-Output "Could not determine Wi-Fi IP address"
+}
 ```
 
-Look for the **Wi-Fi adapter** section and note the **IPv4 Address** (e.g., `192.168.1.42`).
+**Replace `PI_HOSTNAME_OR_IP`** with your Pi's hostname or IP (e.g., `raspberrypi.local` or `192.168.1.10`).
 
-> Consider assigning a static IP or DHCP reservation in your router so the address doesn't change.
+### Create a Task Scheduler task
+
+Open **PowerShell as Administrator** and run:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Scripts\announce_ip.ps1"
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "AnnounceIPToPi" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -User "SYSTEM" -Description "Announce this PC's IP address to the Pi dashboard on boot"
+```
+
+This runs the script at every Windows boot as SYSTEM (no login required).
+
+### Test it
+
+Run the script manually to verify:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Scripts\announce_ip.ps1
+```
+
+Then on the Pi, check:
+
+```bash
+curl http://localhost:5000/api/announced_ips
+```
+
+You should see `{"desktop_pc": "192.168.1.XX"}`.
 
 ## Step 9: Configure the Pi Dashboard
 
@@ -180,13 +235,15 @@ On the Raspberry Pi, create the file `config/remote_machine_config.local.json` i
     {
       "id": "desktop_pc",
       "enabled": true,
-      "host": "YOUR_PC_IP",
+      "host": "auto",
       "ssh_user": "YOUR_WINDOWS_USERNAME",
       "plug_ip": "YOUR_KASA_PLUG_IP"
     }
   ]
 }
 ```
+
+Note: `"host": "auto"` means the dashboard will use the IP announced by the PC via the script from Step 8. No need to hardcode an IP.
 
 Then restart the dashboard:
 

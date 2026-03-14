@@ -7,10 +7,12 @@ This allows per-Pi customization while keeping common configs in git.
 Base files (checked into git):
   - config/automation_config.json
   - config/service_config.json
+  - config/remote_machine_config.json
 
 Local override files (gitignored):
   - config/automation_config.local.json
   - config/service_config.local.json
+  - config/remote_machine_config.local.json
 
 Local files can:
   - Disable items: {"name": "item_name", "enabled": false}
@@ -104,13 +106,31 @@ def load_service_config() -> List[Dict[str, Any]]:
     return merge_configs(base_items, local_items, 'id')
 
 
+def load_remote_machine_config() -> List[Dict[str, Any]]:
+    """
+    Load remote machine configuration with local overrides.
+
+    Returns:
+        List of enabled remote machine configurations
+    """
+    base_config = load_json_config('remote_machine_config.json')
+    local_config = load_json_config('remote_machine_config.local.json')
+
+    base_items = base_config.get('remote_machines', [])
+    local_items = local_config.get('remote_machines', [])
+
+    return merge_configs(base_items, local_items, 'id')
+
+
 # Load configurations
 AUTOMATIONS = load_automation_config()
 SERVICES = load_service_config()
+REMOTE_MACHINES = load_remote_machine_config()
 
 # Create lookup dictionaries
 AUTOMATION_MAP = {auto['name']: auto for auto in AUTOMATIONS}
 SERVICE_MAP = {service['id']: service for service in SERVICES}
+REMOTE_MACHINE_MAP = {rm['id']: rm for rm in REMOTE_MACHINES}
 
 
 def get_automation_config(automation_name: str) -> Dict[str, Any]:
@@ -131,3 +151,13 @@ def get_service_config(service_id: str) -> Dict[str, Any]:
 def get_all_services() -> List[Dict[str, Any]]:
     """Get all enabled services."""
     return SERVICES
+
+
+def get_remote_machine_config(machine_id: str) -> Dict[str, Any]:
+    """Get configuration for a specific remote machine."""
+    return REMOTE_MACHINE_MAP.get(machine_id)
+
+
+def get_all_remote_machines() -> List[Dict[str, Any]]:
+    """Get all enabled remote machines."""
+    return REMOTE_MACHINES

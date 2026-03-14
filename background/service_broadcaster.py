@@ -1,7 +1,7 @@
 """Service status broadcasting background thread."""
 import time
 
-from config_loader import get_all_services
+from config_loader import get_all_services, get_all_remote_machines
 from app_state import (
     service_status_cache,
     service_status_lock,
@@ -11,7 +11,7 @@ from app_state import (
     get_socketio,
 )
 import app_state
-from utils import check_service_status, get_service_memory_usage
+from utils import check_service_status, get_service_memory_usage, resolve_host, check_machine_online
 
 
 def service_status_broadcaster():
@@ -27,6 +27,16 @@ def service_status_broadcaster():
                 status[service['id']] = {
                     'running': is_running,
                     'memory_bytes': memory_bytes
+                }
+
+            # Check remote machines (prefixed with rm_ to avoid ID collisions)
+            for machine in get_all_remote_machines():
+                host = resolve_host(machine)
+                is_online = check_machine_online(host, machine.get('ssh_port', 22)) if host else False
+                status[f"rm_{machine['id']}"] = {
+                    'running': is_online,
+                    'memory_bytes': None,
+                    'type': 'remote_machine',
                 }
 
             # Add internet status from its own cache
