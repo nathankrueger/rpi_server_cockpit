@@ -3,12 +3,18 @@ set -e
 
 # ComfyUI Looper Wrapper
 #
-# Boots the desktop PC (optional), starts run_interactive.sh on the PC via SSH
-# (fire-and-forget), then runs run_interactive.sh locally on the Pi pointing
-# at the PC's ComfyUI instance.
+# Boots the desktop PC (optional), starts run_interactive.sh on the PC via a
+# persistent SSH connection (kept alive in the background), then runs
+# run_interactive.sh locally on the Pi pointing at the PC's ComfyUI.
 #
 # The local process is the foreground process whose stdout the automation
-# panel streams. Cancelling the automation kills this process.
+# panel streams. When the automation is cancelled, kill_proc_tree kills both
+# the local looper and the SSH connection, which drops the remote process.
+#
+# Why persistent SSH instead of fire-and-forget:
+# WSL2 shuts down the entire distro when the last shell exits (systemd doesn't
+# start in SSH sessions). Any nohup/screen/setsid'd process dies with it.
+# Keeping SSH alive keeps wsl.exe alive, which keeps the distro running.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 KASA_SCRIPT="$SCRIPT_DIR/kasa.sh"
@@ -18,6 +24,7 @@ LOOPER_SCRIPT="$HOME/dev/comfyui_looper/run_interactive.sh"
 SSH_USER="${REMOTE_SSH_USER:-natek}"
 PLUG_IP="${REMOTE_PLUG_IP:-192.168.1.59}"
 BOOT_TIMEOUT=120
+COMFYUI_TIMEOUT=90
 START_PC=false
 LOOPER_PORT=5020
 
@@ -63,6 +70,23 @@ check_ssh() {
     timeout 2 bash -c "echo >/dev/tcp/$PC_IP/22" 2>/dev/null
 }
 
+# --- ComfyUI reachability check ---
+check_comfyui() {
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://${PC_IP}:8188" 2>/dev/null)
+    [ "$http_code" = "200" ]
+}
+
+# --- Cleanup: kill background SSH when this script exits ---
+SSH_PID=""
+cleanup() {
+    if [ -n "$SSH_PID" ] && kill -0 "$SSH_PID" 2>/dev/null; then
+        kill "$SSH_PID" 2>/dev/null
+        wait "$SSH_PID" 2>/dev/null
+    fi
+}
+trap cleanup EXIT
+
 # --- Boot PC if needed ---
 if ! check_ssh; then
     if [ "$START_PC" = true ]; then
@@ -96,24 +120,44 @@ else
     echo "PC is online at $PC_IP:22"
 fi
 
-# --- Fire-and-forget: start run_interactive.sh on the PC via SSH ---
+# --- Start run_interactive.sh on the PC via persistent SSH ---
 # The PC's OpenSSH default shell is wsl.exe which doesn't support -c,
-# so we pipe commands via stdin with -T (no PTY).
-# nohup + background + redirects ensure the remote process survives SSH disconnect.
-echo "Starting run_interactive.sh on PC (fire-and-forget)..."
+# so we pipe the command via stdin with -T (no PTY).
+# `exec` replaces the shell with the script, so SSH stays alive as long
+# as run_interactive.sh runs. Output is discarded (we only care about
+# the local Pi instance's output).
+echo "Starting run_interactive.sh on PC via SSH..."
 ssh -T -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
-    -o BatchMode=yes "${SSH_USER}@${PC_IP}" <<'REMOTE'
-nohup ~/dev/comfyui_looper/run_interactive.sh -z </dev/null &>/dev/null &
-exit
+    -o BatchMode=yes "${SSH_USER}@${PC_IP}" <<'REMOTE' &>/dev/null &
+exec ~/dev/comfyui_looper/run_interactive.sh -z
 REMOTE
-echo "Remote run_interactive.sh launched on PC"
+SSH_PID=$!
+echo "Remote session started (SSH PID: $SSH_PID)"
+
+# --- Wait for ComfyUI to become reachable ---
+echo "Waiting for ComfyUI at http://${PC_IP}:8188..."
+elapsed=0
+while [ $elapsed -lt $COMFYUI_TIMEOUT ]; do
+    if check_comfyui; then
+        echo "ComfyUI is ready after ${elapsed}s"
+        break
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+    echo "  waiting for ComfyUI... ${elapsed}s / ${COMFYUI_TIMEOUT}s"
+done
+
+if ! check_comfyui; then
+    echo "WARNING: ComfyUI not responding after ${COMFYUI_TIMEOUT}s, proceeding anyway..."
+fi
 
 # --- Run locally on Pi (foreground) ---
-# This is the automation's visible output. exec replaces the shell so
-# kill_proc_tree on cancel will properly terminate the looper.
+# This is the automation's visible output. When cancelled, kill_proc_tree
+# kills this process and the cleanup trap kills the SSH connection.
+echo ""
 echo "Starting local looper with ComfyUI at http://${PC_IP}:8188..."
 echo ""
-exec bash "$LOOPER_SCRIPT" \
+bash "$LOOPER_SCRIPT" \
     -u "http://${PC_IP}:8188" \
     -z \
     -L "$LOOPER_PORT" \
