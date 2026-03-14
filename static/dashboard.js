@@ -1068,7 +1068,7 @@ function updateAutomationUI(automationName, state) {
     // Update button and status based on state
     if (state.running) {
         btn.disabled = false;
-        btn.textContent = 'CANCEL';
+        btn.textContent = '\u25A0';
         btn.classList.add('cancel');
         indicator.className = 'status-indicator yellow';
         statusText.textContent = 'RUNNING...';
@@ -1190,7 +1190,7 @@ async function runAutomation(automationName) {
 
     // Disable button temporarily
     btn.disabled = true;
-    btn.textContent = 'STARTING...';
+    btn.textContent = '\u25B6';
 
     try {
         const response = await fetch(`/api/automation/${automationName}`, {
@@ -1272,7 +1272,7 @@ async function cancelAutomation(automationName) {
     const btn = document.getElementById(`${automationName}-btn`);
 
     btn.disabled = true;
-    btn.textContent = 'CANCELLING...';
+    btn.textContent = '\u25A0';
 
     try {
         console.log('Sending cancel request to:', `/api/automation/${automationName}/cancel`);
@@ -1295,7 +1295,7 @@ async function cancelAutomation(automationName) {
             // Re-enable the cancel button so user can retry — don't reset to play
             // state since the automation may still be running on the server.
             btn.disabled = false;
-            btn.textContent = 'CANCEL';
+            btn.textContent = '\u25A0';
             return;
         }
 
@@ -1307,7 +1307,7 @@ async function cancelAutomation(automationName) {
             showToast(result.error || 'Failed to cancel automation', 'error');
             // Re-enable the cancel button so user can retry
             btn.disabled = false;
-            btn.textContent = 'CANCEL';
+            btn.textContent = '\u25A0';
         }
         // If successful, the WebSocket will handle updating the UI
     } catch (error) {
@@ -1333,7 +1333,7 @@ async function cancelAutomation(automationName) {
         // cancel state since the automation is likely still running.
         showToast('Failed to cancel automation. Please try again.', 'error');
         btn.disabled = false;
-        btn.textContent = 'CANCEL';
+        btn.textContent = '\u25A0';
     }
 }
 
