@@ -3,7 +3,7 @@ import threading
 
 from .network_monitor import network_speed_monitor
 from .system_broadcaster import system_stats_broadcaster
-from .service_broadcaster import service_status_broadcaster
+from .service_broadcaster import service_status_broadcaster, start_remote_machine_poller
 from .internet_monitor import internet_connectivity_monitor
 
 _threads = []
@@ -25,3 +25,5 @@ def start_all_background_threads():
         thread.start()
         _threads.append(thread)
         print(f"Started background thread: {name}")
+
+    start_remote_machine_poller()

@@ -1,5 +1,7 @@
 """Service status broadcasting background thread."""
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from config_loader import get_all_services, get_all_remote_machines
 from app_state import (
@@ -12,6 +14,41 @@ from app_state import (
 )
 import app_state
 from utils import check_service_status, get_service_memory_usage, resolve_host, check_machine_online
+
+# Latest remote machine statuses, written by the poller thread, read by broadcaster
+_rm_status = {}
+_rm_status_lock = threading.Lock()
+
+
+def _remote_machine_poller():
+    """Continuously poll remote machine status in a background thread."""
+    pool = ThreadPoolExecutor(max_workers=4)
+    while True:
+        machines = get_all_remote_machines()
+        futures = {}
+        for machine in machines:
+            host = resolve_host(machine)
+            if host:
+                futures[machine['id']] = pool.submit(
+                    check_machine_online, host, machine.get('ssh_port', 22)
+                )
+            else:
+                futures[machine['id']] = None
+
+        results = {}
+        for machine_id, future in futures.items():
+            results[machine_id] = future.result() if future else False
+
+        with _rm_status_lock:
+            _rm_status.update(results)
+
+        time.sleep(5)
+
+
+def start_remote_machine_poller():
+    """Start the remote machine poller daemon thread."""
+    t = threading.Thread(target=_remote_machine_poller, daemon=True)
+    t.start()
 
 
 def service_status_broadcaster():
@@ -29,12 +66,13 @@ def service_status_broadcaster():
                     'memory_bytes': memory_bytes
                 }
 
-            # Check remote machines (prefixed with rm_ to avoid ID collisions)
+            # Read latest remote machine statuses (non-blocking)
+            with _rm_status_lock:
+                rm_snapshot = dict(_rm_status)
             for machine in get_all_remote_machines():
-                host = resolve_host(machine)
-                is_online = check_machine_online(host, machine.get('ssh_port', 22)) if host else False
-                status[f"rm_{machine['id']}"] = {
-                    'running': is_online,
+                mid = machine['id']
+                status[f"rm_{mid}"] = {
+                    'running': rm_snapshot.get(mid, False),
                     'memory_bytes': None,
                     'type': 'remote_machine',
                 }

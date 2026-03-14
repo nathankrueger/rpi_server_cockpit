@@ -19,16 +19,25 @@ def resolve_host(machine_config):
     return host
 
 
-def check_machine_online(host, port=22, timeout=2):
-    """Check if a remote machine is online via TCP connect to its SSH port."""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        return result == 0
-    except Exception:
-        return False
+def check_machine_online(host, port=22, timeout=0.8, retries=2, retry_delay=0.2):
+    """Check if a remote machine is online via TCP connect to its SSH port.
+
+    Retries on failure to avoid flaky offline blips.
+    Total worst-case time: ~2.8s (3 * 0.8s timeout + 2 * 0.2s delay).
+    """
+    for attempt in range(1 + retries):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            if result == 0:
+                return True
+        except Exception:
+            pass
+        if attempt < retries:
+            time.sleep(retry_delay)
+    return False
 
 
 def ssh_shutdown(host, user, shutdown_command, port=22, ssh_key=None,
