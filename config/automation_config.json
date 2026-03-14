@@ -27,9 +27,9 @@
     {
       "name": "comfyui_looper",
       "display_name": "COMFYUI LOOPER",
-      "script_path": "/home/nkrueger/dev/comfyui_looper/run_interactive.sh",
-      "args": "-z -u http://192.168.1.177:8188 -L 5020",
-      "enabled": true 
+      "script_path": "./automation_scripts/run_comfyui_looper.sh",
+      "args": "-S",
+      "enabled": true
     },
     {
       "name": "node_cmd",

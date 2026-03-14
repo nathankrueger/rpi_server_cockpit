@@ -148,9 +148,16 @@ def control_machine(machine_id):
 
     def do_start():
         try:
-            _emit_progress(machine_id, 'TURNING ON PLUG...')
             plug_name = config.get('plug_name')
             plug_ip = config.get('plug_ip')
+
+            # Power cycle: off → wait → on
+            # If PC was shut down normally the plug is still on,
+            # so just calling "on" would be a no-op. Cycling ensures boot.
+            _emit_progress(machine_id, 'CYCLING POWER...')
+            control_kasa_plug('off', plug_name=plug_name, plug_ip=plug_ip)
+            time.sleep(3)
+
             success, output = control_kasa_plug('on', plug_name=plug_name, plug_ip=plug_ip)
             if success:
                 _emit_progress(machine_id, 'PLUG ON — BOOTING...')
@@ -172,6 +179,7 @@ def control_machine(machine_id):
             port = config.get('ssh_port', 22)
             ssh_key = config.get('ssh_key')
             shutdown_cmd = config.get('shutdown_command', 'shutdown.exe /s /t 0')
+            shell_type = config.get('shell_type', 'linux')
             timeout = config.get('shutdown_timeout', 60)
             delay = config.get('post_shutdown_delay', 5)
             plug_name = config.get('plug_name')
@@ -179,7 +187,8 @@ def control_machine(machine_id):
 
             # Step 1: Graceful shutdown via SSH
             _emit_progress(machine_id, 'SENDING SHUTDOWN...')
-            success, error = ssh_shutdown(host, user, shutdown_cmd, port, ssh_key)
+            success, error = ssh_shutdown(host, user, shutdown_cmd, port, ssh_key,
+                                          shell_type=shell_type)
             if not success:
                 print(f"SSH shutdown failed for {machine_id}: {error}")
                 _emit_progress(machine_id, 'SSH FAILED — WAITING...')

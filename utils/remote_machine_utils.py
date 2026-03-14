@@ -31,11 +31,20 @@ def check_machine_online(host, port=22, timeout=2):
         return False
 
 
-def ssh_shutdown(host, user, shutdown_command, port=22, ssh_key=None, timeout=10):
+def ssh_shutdown(host, user, shutdown_command, port=22, ssh_key=None,
+                 timeout=10, shell_type='linux'):
     """Send a shutdown command to a remote machine via SSH.
+
+    Args:
+        shell_type: 'linux' (default), 'wsl', or 'cmd'. WSL requires piping
+            the command via stdin because wsl.exe doesn't accept the -c flag
+            that SSH uses to pass commands.
 
     Returns (success: bool, error_message: str).
     """
+    if shell_type == 'wsl' and timeout < 30:
+        timeout = 30
+
     cmd = [
         'ssh',
         '-o', 'StrictHostKeyChecking=accept-new',
@@ -45,10 +54,18 @@ def ssh_shutdown(host, user, shutdown_command, port=22, ssh_key=None, timeout=10
     ]
     if ssh_key:
         cmd.extend(['-i', ssh_key])
-    cmd.extend([f'{user}@{host}', shutdown_command])
+
+    run_kwargs = dict(capture_output=True, text=True, timeout=timeout)
+
+    if shell_type == 'wsl':
+        # wsl.exe doesn't accept -c, so pipe the command via stdin instead
+        cmd.extend(['-T', f'{user}@{host}'])
+        run_kwargs['input'] = shutdown_command + '\nexit\n'
+    else:
+        cmd.extend([f'{user}@{host}', shutdown_command])
 
     try:
-        result = _run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = _run(cmd, **run_kwargs)
         # rc 255 is expected — SSH connection drops as the machine shuts down
         if result.returncode in (0, 255):
             return True, ''
