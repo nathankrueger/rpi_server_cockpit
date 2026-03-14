@@ -94,7 +94,7 @@ toggle_plug() {
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-d|--discover] | (-i|--ip_addr <IP> | -n|--name <substring>) [-r|--read_state | -t|--toggle | -o|--on | -f|--off] [-u|--username <email>] [-p|--password <password>]"
+    echo "Usage: $0 [-d|--discover] | (-i|--ip_addr <IP> | -n|--name <substring>) [-r|--read_state | -t|--toggle | -o|--on | -f|--off | -w|--wattage] [-u|--username <email>] [-p|--password <password>]"
     echo ""
     echo "Options:"
     echo "  -d, --discover           Discover and list all Kasa devices on the network"
@@ -104,6 +104,7 @@ usage() {
     echo "  -t, --toggle             Toggle the plug state (ON->OFF or OFF->ON)"
     echo "  -o, --on                 Turn the plug ON"
     echo "  -f, --off                Turn the plug OFF"
+    echo "  -w, --wattage            Read current power consumption (watts, numeric only)"
     echo "  -u, --username <email>   Kasa account email (for newer devices)"
     echo "  -p, --password <pass>    Kasa account password (for newer devices)"
     echo ""
@@ -115,6 +116,7 @@ usage() {
     echo "  $0 -i 192.168.1.24 -r"
     echo "  $0 -n \"Living Room\" --toggle"
     echo "  $0 -i 192.168.1.47 --on -u your@email.com -p yourpassword"
+    echo "  $0 -i 192.168.1.59 --wattage   # prints e.g. '68.1'"
     echo "  KASA_USERNAME=your@email.com KASA_PASSWORD=yourpass $0 -n \"Lamp\" --on"
     exit 1
 }
@@ -150,6 +152,10 @@ while [[ $# -gt 0 ]]; do
             ACTION="off"
             shift
             ;;
+        -w|--wattage)
+            ACTION="wattage"
+            shift
+            ;;
         -u|--username)
             KASA_USER="$2"
             shift 2
@@ -179,7 +185,7 @@ fi
 
 # Validate inputs
 if [[ -z "$ACTION" ]]; then
-    echo "Error: An action is required (-d, -r, -t, -o, or -f)"
+    echo "Error: An action is required (-d, -r, -t, -o, -f, or -w)"
     usage
 fi
 
@@ -246,5 +252,11 @@ case $ACTION in
     off)
         $KASA_CMD off
         echo "Plug turned OFF"
+        ;;
+    wattage)
+        # Output just the numeric wattage value (e.g. "68.1")
+        $KASA_CMD feature current_consumption 2>/dev/null \
+            | grep -oP '[\d.]+(?=\s*W)' \
+            || echo "0"
         ;;
 esac

@@ -14,5 +14,7 @@ from .remote_machine_utils import (
     check_machine_online,
     ssh_shutdown,
     control_kasa_plug,
+    read_plug_wattage,
     wait_for_offline,
+    wait_for_power_idle,
 )

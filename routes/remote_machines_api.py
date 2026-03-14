@@ -23,6 +23,7 @@ from utils import (
     ssh_shutdown,
     control_kasa_plug,
     wait_for_offline,
+    wait_for_power_idle,
 )
 
 if not DEBUG_MODE:
@@ -181,7 +182,6 @@ def control_machine(machine_id):
             shutdown_cmd = config.get('shutdown_command', 'shutdown.exe /s /t 0')
             shell_type = config.get('shell_type', 'linux')
             timeout = config.get('shutdown_timeout', 60)
-            delay = config.get('post_shutdown_delay', 5)
             plug_name = config.get('plug_name')
             plug_ip = config.get('plug_ip')
 
@@ -193,17 +193,27 @@ def control_machine(machine_id):
                 print(f"SSH shutdown failed for {machine_id}: {error}")
                 _emit_progress(machine_id, 'SSH FAILED — WAITING...')
 
-            # Step 2: Wait for machine to go offline
+            # Step 2: Wait for SSH port to close (machine shutting down)
             _emit_progress(machine_id, 'WAITING FOR SHUTDOWN...')
-            went_offline = wait_for_offline(host, port, timeout)
-            if not went_offline:
-                print(f"Machine {machine_id} did not go offline within {timeout}s")
-                _emit_progress(machine_id, 'TIMEOUT — CUTTING POWER...')
+            wait_for_offline(host, port, timeout)
 
-            # Step 3: Safety delay
-            time.sleep(delay)
+            # Step 3: Wait for power draw to drop (safe to cut power)
+            # This prevents cutting power during Windows updates etc.
+            _emit_progress(machine_id, 'MONITORING POWER...')
+            power_idle = wait_for_power_idle(
+                plug_name=plug_name, plug_ip=plug_ip,
+                threshold=5.0, timeout=120, poll_interval=5,
+                progress_fn=lambda msg: _emit_progress(machine_id, msg),
+            )
 
-            # Step 4: Turn off the smart plug
+            if not power_idle:
+                # PC is still drawing significant power — do NOT cut it
+                print(f"Machine {machine_id} still drawing power after timeout, "
+                      f"refusing to cut plug (possible update in progress)")
+                _emit_progress(machine_id, 'STILL DRAWING POWER — PLUG LEFT ON')
+                return
+
+            # Step 4: Power is idle, safe to turn off plug
             _emit_progress(machine_id, 'TURNING OFF PLUG...')
             success, output = control_kasa_plug('off', plug_name=plug_name, plug_ip=plug_ip)
             if success:

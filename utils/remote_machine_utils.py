@@ -89,7 +89,7 @@ def control_kasa_plug(action, plug_name=None, plug_ip=None):
         'automation_scripts', 'kasa.sh',
     )
 
-    action_flags = {'on': '--on', 'off': '--off', 'read': '--read_state'}
+    action_flags = {'on': '--on', 'off': '--off', 'read': '--read_state', 'wattage': '--wattage'}
     if action not in action_flags:
         return False, f'Invalid action: {action}'
 
@@ -111,6 +111,20 @@ def control_kasa_plug(action, plug_name=None, plug_ip=None):
         return False, str(e)
 
 
+def read_plug_wattage(plug_name=None, plug_ip=None):
+    """Read current power consumption from a Kasa smart plug.
+
+    Returns wattage as a float, or None on failure.
+    """
+    success, output = control_kasa_plug('wattage', plug_name=plug_name, plug_ip=plug_ip)
+    if success:
+        try:
+            return float(output.strip())
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 def wait_for_offline(host, port=22, timeout=60, poll_interval=2):
     """Poll until the remote machine goes offline.
 
@@ -120,5 +134,33 @@ def wait_for_offline(host, port=22, timeout=60, poll_interval=2):
     while time.time() - start < timeout:
         if not check_machine_online(host, port):
             return True
+        time.sleep(poll_interval)
+    return False
+
+
+def wait_for_power_idle(plug_name=None, plug_ip=None, threshold=5.0,
+                        timeout=120, poll_interval=5, progress_fn=None):
+    """Poll plug wattage until it drops below threshold (PC fully off).
+
+    Args:
+        threshold: Watts below which the PC is considered fully powered down.
+        timeout: Maximum seconds to wait.
+        poll_interval: Seconds between wattage reads.
+        progress_fn: Optional callback(message) for status updates.
+
+    Returns True if power dropped below threshold within the timeout.
+    """
+    start = time.time()
+    while time.time() - start < timeout:
+        watts = read_plug_wattage(plug_name=plug_name, plug_ip=plug_ip)
+        elapsed = int(time.time() - start)
+        if watts is not None:
+            if progress_fn:
+                progress_fn(f'POWER: {watts:.1f}W ({elapsed}s)')
+            if watts < threshold:
+                return True
+        else:
+            if progress_fn:
+                progress_fn(f'POWER: READ FAILED ({elapsed}s)')
         time.sleep(poll_interval)
     return False
