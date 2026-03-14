@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 
 from config_loader import get_all_services, get_service_config
 from app_state import service_status_lock, service_status_cache
-from utils import check_service_status, check_process_running, control_service, control_process
+from utils import control_service
 from utils.subprocess_helper import run as subprocess_run
 
 services_bp = Blueprint('services', __name__)
@@ -45,10 +45,6 @@ def get_service_details(service):
     if not service_config:
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
 
-    # Only systemd services support details view
-    if service_config['check_type'] != 'systemd':
-        return jsonify({'success': False, 'error': 'Service does not support details view'}), 400
-
     try:
         # Use service_name from config
         service_name = service_config['service_name']
@@ -86,22 +82,11 @@ def control(service):
     if not service_config:
         return jsonify({'success': False, 'error': 'Invalid service'}), 400
 
-    # Control based on service type
-    if service_config['control_type'] == 'systemd':
-        success, error = control_service(
-            service_config['service_name'],
-            action,
-            on_start_callback=on_service_start,
-            on_stop_callback=on_service_stop
-        )
-    elif service_config['control_type'] == 'process':
-        success, error = control_process(
-            service_config['service_name'],
-            action,
-            on_start_callback=on_service_start,
-            on_stop_callback=on_service_stop
-        )
-    else:
-        return jsonify({'success': False, 'error': 'Invalid control type'}), 400
+    success, error = control_service(
+        service_config['service_name'],
+        action,
+        on_start_callback=on_service_start,
+        on_stop_callback=on_service_stop
+    )
 
     return jsonify({'success': success, 'error': error})

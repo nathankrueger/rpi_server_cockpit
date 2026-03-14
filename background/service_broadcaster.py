@@ -11,7 +11,7 @@ from app_state import (
     get_socketio,
 )
 import app_state
-from utils import check_service_status, check_process_running, get_service_memory_usage
+from utils import check_service_status, get_service_memory_usage
 
 
 def service_status_broadcaster():
@@ -22,20 +22,12 @@ def service_status_broadcaster():
         try:
             status = {}
             for service in get_all_services():
-                if service['check_type'] == 'systemd':
-                    is_running = check_service_status(service['service_name'])
-                    memory_bytes = get_service_memory_usage(service) if is_running else None
-                    status[service['id']] = {
-                        'running': is_running,
-                        'memory_bytes': memory_bytes
-                    }
-                elif service['check_type'] == 'process':
-                    is_running = check_process_running(service['service_name'])
-                    memory_bytes = get_service_memory_usage(service) if is_running else None
-                    status[service['id']] = {
-                        'running': is_running,
-                        'memory_bytes': memory_bytes
-                    }
+                is_running = check_service_status(service['service_name'])
+                memory_bytes = get_service_memory_usage(service['service_name']) if is_running else None
+                status[service['id']] = {
+                    'running': is_running,
+                    'memory_bytes': memory_bytes
+                }
 
             # Add internet status from its own cache
             with internet_status_lock:

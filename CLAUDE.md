@@ -31,6 +31,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 ### Package Structure
 
 ```
+├── services/            # systemd .service files (installed via scripts/service_mod.sh)
 ├── routes/              # Flask blueprints for HTTP endpoints
 │   ├── pages.py         # HTML page routes (/, /monitor)
 │   ├── services_api.py  # Service control endpoints
@@ -49,7 +50,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 │   └── collector.py     # Background data collection
 ├── utils/               # Utility functions
 │   ├── subprocess_helper.py # Central subprocess.run() wrapper (tpool-safe)
-│   ├── service_utils.py # systemd/process control
+│   ├── service_utils.py # systemd service status & control
 │   ├── system_utils.py  # CPU, RAM, disk stats
 │   └── data_utils.py    # LTTB downsampling algorithm
 ├── app_state.py         # Shared state: caches, locks, constants
@@ -60,7 +61,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 ### Important RULES:
 * You WILL ALWAYS keep CLAUDE.md up to date as you make changes.
 * You *WILL NOT* commit secrets to git (e.g. .env).
-* You will as the user when something important is worth committing to your long term memory in the form of CLAUDE.md or similar.
+* You will ask the user when something important is worth committing to your long term memory in the form of CLAUDE.md or similar.
 
 ### Key Patterns
 
@@ -75,6 +76,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 **Settings per Page**: Each page has it's own settings dialog, accessible via the menu at the bottom.  Settings are relative to the page alone, and are typically stored in localStorage.
 
 **Mobile Compatibility**: This website should be usable on both touch-based mobile browsers and Desktop machines.
+
+**Service Management**: All monitored services are systemd units. The `services/` directory contains `.service` files for project-managed services (pi-dashboard, qbittorrent), installed via `scripts/service_mod.sh`. External services (tailscaled, smbd, etc.) are pre-existing system units referenced by `service_name` in the config. Services with `link_url` in their config show both DETAILS and LINK buttons in the UI.
 
 **Subprocess Execution (tpool)**: All subprocess calls MUST go through `utils.subprocess_helper.run()` instead of `subprocess.run()` directly. Under eventlet, `subprocess.run()` blocks the green thread event loop because Python 3.10+ subprocess uses `selectors.EpollSelector` internally, which eventlet doesn't fully monkey-patch. The helper wraps calls in `eventlet.tpool.execute()` so they run in real OS threads and the event loop stays responsive. In debug mode (no eventlet), it falls back to plain `subprocess.run()`. This is critical — without it, any slow subprocess call (e.g. `systemctl stop tailscaled` taking several seconds) will freeze the entire webserver, blocking all HTTP requests and WebSocket broadcasts.
 

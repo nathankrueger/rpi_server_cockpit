@@ -3,48 +3,34 @@
     {
       "id": "tailscaled",
       "display_name": "TAILSCALE",
-      "check_type": "systemd",
       "service_name": "tailscaled",
-      "control_type": "systemd",
-      "button_type": "details",
       "enabled": true
     },
     {
       "id": "gateway",
       "display_name": "GATEWAY",
-      "check_type": "systemd",
       "service_name": "gateway",
-      "control_type": "systemd",
-      "button_type": "details",
+      "link_url": "http://{hostname}:5001",
       "enabled": true
     },
     {
       "id": "minidlna",
       "display_name": "MINIDLNA",
-      "check_type": "systemd",
       "service_name": "minidlna",
-      "control_type": "systemd",
-      "button_type": "details",
       "enabled": true,
       "group": "Media Services"
     },
     {
       "id": "smbd",
       "display_name": "SAMBA",
-      "check_type": "systemd",
       "service_name": "smbd",
-      "control_type": "systemd",
-      "button_type": "details",
       "enabled": true,
       "group": "Media Services"
     },
     {
       "id": "qbittorrent",
       "display_name": "QBITTORRENT",
-      "check_type": "process",
-      "service_name": "qbittorrent-nox",
-      "control_type": "process",
-      "button_type": "link",
+      "service_name": "qbittorrent",
       "link_url": "http://{hostname}:8080",
       "enabled": true,
       "group": "Media Services"

@@ -38,18 +38,14 @@ The config loader merges base + local configs:
 
 ## Service Configuration Schema
 
-Each service supports the following fields:
+All services are managed via systemd. Each service supports the following fields:
 
 - **id**: Unique identifier (required)
 - **display_name**: Name shown in UI (required)
-- **check_type**: How to check if running - `"systemd"` or `"process"` (required)
-- **service_name**: Service/process name for systemctl or pgrep (required)
-- **control_type**: How to control - `"systemd"` or `"process"` (required)
-  - `"systemd"`: Uses `systemctl start/stop <service_name>`
-  - `"process"`: Uses direct process control (start command and pkill)
-- **button_type**: UI button type - `"details"` or `"link"` (required)
-- **link_url**: URL for link buttons (optional, use `{hostname}` placeholder)
+- **service_name**: systemd unit name for `systemctl` commands (required)
+- **link_url**: URL for a web UI link button (optional, use `{hostname}` placeholder). If present, a LINK button is shown alongside the DETAILS button.
 - **enabled**: Whether to show this service (default: true)
+- **group**: Optional group name for visual grouping in the UI
 
 ## Usage Examples
 
@@ -109,10 +105,7 @@ Create `config/service_config.local.json`:
     {
       "id": "pihole",
       "display_name": "PI-HOLE",
-      "check_type": "systemd",
       "service_name": "pihole-FTL",
-      "control_type": "systemd",
-      "button_type": "link",
       "link_url": "http://{hostname}/admin",
       "enabled": true
     }

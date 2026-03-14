@@ -2,14 +2,14 @@
 # service_mod.sh - Manage systemd services from the scripts/ folder
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICES_DIR="$SCRIPT_DIR"
+SERVICES_DIR="$SCRIPT_DIR/../services"
 DEFAULT_SERVICE="pi-dashboard"
 
 usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Manage systemd services from the scripts/ folder.
+Manage systemd services from the services/ folder.
 SERVICE_NAME defaults to "$DEFAULT_SERVICE" if omitted.
 
 OPTIONS:
@@ -19,7 +19,7 @@ OPTIONS:
     -s, --stop [SERVICE_NAME]       Stop a running service
     -S, --start [SERVICE_NAME]      Start a stopped service
     -r, --restart [SERVICE_NAME]    Restart a service
-    -l, --list                      List all services in scripts/ folder and their status
+    -l, --list                      List all services in services/ folder and their status
     -f, --follow [SERVICE_NAME]     Follow service logs in real-time (Ctrl+C to stop)
     -b, --logs [SERVICE_NAME]       Show service logs since last boot
     -h, --help                      Show this help message

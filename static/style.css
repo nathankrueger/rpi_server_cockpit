@@ -188,6 +188,11 @@ h1 {
     gap: 10px;
 }
 
+.service-btn-group {
+    display: flex;
+    gap: 6px;
+}
+
 .toggle-label {
     font-size: 0.9em;
     color: var(--theme-primary);
@@ -211,6 +216,18 @@ h1 {
 .details-btn:hover {
     background: rgba(0, 255, 65, 0.4);
     box-shadow: 0 0 10px #00ff41;
+}
+
+.details-btn.link-btn {
+    background: rgba(0, 120, 255, 0.2);
+    border-color: #0078ff;
+    color: #0078ff;
+    text-shadow: 0 0 3px #0078ff;
+}
+
+.details-btn.link-btn:hover {
+    background: rgba(0, 120, 255, 0.4);
+    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
 }
 
 .details-btn.cancel {
@@ -306,9 +323,9 @@ h1 {
 }
 
 .toggle-switch.active {
-    background-color: rgba(0, 100, 30, 0.5);
-    border-color: #00aa2b;
-    box-shadow: inset 0 0 10px rgba(0, 100, 30, 0.7), 0 0 10px #00aa2b;
+    background-color: rgba(0, 204, 51, 0.3);
+    border-color: #00cc33;
+    box-shadow: inset 0 0 10px rgba(0, 204, 51, 0.5), 0 0 10px #00cc33;
 }
 
 .toggle-switch.disabled {
@@ -348,8 +365,8 @@ h1 {
 
 .toggle-switch.active .toggle-slider {
     transform: translateX(30px);
-    background-color: #00aa2b;
-    box-shadow: 0 0 10px #00aa2b;
+    background-color: #00cc33;
+    box-shadow: 0 0 10px #00cc33;
 }
 
 /* System stats section */

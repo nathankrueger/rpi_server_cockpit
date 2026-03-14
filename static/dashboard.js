@@ -187,22 +187,25 @@ function createServiceCard(service) {
     const toggleContainer = document.createElement('div');
     toggleContainer.className = 'toggle-container';
 
-    // Create button (either details or link)
-    if (service.button_type === 'link') {
+    // Button group for DETAILS (and optional LINK)
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'service-btn-group';
+
+    const detailsBtn = document.createElement('button');
+    detailsBtn.className = 'details-btn';
+    detailsBtn.textContent = 'DETAILS';
+    detailsBtn.onclick = () => showServiceDetails(service.id);
+    btnGroup.appendChild(detailsBtn);
+
+    if (service.link_url) {
         const link = document.createElement('a');
         link.id = `${service.id}-link`;
         link.href = '#';
         link.target = '_blank';
-        link.className = 'details-btn';
+        link.className = 'details-btn link-btn';
         link.style.textDecoration = 'none';
-        link.textContent = 'WEB UI';
-        toggleContainer.appendChild(link);
-    } else {
-        const detailsBtn = document.createElement('button');
-        detailsBtn.className = 'details-btn';
-        detailsBtn.textContent = 'DETAILS';
-        detailsBtn.onclick = () => showServiceDetails(service.id);
-        toggleContainer.appendChild(detailsBtn);
+        link.textContent = 'LINK';
+        btnGroup.appendChild(link);
     }
 
     // Create control toggle
@@ -221,6 +224,7 @@ function createServiceCard(service) {
     toggleSwitch.appendChild(toggleSlider);
     toggleContainer.appendChild(toggleLabel);
     toggleContainer.appendChild(toggleSwitch);
+    toggleContainer.appendChild(btnGroup);
 
     // Assemble the card
     serviceCard.appendChild(serviceHeader);
@@ -318,7 +322,7 @@ function handleSystemStatsUpdate(stats) {
 
     // Update service links dynamically (e.g., qBittorrent Web UI)
     servicesConfig.forEach(service => {
-        if (service.button_type === 'link' && service.link_url) {
+        if (service.link_url) {
             const linkElement = document.getElementById(`${service.id}-link`);
             if (linkElement && stats.hostname) {
                 linkElement.href = service.link_url.replace('{hostname}', stats.hostname);
