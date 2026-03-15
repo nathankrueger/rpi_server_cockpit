@@ -523,7 +523,7 @@ function buildChartConfig(units, seriesList) {
             x: x,
             y: y,
             mode: 'lines',
-            name: ts.name,
+            name: ts.name.length > 18 ? ts.name.substring(0, 17) + '…' : ts.name,
             line: {
                 width: 2,
                 color: getColorForTrace(traceIndex),
@@ -531,8 +531,6 @@ function buildChartConfig(units, seriesList) {
             }
         };
     });
-
-    const rightMargin = 150;
 
     const layout = {
         title: {
@@ -542,7 +540,6 @@ function buildChartConfig(units, seriesList) {
         paper_bgcolor: 'rgba(0, 0, 0, 0)',
         plot_bgcolor: 'rgba(0, 0, 0, 0.5)',
         xaxis: {
-            title: 'Time',
             color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
             gridcolor: 'rgba(0, 255, 65, 0.1)',
             fixedrange: false
@@ -559,17 +556,16 @@ function buildChartConfig(units, seriesList) {
                 color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
                 size: 10
             },
-            bgcolor: 'rgba(0, 0, 0, 0.7)',
-            bordercolor: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
-            borderwidth: 1,
-            x: 1.01,
-            y: 1,
-            xanchor: 'left',
+            bgcolor: 'rgba(0, 0, 0, 0)',
+            borderwidth: 0,
+            x: 0.5,
+            y: -0.12,
+            xanchor: 'center',
             yanchor: 'top',
-            orientation: 'v',
-            tracegroupgap: 2
+            orientation: 'h',
+            tracegroupgap: 10
         },
-        margin: { l: 60, r: rightMargin, t: 50, b: 50 },
+        margin: { l: 60, r: 40, t: 50, b: 95 },
         autosize: true
     };
 
