@@ -87,6 +87,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 
 **Dynamic IP Registration**: Remote machines with changing IPs can announce their address via `POST /api/announce {"machine_id": "...", "ip": "..."}`. IPs are persisted to `config/announced_ips.json` (gitignored). Remote machines with `"host": "auto"` in their config resolve their IP from this registry. Announced IPs are also injected into all automation processes as env vars (`DESKTOP_PC_IP=...`) and support `${MACHINE_ID_IP}` substitution in automation `args` strings.
 
+**Chart Configuration**: The charts page (`/charts`) uses user-defined chart configs instead of auto-grouping by units. Each chart has a name, a list of series IDs, and a `nameManuallySet` flag. Configs are stored in localStorage as `chartConfigs` (array of `{id, name, seriesIds, nameManuallySet}`). A "Manage Charts" modal lets users create/rename/delete charts and search+add series to each. The same series can appear in multiple charts. Default chart names are auto-generated from shared units or category of contained series.
+
 ### WebSocket Events
 
 - `system_stats` - Pushed every 2s with CPU, RAM, disk, network stats

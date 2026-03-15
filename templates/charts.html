@@ -20,21 +20,9 @@
             <!-- Controls Section -->
             <div class="chart-controls">
                 <div class="control-group">
-                    <label for="timeseries-search">Series Configuration:</label>
-                    <div class="search-container">
-                        <input
-                            type="text"
-                            id="timeseries-search"
-                            class="timeseries-search-input"
-                            placeholder="Search timeseries by name, category, or tags..."
-                            autocomplete="off"
-                        >
-                        <div id="search-results" class="search-results" style="display: none;">
-                            <!-- Search results will be dynamically generated -->
-                        </div>
-                    </div>
-                    <div id="selected-series" class="selected-series">
-                        <!-- Selected series pills will be displayed here -->
+                    <div class="chart-controls-header">
+                        <label>Chart Configuration:</label>
+                        <button class="manage-charts-btn" onclick="openManageChartsModal()">MANAGE CHARTS</button>
                     </div>
                 </div>
 
@@ -78,7 +66,7 @@
 
             <!-- Charts Container -->
             <div id="charts-container">
-                <!-- Charts will be dynamically generated here, grouped by units -->
+                <!-- Charts will be dynamically generated here based on chart configs -->
             </div>
         </div>
     </div>
@@ -107,6 +95,23 @@
                     <button class="details-btn" onclick="saveSettings()">SAVE</button>
                     <button class="details-btn cancel" onclick="closeSettingsModal()">CANCEL</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Charts Modal -->
+    <div id="manage-charts-modal" class="modal">
+        <div class="modal-content manage-charts-modal-content">
+            <span class="modal-close" onclick="closeManageChartsModal()">&times;</span>
+            <div class="modal-header">MANAGE CHARTS</div>
+            <div class="manage-charts-toolbar">
+                <button class="add-chart-btn" onclick="addNewChart()">+ NEW CHART</button>
+            </div>
+            <div id="charts-list" class="charts-list">
+                <!-- Chart config cards will be dynamically generated -->
+            </div>
+            <div class="manage-charts-footer">
+                <button class="details-btn" onclick="closeManageChartsModal()">DONE</button>
             </div>
         </div>
     </div>

@@ -7,7 +7,8 @@
 
 // State management
 let availableTimeseries = [];
-let selectedTimeseries = new Set();
+let availableTimeseriesMap = {}; // id -> metadata for quick lookup
+let chartConfigs = []; // Array of {id, name, seriesIds, nameManuallySet}
 let autoRefreshEnabled = false;
 let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
@@ -137,188 +138,88 @@ async function loadAvailableTimeseries() {
         const response = await fetch('/api/timeseries/list');
         availableTimeseries = await response.json();
 
-        // Set up search input event listeners
-        const searchInput = document.getElementById('timeseries-search');
-        const searchResults = document.getElementById('search-results');
-
-        searchInput.addEventListener('input', handleSearch);
-        searchInput.addEventListener('focus', handleSearch);
-
-        // Close search results when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-container')) {
-                searchResults.style.display = 'none';
-            }
+        // Build lookup map
+        availableTimeseriesMap = {};
+        availableTimeseries.forEach(ts => {
+            availableTimeseriesMap[ts.id] = ts;
         });
 
-        // Load saved selection from localStorage or select defaults
-        const saved = localStorage.getItem('selectedTimeseries');
-        if (saved) {
-            selectedTimeseries = new Set(JSON.parse(saved));
-        } else {
-            // Select first series from each category by default
-            const byCategory = {};
-            availableTimeseries.forEach(ts => {
-                if (!byCategory[ts.category]) {
-                    byCategory[ts.category] = ts;
-                }
-            });
-            Object.values(byCategory).forEach(ts => {
-                selectedTimeseries.add(ts.id);
-            });
-        }
-
-        // Render selected series pills
-        renderSelectedSeries();
+        // Load chart configs
+        loadChartConfigs();
 
     } catch (error) {
         console.error('Error loading timeseries list:', error);
     }
 }
 
-// Handle search input
-function handleSearch(e) {
-    const query = e.target.value.toLowerCase().trim();
-    const searchResults = document.getElementById('search-results');
-
-    // Show all if empty query
-    if (query === '') {
-        renderSearchResults(availableTimeseries);
-        return;
+// Load chart configs from localStorage
+function loadChartConfigs() {
+    const saved = localStorage.getItem('chartConfigs');
+    if (saved) {
+        try {
+            chartConfigs = JSON.parse(saved);
+        } catch (e) {
+            chartConfigs = [];
+        }
+    } else {
+        chartConfigs = [];
     }
-
-    // Filter timeseries based on query
-    const filtered = availableTimeseries.filter(ts => {
-        // Search in name, category, tags, and description
-        const searchText = [
-            ts.name,
-            ts.category,
-            ...ts.tags,
-            ts.description
-        ].join(' ').toLowerCase();
-
-        return searchText.includes(query);
-    });
-
-    renderSearchResults(filtered);
 }
 
-// Render search results dropdown
-function renderSearchResults(results) {
-    const searchResults = document.getElementById('search-results');
-    searchResults.innerHTML = '';
-
-    if (results.length === 0) {
-        searchResults.innerHTML = '<div class="no-results">No timeseries found</div>';
-        searchResults.style.display = 'block';
-        return;
-    }
-
-    // Sort results by category for better organization
-    results.sort((a, b) => {
-        if (a.category !== b.category) {
-            return a.category.localeCompare(b.category);
-        }
-        return a.name.localeCompare(b.name);
-    });
-
-    results.forEach(ts => {
-        const item = document.createElement('div');
-        item.className = 'search-result-item';
-
-        // Disable if already selected
-        const isSelected = selectedTimeseries.has(ts.id);
-        if (isSelected) {
-            item.classList.add('disabled');
-        }
-
-        item.innerHTML = `
-            <div class="result-name">${ts.name}</div>
-            <div class="result-meta">
-                <span class="result-category">${ts.category}</span>
-                <span class="result-unit">${ts.units}</span>
-                ${ts.tags.length > 0 ? `<span class="result-tags">${ts.tags.join(', ')}</span>` : ''}
-            </div>
-            ${ts.description ? `<div class="result-description">${ts.description}</div>` : ''}
-        `;
-
-        if (!isSelected) {
-            item.addEventListener('click', () => addTimeseries(ts.id));
-        }
-
-        searchResults.appendChild(item);
-    });
-
-    searchResults.style.display = 'block';
+// Save chart configs to localStorage
+function saveChartConfigs() {
+    localStorage.setItem('chartConfigs', JSON.stringify(chartConfigs));
 }
 
-// Add timeseries to selection
-function addTimeseries(timeseriesId) {
-    selectedTimeseries.add(timeseriesId);
-    saveSelection();
-    renderSelectedSeries();
+// Generate a smart default name for a chart based on its series
+function generateChartName(seriesIds, chartIndex) {
+    if (seriesIds.length === 0) return `Chart ${chartIndex + 1}`;
 
-    // Clear search and close dropdown
-    const searchInput = document.getElementById('timeseries-search');
-    const searchResults = document.getElementById('search-results');
-    searchInput.value = '';
-    searchResults.style.display = 'none';
+    const metadatas = seriesIds.map(id => availableTimeseriesMap[id]).filter(Boolean);
+    if (metadatas.length === 0) return `Chart ${chartIndex + 1}`;
 
-    // Auto-update charts
+    // If all series share the same units, use units
+    const units = new Set(metadatas.map(m => m.units));
+    if (units.size === 1) {
+        const unit = [...units][0];
+        return `${unit} Timeseries`;
+    }
+
+    // If all series share the same category, use category
+    const categories = new Set(metadatas.map(m => m.category));
+    if (categories.size === 1) {
+        return [...categories][0];
+    }
+
+    return `Chart ${chartIndex + 1}`;
+}
+
+// Add a series to a specific chart
+function addSeriesToChart(seriesId, chartId) {
+    const config = chartConfigs.find(c => c.id === chartId);
+    if (!config) return;
+    if (!config.seriesIds.includes(seriesId)) {
+        config.seriesIds.push(seriesId);
+    }
+    if (!config.nameManuallySet) {
+        const idx = chartConfigs.indexOf(config);
+        config.name = generateChartName(config.seriesIds, idx);
+    }
+    saveChartConfigs();
     updateCharts();
 }
 
-// Remove timeseries from selection
-function removeTimeseries(timeseriesId) {
-    selectedTimeseries.delete(timeseriesId);
-    saveSelection();
-    renderSelectedSeries();
-
-    // Auto-update charts
-    updateCharts();
-}
-
-// Render selected series as pills
-function renderSelectedSeries() {
-    const container = document.getElementById('selected-series');
-    container.innerHTML = '';
-
-    if (selectedTimeseries.size === 0) {
-        container.innerHTML = '<div class="no-series-selected" style="color: rgba(0, 255, 65, 0.5); font-style: italic;">No series selected. Use the search above to add series.</div>';
-        return;
+// Remove a series from a specific chart
+function removeSeriesFromChart(seriesId, chartId) {
+    const config = chartConfigs.find(c => c.id === chartId);
+    if (!config) return;
+    config.seriesIds = config.seriesIds.filter(id => id !== seriesId);
+    if (!config.nameManuallySet) {
+        const idx = chartConfigs.indexOf(config);
+        config.name = generateChartName(config.seriesIds, idx);
     }
-
-    // Get selected timeseries objects
-    const selected = availableTimeseries.filter(ts => selectedTimeseries.has(ts.id));
-
-    // Sort by category and name
-    selected.sort((a, b) => {
-        if (a.category !== b.category) {
-            return a.category.localeCompare(b.category);
-        }
-        return a.name.localeCompare(b.name);
-    });
-
-    selected.forEach(ts => {
-        const pill = document.createElement('div');
-        pill.className = 'series-pill';
-        pill.innerHTML = `
-            <span class="series-pill-name">${ts.name}</span>
-            <span class="series-pill-unit">(${ts.units})</span>
-            <span class="series-pill-remove" data-id="${ts.id}">&times;</span>
-        `;
-
-        pill.querySelector('.series-pill-remove').addEventListener('click', () => {
-            removeTimeseries(ts.id);
-        });
-
-        container.appendChild(pill);
-    });
-}
-
-// Save selection to localStorage
-function saveSelection() {
-    localStorage.setItem('selectedTimeseries', JSON.stringify([...selectedTimeseries]));
+    saveChartConfigs();
+    updateCharts();
 }
 
 // Set quick time range
@@ -388,9 +289,13 @@ async function fetchJsonWithTimeout(url, options, timeoutMs) {
 async function updateCharts(autoUpdate = false) {
     console.log('updateCharts called with autoUpdate =', autoUpdate);
 
-    if (selectedTimeseries.size === 0) {
+    // Collect all unique series IDs across all charts
+    const allSeriesIds = new Set();
+    chartConfigs.forEach(cc => cc.seriesIds.forEach(id => allSeriesIds.add(id)));
+
+    if (allSeriesIds.size === 0) {
         document.getElementById('charts-container').innerHTML =
-            '<div class="no-data-message">Please select at least one timeseries to display.</div>';
+            '<div class="no-data-message">No charts configured. Use MANAGE CHARTS to create charts and add series.</div>';
         return;
     }
 
@@ -420,7 +325,7 @@ async function updateCharts(autoUpdate = false) {
         console.log('Fetching chart data from', new Date(startTime * 1000), 'to', new Date(endTime * 1000));
 
         const requestBody = JSON.stringify({
-            timeseries_ids: Array.from(selectedTimeseries),
+            timeseries_ids: Array.from(allSeriesIds),
             start: startTime,
             end: endTime,
             max_datapoints: maxDatapoints,
@@ -459,17 +364,14 @@ async function updateCharts(autoUpdate = false) {
                     dataPoints: ts.data.length
                 })));
 
-                // Group by units
-                const groupedByUnits = {};
+                // Build lookup map from response
+                const dataBySeriesId = {};
                 timeseriesData.forEach(ts => {
-                    if (!groupedByUnits[ts.units]) {
-                        groupedByUnits[ts.units] = [];
-                    }
-                    groupedByUnits[ts.units].push(ts);
+                    dataBySeriesId[ts.id] = ts;
                 });
 
-                // Render charts — success clears any previous error
-                renderCharts(groupedByUnits);
+                // Render charts per config — success clears any previous error
+                renderCharts(chartConfigs, dataBySeriesId);
                 console.log('Charts rendered');
                 return; // Success — exit the function
 
@@ -514,8 +416,8 @@ async function updateCharts(autoUpdate = false) {
 }
 
 // Build traces and layout for a chart
-function buildChartConfig(units, seriesList) {
-    const traces = seriesList.map((ts, traceIndex) => {
+function buildChartConfig(chartConfig, seriesDataList) {
+    const traces = seriesDataList.map((ts, traceIndex) => {
         const x = ts.data.map(point => new Date(point.timestamp * 1000));
         const y = ts.data.map(point => point.value);
 
@@ -532,9 +434,13 @@ function buildChartConfig(units, seriesList) {
         };
     });
 
+    // Determine y-axis label: use common units if all series share them
+    const unitSet = new Set(seriesDataList.map(ts => ts.units));
+    const yAxisTitle = unitSet.size === 1 ? [...unitSet][0] : '';
+
     const layout = {
         title: {
-            text: `${units} Timeseries`,
+            text: chartConfig.name,
             font: { color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41' }
         },
         paper_bgcolor: 'rgba(0, 0, 0, 0)',
@@ -545,7 +451,7 @@ function buildChartConfig(units, seriesList) {
             fixedrange: false
         },
         yaxis: {
-            title: units,
+            title: yAxisTitle,
             color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41',
             gridcolor: 'rgba(0, 255, 65, 0.1)',
             fixedrange: false
@@ -572,30 +478,38 @@ function buildChartConfig(units, seriesList) {
     return { traces, layout };
 }
 
-// Track current chart units for detecting structure changes
-let currentChartUnits = [];
+// Track current chart IDs for detecting structure changes
+let currentChartIds = [];
 
-// Render charts grouped by units
-function renderCharts(groupedByUnits) {
+// Render charts based on chart configs
+function renderCharts(configs, dataBySeriesId) {
     // Clear any error banner from a previous failed update
     const banner = document.getElementById('chart-error-banner');
     if (banner) banner.remove();
 
     const container = document.getElementById('charts-container');
     const scrollY = window.scrollY;
-    const newUnits = Object.keys(groupedByUnits);
+
+    // Filter to configs that have data
+    const activeConfigs = configs.filter(config => {
+        return config.seriesIds.some(id => dataBySeriesId[id] && dataBySeriesId[id].data.length > 0);
+    });
+
+    const newIds = activeConfigs.map(c => c.id);
 
     // Check if we can do an in-place update (same chart structure)
-    const canUpdateInPlace = newUnits.length === currentChartUnits.length &&
-        newUnits.every((unit, i) => unit === currentChartUnits[i]);
+    const canUpdateInPlace = newIds.length === currentChartIds.length &&
+        newIds.every((id, i) => id === currentChartIds[i]);
 
-    if (canUpdateInPlace && newUnits.length > 0) {
+    if (canUpdateInPlace && newIds.length > 0) {
         // Update charts in-place using Plotly.react (no blink)
-        // CSS constrains chart-wrapper height, so no dimension management needed
-        Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
-            const chartDiv = document.getElementById(`chart-${index}`);
+        activeConfigs.forEach(config => {
+            const chartDiv = document.getElementById(`chart-${config.id}`);
             if (chartDiv) {
-                const { traces, layout } = buildChartConfig(units, seriesList);
+                const seriesDataList = config.seriesIds
+                    .map(id => dataBySeriesId[id])
+                    .filter(Boolean);
+                const { traces, layout } = buildChartConfig(config, seriesDataList);
                 Plotly.react(chartDiv.id, traces, layout);
             }
         });
@@ -603,23 +517,26 @@ function renderCharts(groupedByUnits) {
         // Structure changed - need full rebuild
         // Save fullscreen state before clearing
         const fullscreenChart = container.querySelector('.chart-fullscreen');
-        let fullscreenChartIndex = null;
+        let fullscreenChartId = null;
         if (fullscreenChart) {
-            const chartId = fullscreenChart.id;
-            fullscreenChartIndex = parseInt(chartId.replace('chart-', ''), 10);
+            fullscreenChartId = fullscreenChart.id;
             document.body.classList.remove('chart-fullscreen-active');
         }
 
         container.innerHTML = '';
-        currentChartUnits = newUnits;
+        currentChartIds = newIds;
 
-        Object.entries(groupedByUnits).forEach(([units, seriesList], index) => {
+        activeConfigs.forEach(config => {
+            const seriesDataList = config.seriesIds
+                .map(id => dataBySeriesId[id])
+                .filter(Boolean);
+
             const chartDiv = document.createElement('div');
             chartDiv.className = 'chart-wrapper';
-            chartDiv.id = `chart-${index}`;
+            chartDiv.id = `chart-${config.id}`;
             container.appendChild(chartDiv);
 
-            const { traces, layout } = buildChartConfig(units, seriesList);
+            const { traces, layout } = buildChartConfig(config, seriesDataList);
 
             Plotly.newPlot(chartDiv.id, traces, layout, {
                 responsive: true,
@@ -632,13 +549,13 @@ function renderCharts(groupedByUnits) {
         });
 
         // Show message if no data
-        if (newUnits.length === 0) {
+        if (activeConfigs.length === 0) {
             container.innerHTML = '<div class="no-data-message">No data available for the selected time range.</div>';
         }
 
         // Restore fullscreen state if applicable
-        if (fullscreenChartIndex !== null && fullscreenChartIndex < newUnits.length) {
-            const chartToRestore = document.getElementById(`chart-${fullscreenChartIndex}`);
+        if (fullscreenChartId) {
+            const chartToRestore = document.getElementById(fullscreenChartId);
             if (chartToRestore) {
                 chartToRestore.classList.add('chart-fullscreen');
                 document.body.classList.add('chart-fullscreen-active');
@@ -768,6 +685,225 @@ function changeDownsampleAlgorithm() {
     updateCharts();
 }
 
+// ==========================================
+// Manage Charts Modal
+// ==========================================
+
+function openManageChartsModal() {
+    const modal = document.getElementById('manage-charts-modal');
+    modal.style.display = 'flex';
+
+    // Close inline search results when clicking outside them
+    modal.addEventListener('click', (e) => {
+        if (!e.target.closest('.chart-search-container')) {
+            modal.querySelectorAll('.chart-search-results').forEach(el => el.style.display = 'none');
+        }
+    });
+
+    renderManageChartsModal();
+}
+
+function closeManageChartsModal() {
+    document.getElementById('manage-charts-modal').style.display = 'none';
+    // Close any open search dropdowns inside the modal
+    document.querySelectorAll('.chart-search-results').forEach(el => el.style.display = 'none');
+    // Refresh charts
+    updateCharts();
+}
+
+function renderManageChartsModal() {
+    const list = document.getElementById('charts-list');
+    list.innerHTML = '';
+
+    if (chartConfigs.length === 0) {
+        list.innerHTML = '<div class="no-series-selected" style="color: rgba(0, 255, 65, 0.5); font-style: italic; padding: 20px; text-align: center;">No charts yet. Click "+ NEW CHART" to create one.</div>';
+        return;
+    }
+
+    chartConfigs.forEach(config => {
+        const card = document.createElement('div');
+        card.className = 'chart-config-card';
+        card.dataset.chartId = config.id;
+
+        // Header with name input and delete button
+        const header = document.createElement('div');
+        header.className = 'chart-config-header';
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'chart-name-input';
+        nameInput.value = config.name;
+        nameInput.placeholder = 'Chart name...';
+        nameInput.addEventListener('input', () => {
+            renameChart(config.id, nameInput.value);
+        });
+        nameInput.addEventListener('focus', () => {
+            nameInput.select();
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-chart-btn';
+        deleteBtn.textContent = 'DELETE';
+        deleteBtn.addEventListener('click', () => {
+            deleteChart(config.id);
+        });
+
+        header.appendChild(nameInput);
+        header.appendChild(deleteBtn);
+
+        // Body with series pills and search
+        const body = document.createElement('div');
+        body.className = 'chart-config-body';
+
+        // Series pills
+        const pillsContainer = document.createElement('div');
+        pillsContainer.className = 'chart-series-pills';
+        config.seriesIds.forEach(seriesId => {
+            const ts = availableTimeseriesMap[seriesId];
+            if (!ts) return;
+            const pill = document.createElement('div');
+            pill.className = 'series-pill';
+            pill.innerHTML = `
+                <span class="series-pill-name">${ts.name}</span>
+                <span class="series-pill-unit">(${ts.units})</span>
+                <span class="series-pill-remove">&times;</span>
+            `;
+            pill.querySelector('.series-pill-remove').addEventListener('click', () => {
+                removeSeriesFromChart(seriesId, config.id);
+                renderManageChartsModal();
+            });
+            pillsContainer.appendChild(pill);
+        });
+
+        // Inline search for adding series to this chart
+        const searchContainer = document.createElement('div');
+        searchContainer.className = 'chart-search-container';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'chart-series-search';
+        searchInput.placeholder = 'Search to add series...';
+        searchInput.autocomplete = 'off';
+
+        const searchResults = document.createElement('div');
+        searchResults.className = 'chart-search-results';
+        searchResults.style.display = 'none';
+
+        searchInput.addEventListener('input', () => {
+            renderModalSearchResults(searchInput.value, config.id, searchResults);
+        });
+        searchInput.addEventListener('focus', () => {
+            renderModalSearchResults(searchInput.value, config.id, searchResults);
+        });
+
+        // Close search on click outside
+        searchContainer.addEventListener('click', (e) => e.stopPropagation());
+
+        searchContainer.appendChild(searchInput);
+        searchContainer.appendChild(searchResults);
+
+        body.appendChild(pillsContainer);
+        body.appendChild(searchContainer);
+
+        card.appendChild(header);
+        card.appendChild(body);
+        list.appendChild(card);
+    });
+}
+
+// Render search results within the modal for a specific chart
+function renderModalSearchResults(query, chartId, resultsContainer) {
+    const config = chartConfigs.find(c => c.id === chartId);
+    const normalizedQuery = query.toLowerCase().trim();
+
+    let filtered = availableTimeseries;
+    if (normalizedQuery !== '') {
+        filtered = filtered.filter(ts => {
+            const searchText = [ts.name, ts.category, ...ts.tags, ts.description].join(' ').toLowerCase();
+            return searchText.includes(normalizedQuery);
+        });
+    }
+
+    // Filter by units if the chart already has series
+    if (config && config.seriesIds.length > 0) {
+        const existingUnits = new Set(
+            config.seriesIds.map(id => availableTimeseriesMap[id]?.units).filter(Boolean)
+        );
+        if (existingUnits.size > 0) {
+            filtered = filtered.filter(ts => existingUnits.has(ts.units));
+        }
+    }
+
+    // Sort by category and name
+    filtered.sort((a, b) => {
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
+        return a.name.localeCompare(b.name);
+    });
+
+    resultsContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+        resultsContainer.innerHTML = '<div class="no-results">No timeseries found</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    filtered.forEach(ts => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+
+        const isInChart = config && config.seriesIds.includes(ts.id);
+        if (isInChart) {
+            item.classList.add('disabled');
+        }
+
+        item.innerHTML = `
+            <div class="result-name">${ts.name}</div>
+            <div class="result-meta">
+                <span class="result-category">${ts.category}</span>
+                <span class="result-unit">${ts.units}</span>
+            </div>
+        `;
+
+        if (!isInChart) {
+            item.addEventListener('click', () => {
+                addSeriesToChart(ts.id, chartId);
+                renderManageChartsModal();
+            });
+        }
+
+        resultsContainer.appendChild(item);
+    });
+
+    resultsContainer.style.display = 'block';
+}
+
+function addNewChart() {
+    const newChart = {
+        id: 'chart_' + Date.now(),
+        name: `Chart ${chartConfigs.length + 1}`,
+        seriesIds: [],
+        nameManuallySet: false
+    };
+    chartConfigs.push(newChart);
+    saveChartConfigs();
+    renderManageChartsModal();
+}
+
+function deleteChart(chartId) {
+    chartConfigs = chartConfigs.filter(c => c.id !== chartId);
+    saveChartConfigs();
+    renderManageChartsModal();
+}
+
+function renameChart(chartId, newName) {
+    const config = chartConfigs.find(c => c.id === chartId);
+    if (!config) return;
+    config.name = newName;
+    config.nameManuallySet = true;
+    saveChartConfigs();
+}
+
 // Sync slider and text input values
 function syncSliderAndInput(sliderId, inputId) {
     const slider = document.getElementById(sliderId);
@@ -887,9 +1023,14 @@ function toggleFullscreen(chartDiv) {
     }
 }
 
-// Exit fullscreen on Escape key
+// Exit fullscreen or close modals on Escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const manageModal = document.getElementById('manage-charts-modal');
+        if (manageModal && manageModal.style.display === 'flex') {
+            closeManageChartsModal();
+            return;
+        }
         const fullscreenChart = document.querySelector('.chart-fullscreen');
         if (fullscreenChart) {
             toggleFullscreen(fullscreenChart);
