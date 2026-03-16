@@ -1,0 +1,32 @@
+{
+  "remote_machines": [
+    {
+      "id": "desktop_pc",
+      "enabled": false,
+      "comment": "Disable desktop_pc on this Pi"
+    },
+    {
+      "id": "desktop_pc",
+      "plug_ip": "192.168.1.100",
+      "comment": "Override smart plug IP on this Pi"
+    },
+    {
+      "id": "media_server",
+      "display_name": "Media Server",
+      "host": "192.168.1.50",
+      "ssh_user": "admin",
+      "ssh_port": 22,
+      "ssh_key": null,
+      "shell_type": "linux",
+      "shutdown_command": "sudo shutdown -h now",
+      "plug_name": "Server Plug",
+      "plug_ip": "192.168.1.60",
+      "link_url": null,
+      "group": "Remote Machines",
+      "enabled": true,
+      "shutdown_timeout": 60,
+      "post_shutdown_delay": 5,
+      "comment": "Example: Add a new remote machine"
+    }
+  ]
+}
