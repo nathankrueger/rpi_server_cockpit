@@ -26,6 +26,7 @@ PLUG_IP="${REMOTE_PLUG_IP:-192.168.1.59}"
 BOOT_TIMEOUT=120
 COMFYUI_TIMEOUT=90
 START_PC=false
+RESTART_COMFYUI=false
 LOOPER_PORT=5020
 
 usage() {
@@ -34,6 +35,7 @@ Usage: $0 [options] [-- extra args for run_interactive.sh]
 
 Options:
   -S            Start (power cycle) the desktop PC if it's not reachable
+  -R            Restart ComfyUI on the PC even if it's already running
   -L <port>     Looper web UI port (default: $LOOPER_PORT)
   -h            Show this help
 
@@ -50,6 +52,7 @@ PASSTHROUGH=()
 while [ $# -gt 0 ]; do
     case "$1" in
         -S) START_PC=true; shift ;;
+        -R) RESTART_COMFYUI=true; shift ;;
         -L) LOOPER_PORT="$2"; shift 2 ;;
         -h) usage ;;
         --) shift; PASSTHROUGH+=("$@"); break ;;
@@ -118,6 +121,23 @@ if ! check_ssh; then
     fi
 else
     echo "PC is online at $PC_IP:22"
+fi
+
+# --- Restart ComfyUI if requested ---
+if [ "$RESTART_COMFYUI" = true ]; then
+    echo "Killing existing ComfyUI on PC..."
+    ssh -T -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+        -o BatchMode=yes "${SSH_USER}@${PC_IP}" <<'KILL' 2>/dev/null || true
+pkill -f "python.*main.py" 2>/dev/null; pkill -f "ComfyUI" 2>/dev/null; sleep 2
+KILL
+    echo "Waiting for ComfyUI to stop..."
+    for i in $(seq 1 10); do
+        if ! check_comfyui; then
+            echo "ComfyUI stopped"
+            break
+        fi
+        sleep 1
+    done
 fi
 
 # --- Start run_interactive.sh on the PC via persistent SSH ---
