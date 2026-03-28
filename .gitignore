@@ -4,7 +4,6 @@ timeseries.db
 timeseries.db.*
 timeseries.db-*
 config/*.local.json
-config/announced_ips.json
 .env
 .claude
 *.db-shm

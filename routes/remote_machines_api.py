@@ -1,6 +1,4 @@
 """Remote machine API routes for power control via smart plug + SSH."""
-import json
-import re
 import threading
 import time
 
@@ -11,9 +9,6 @@ import app_state
 from app_state import (
     remote_machine_operations,
     remote_machine_ops_lock,
-    announced_ips,
-    announced_ips_lock,
-    ANNOUNCED_IPS_FILE,
     DEBUG_MODE,
     get_socketio,
 )
@@ -32,31 +27,6 @@ if not DEBUG_MODE:
 remote_machines_bp = Blueprint('remote_machines', __name__)
 
 
-# Load persisted announced IPs on import
-def _load_announced_ips():
-    """Load announced IPs from disk into app_state."""
-    try:
-        with open(ANNOUNCED_IPS_FILE, 'r') as f:
-            data = json.load(f)
-        with announced_ips_lock:
-            announced_ips.update(data)
-        print(f"Loaded {len(data)} announced IP(s) from {ANNOUNCED_IPS_FILE}")
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-
-
-_load_announced_ips()
-
-
-def _save_announced_ips():
-    """Persist announced IPs to disk (call while holding lock)."""
-    try:
-        with open(ANNOUNCED_IPS_FILE, 'w') as f:
-            json.dump(announced_ips, f, indent=2)
-    except IOError as e:
-        print(f"Warning: Failed to save announced IPs: {e}")
-
-
 def _emit_progress(machine_id, message):
     """Emit a progress update for a remote machine operation."""
     socketio = get_socketio()
@@ -65,46 +35,6 @@ def _emit_progress(machine_id, message):
             'machine_id': machine_id,
             'message': message,
         }, namespace='/')
-
-
-# --- Announced IPs endpoints ---
-
-@remote_machines_bp.route('/api/announce', methods=['POST'])
-def announce_ip():
-    """Register a machine's current IP address.
-
-    Body: {"machine_id": "desktop_pc", "ip": "192.168.1.42"}
-    """
-    data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'JSON body required'}), 400
-
-    machine_id = data.get('machine_id', '').strip()
-    ip = data.get('ip', '').strip()
-
-    if not machine_id:
-        return jsonify({'success': False, 'error': 'machine_id required'}), 400
-    if not ip or not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
-        return jsonify({'success': False, 'error': 'Valid IPv4 address required'}), 400
-
-    with announced_ips_lock:
-        old_ip = announced_ips.get(machine_id)
-        announced_ips[machine_id] = ip
-        _save_announced_ips()
-
-    if old_ip and old_ip != ip:
-        print(f"Machine '{machine_id}' IP changed: {old_ip} -> {ip}")
-    elif not old_ip:
-        print(f"Machine '{machine_id}' announced IP: {ip}")
-
-    return jsonify({'success': True, 'machine_id': machine_id, 'ip': ip})
-
-
-@remote_machines_bp.route('/api/announced_ips')
-def get_announced_ips():
-    """Get all announced machine IPs."""
-    with announced_ips_lock:
-        return jsonify(dict(announced_ips))
 
 
 # --- Remote machine config/control endpoints ---
@@ -173,8 +103,8 @@ def control_machine(machine_id):
         try:
             host = resolve_host(config)
             if not host:
-                print(f"Cannot stop {machine_id}: no IP available (host=auto, no announcement)")
-                _emit_progress(machine_id, 'NO IP — CANNOT SHUTDOWN')
+                print(f"Cannot stop {machine_id}: no host configured")
+                _emit_progress(machine_id, 'NO HOST — CANNOT SHUTDOWN')
                 return
             user = config['ssh_user']
             port = config.get('ssh_port', 22)
@@ -252,7 +182,7 @@ def get_machine_details(machine_id):
 
     lines = [
         f"Remote Machine: {config.get('display_name', machine_id)}",
-        f"Host: {host or 'NO IP ANNOUNCED'}:{port}",
+        f"Host: {host or 'NOT CONFIGURED'}:{port}",
         f"Status: {'ONLINE' if is_online else 'OFFLINE'}",
         f"SSH User: {config.get('ssh_user', 'N/A')}",
     ]

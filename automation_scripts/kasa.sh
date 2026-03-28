@@ -116,7 +116,7 @@ usage() {
     echo "  $0 -i 192.168.1.24 -r"
     echo "  $0 -n \"Living Room\" --toggle"
     echo "  $0 -i 192.168.1.47 --on -u your@email.com -p yourpassword"
-    echo "  $0 -i 192.168.1.59 --wattage   # prints e.g. '68.1'"
+    echo "  $0 -i 192.168.1.237 --wattage   # prints e.g. '68.1'"
     echo "  KASA_USERNAME=your@email.com KASA_PASSWORD=yourpass $0 -n \"Lamp\" --on"
     exit 1
 }

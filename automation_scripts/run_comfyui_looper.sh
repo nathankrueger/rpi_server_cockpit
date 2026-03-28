@@ -22,7 +22,7 @@ LOOPER_SCRIPT="$HOME/dev/comfyui_looper/run_interactive.sh"
 
 # Defaults (match remote_machine_config.json values)
 SSH_USER="${REMOTE_SSH_USER:-natek}"
-PLUG_IP="${REMOTE_PLUG_IP:-192.168.1.59}"
+PLUG_IP="${REMOTE_PLUG_IP:-192.168.1.237}"
 BOOT_TIMEOUT=120
 COMFYUI_TIMEOUT=90
 START_PC=false
@@ -40,9 +40,8 @@ Options:
   -h            Show this help
 
 Environment:
-  DESKTOP_PC_IP       PC's IP address (auto-injected by announced IPs system)
   REMOTE_SSH_USER     SSH user on the PC (default: natek)
-  REMOTE_PLUG_IP      Kasa smart plug IP (default: 192.168.1.59)
+  REMOTE_PLUG_IP      Kasa smart plug IP (default: 192.168.1.237)
 EOF
     exit 1
 }
@@ -60,13 +59,8 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# --- Require DESKTOP_PC_IP ---
-PC_IP="${DESKTOP_PC_IP:-}"
-if [ -z "$PC_IP" ]; then
-    echo "ERROR: DESKTOP_PC_IP not set (PC has not announced its IP)"
-    echo "The PC must have announced its IP at least once via POST /api/announce"
-    exit 1
-fi
+# --- Desktop PC IP ---
+PC_IP="192.168.1.89"
 
 # --- SSH reachability check ---
 check_ssh() {

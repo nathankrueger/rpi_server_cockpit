@@ -7,16 +7,11 @@ from utils.subprocess_helper import run as _run
 
 
 def resolve_host(machine_config):
-    """Resolve a remote machine's host, handling 'auto' via announced IPs.
+    """Resolve a remote machine's host from config.
 
-    Returns the IP string, or None if 'auto' and no IP has been announced.
+    Returns the host string, or None if not configured.
     """
-    host = machine_config.get('host')
-    if host == 'auto':
-        from app_state import announced_ips, announced_ips_lock
-        with announced_ips_lock:
-            return announced_ips.get(machine_config['id'])
-    return host
+    return machine_config.get('host')
 
 
 def check_machine_online(host, port=22, timeout=0.8, retries=2, retry_delay=0.2):
