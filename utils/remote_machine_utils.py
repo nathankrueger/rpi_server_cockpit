@@ -18,7 +18,8 @@ def check_machine_online(host, port=22, timeout=0.8, retries=2, retry_delay=0.2)
     """Check if a remote machine is online via TCP connect to its SSH port.
 
     Retries on failure to avoid flaky offline blips.
-    Total worst-case time: ~2.8s (3 * 0.8s timeout + 2 * 0.2s delay).
+    Default worst-case time: ~2.8s (3 * 0.8s timeout + 2 * 0.2s delay).
+    Callers doing frequent polling should pass lower retries (e.g. retries=1).
     """
     for attempt in range(1 + retries):
         try:

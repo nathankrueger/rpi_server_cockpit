@@ -46,6 +46,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 │   └── internet_monitor.py
 ├── timeseries/          # Time-series data collection system
 │   ├── config.py        # TimeseriesBase class (auto-discovery via __init_subclass__)
+│   ├── command_timeseries.py # Config-driven timeseries that execute shell commands
 │   ├── db.py            # SQLite storage with LTTB downsampling
 │   ├── routes.py        # Timeseries API endpoints
 │   └── collector.py     # Background data collection
@@ -74,6 +75,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 **Config Merging**: Configuration files in `config/` use a base + local override pattern. Base configs (`*.json`) are version-controlled; local overrides (`*.local.json`) are gitignored and merged at runtime.
 
 **Timeseries Auto-Discovery**: New timeseries are automatically registered when a class inherits from `TimeseriesBase` - no manual registration needed.
+
+**Command Timeseries**: Config-driven timeseries that execute shell commands to collect numeric data. Defined in `config/command_timeseries_config.json` (base + local override pattern). Each entry specifies `id`, `command` (argv list), `units`, and optional `name`, `category`, `timeout`, `tags`, `description`. The `CommandTimeseries` class in `timeseries/command_timeseries.py` uses `_exclude_from_discovery = True` and is instantiated manually from config, then appended to the `TIMESERIES` registry. Command paths are resolved relative to the workspace root.
 
 **Settings per Page**: Each page has it's own settings dialog, accessible via the menu at the bottom.  Settings are relative to the page alone, and are typically stored in localStorage.
 

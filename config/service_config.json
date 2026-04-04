@@ -10,7 +10,7 @@
       "id": "gateway",
       "display_name": "GATEWAY",
       "service_name": "gateway",
-      "link_url": "http://{hostname}:5001",
+      "link_url": "http://{hostname}.local:5001",
       "enabled": true
     },
     {
@@ -31,7 +31,7 @@
       "id": "qbittorrent",
       "display_name": "QBITTORRENT",
       "service_name": "qbittorrent",
-      "link_url": "http://{hostname}:8080",
+      "link_url": "http://{hostname}.local:8080",
       "enabled": true,
       "group": "Media Services"
     }

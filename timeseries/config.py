@@ -16,6 +16,7 @@ To exclude a timeseries from auto-discovery, set the class attribute:
 from abc import ABC, abstractmethod
 from typing import Any
 import inspect
+import os
 import socket
 
 
@@ -144,6 +145,26 @@ TIMESERIES = _discover_timeseries()
 
 # Create a dictionary for quick lookups by ID
 TIMESERIES_MAP = {ts.getId(): ts for ts in TIMESERIES}
+
+
+def _load_command_timeseries():
+    """Load command-based timeseries from JSON config and add to registry."""
+    from config_loader import load_command_timeseries_config
+    from .command_timeseries import CommandTimeseries
+
+    workspace_root = os.path.dirname(os.path.dirname(__file__))
+    configs = load_command_timeseries_config()
+
+    for cfg in configs:
+        try:
+            ts = CommandTimeseries(cfg, workspace_root)
+            TIMESERIES.append(ts)
+            TIMESERIES_MAP[ts.getId()] = ts
+        except Exception as e:
+            print(f"Warning: Failed to create command timeseries '{cfg.get('id', '?')}': {e}")
+
+
+_load_command_timeseries()
 
 
 def get_timeseries(timeseries_id: str) -> TimeseriesBase:

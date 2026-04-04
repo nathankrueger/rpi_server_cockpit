@@ -122,10 +122,27 @@ def load_remote_machine_config() -> List[Dict[str, Any]]:
     return merge_configs(base_items, local_items, 'id')
 
 
+def load_command_timeseries_config() -> List[Dict[str, Any]]:
+    """
+    Load command timeseries configuration with local overrides.
+
+    Returns:
+        List of enabled command timeseries configurations
+    """
+    base_config = load_json_config('command_timeseries_config.json')
+    local_config = load_json_config('command_timeseries_config.local.json')
+
+    base_items = base_config.get('command_timeseries', [])
+    local_items = local_config.get('command_timeseries', [])
+
+    return merge_configs(base_items, local_items, 'id')
+
+
 # Load configurations
 AUTOMATIONS = load_automation_config()
 SERVICES = load_service_config()
 REMOTE_MACHINES = load_remote_machine_config()
+COMMAND_TIMESERIES_CONFIGS = load_command_timeseries_config()
 
 # Create lookup dictionaries
 AUTOMATION_MAP = {auto['name']: auto for auto in AUTOMATIONS}

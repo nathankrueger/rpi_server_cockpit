@@ -21,28 +21,39 @@ _rm_status_lock = threading.Lock()
 
 
 def _remote_machine_poller():
-    """Continuously poll remote machine status in a background thread."""
+    """Continuously poll remote machine status in a background thread.
+
+    Uses reduced retries (1 instead of 2) since we poll frequently —
+    a missed blip will be caught on the next cycle.
+    """
     pool = ThreadPoolExecutor(max_workers=4)
     while True:
-        machines = get_all_remote_machines()
-        futures = {}
-        for machine in machines:
-            host = resolve_host(machine)
-            if host:
-                futures[machine['id']] = pool.submit(
-                    check_machine_online, host, machine.get('ssh_port', 22)
-                )
-            else:
-                futures[machine['id']] = None
+        try:
+            machines = get_all_remote_machines()
+            futures = {}
+            for machine in machines:
+                host = resolve_host(machine)
+                if host:
+                    futures[machine['id']] = pool.submit(
+                        check_machine_online, host, machine.get('ssh_port', 22),
+                        retries=1, retry_delay=0.15,
+                    )
+                else:
+                    futures[machine['id']] = None
 
-        results = {}
-        for machine_id, future in futures.items():
-            results[machine_id] = future.result() if future else False
+            results = {}
+            for machine_id, future in futures.items():
+                try:
+                    results[machine_id] = future.result(timeout=5) if future else False
+                except Exception:
+                    results[machine_id] = False
 
-        with _rm_status_lock:
-            _rm_status.update(results)
+            with _rm_status_lock:
+                _rm_status.update(results)
+        except Exception as e:
+            print(f"Error in remote machine poller: {e}")
 
-        time.sleep(5)
+        time.sleep(3)
 
 
 def start_remote_machine_poller():
