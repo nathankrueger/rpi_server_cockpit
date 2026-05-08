@@ -1103,6 +1103,16 @@ socket.on('connect_error', (error) => {
     console.error('WebSocket connection error:', error);
 });
 
+// The WebSocket can go zombie after sleep / NAT timeout / background-tab
+// throttling — socket.io still reads `connected` but no messages flow.
+// On tab focus, pull fresh state over HTTP (what a manual refresh does).
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    fetchInitialStatus();
+    fetchInitialSystemStats();
+    if (socket.disconnected) socket.connect();
+});
+
 socket.on('automation_update', (data) => {
     console.log('Received automation update:', data);
     updateAutomationUI(data.automation, data.state);

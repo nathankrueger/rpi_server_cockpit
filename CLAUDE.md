@@ -97,6 +97,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 - `automation_update` - Real-time output streaming from automation scripts
 - `remote_machine_progress` - Step-by-step progress during remote machine start/stop operations
 
+**Stale-tab recovery**: WebSockets can go zombie after laptop sleep / NAT timeout / mobile-tab throttling — socket.io still reports `connected` but no messages flow, and a backgrounded tab's heartbeat is throttled so it never detects the dead connection. The dashboard listens for `visibilitychange` and on tab focus pulls fresh state via HTTP (`fetchInitialStatus()` + `fetchInitialSystemStats()`), reconciling without requiring a manual refresh. Live broadcasts resume once the underlying transport recovers.
+
 ## Sudoers Requirements
 
 For service control and reboot functionality:
