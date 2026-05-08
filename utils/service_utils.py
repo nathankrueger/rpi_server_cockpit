@@ -72,7 +72,7 @@ def control_service(service_name, action, on_start_callback=None, on_stop_callba
             ['sudo', 'systemctl', action, service_name],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=30
         )
         success = result.returncode == 0
 
