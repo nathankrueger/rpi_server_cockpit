@@ -8,8 +8,9 @@ This is the top-level application file that:
 4. Provides the WSGI application entry point
 """
 import os
+from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, url_for
 from flask_socketio import SocketIO
 
 from app_state import DEBUG_MODE, set_socketio
@@ -28,6 +29,27 @@ if not DEBUG_MODE:
 app = Flask(__name__)
 # Generate a random secret key on startup for Flask session management
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24).hex())
+
+# Cache static assets aggressively in the browser. Stale assets are avoided via the
+# cache-busting ?v=<mtime> query appended by the versioned_static() Jinja helper below.
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(days=30)
+
+
+@app.context_processor
+def inject_versioned_static():
+    """Expose versioned_static() to templates.
+
+    Appends a ?v=<file mtime> query to static URLs so browsers can cache assets for a
+    long time but still re-fetch them when the file changes.
+    """
+    def versioned_static(filename):
+        url = url_for('static', filename=filename)
+        try:
+            mtime = int(os.stat(os.path.join(app.static_folder, filename)).st_mtime)
+            return f"{url}?v={mtime}"
+        except OSError:
+            return url
+    return dict(versioned_static=versioned_static)
 
 # Create SocketIO with appropriate async mode
 async_mode = 'threading' if DEBUG_MODE else 'eventlet'

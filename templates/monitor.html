@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Monitor</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='raspberry-pi-icon.svg') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='monitor.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='nav-dock.css') }}">
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="{{ versioned_static('style.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('monitor.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('nav-dock.css') }}">
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
@@ -257,8 +256,9 @@
         <button class="nav-btn nav-home" onclick="navigateTo('/')" title="Back to Dashboard">🏠</button>
     </div>
 
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
-    <script src="{{ url_for('static', filename='monitor.js') }}"></script>
-    <script src="{{ url_for('static', filename='nav-dock.js') }}"></script>
+    <script defer src="{{ versioned_static('vendor/plotly.min.js') }}"></script>
+    <script defer src="{{ versioned_static('dashboard.js') }}"></script>
+    <script defer src="{{ versioned_static('monitor.js') }}"></script>
+    <script defer src="{{ versioned_static('nav-dock.js') }}"></script>
 </body>
 </html>

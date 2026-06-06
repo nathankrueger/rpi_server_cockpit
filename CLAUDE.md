@@ -99,6 +99,8 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 
 **Stale-tab recovery**: WebSockets can go zombie after laptop sleep / NAT timeout / mobile-tab throttling — socket.io still reports `connected` but no messages flow, and a backgrounded tab's heartbeat is throttled so it never detects the dead connection. The dashboard listens for `visibilitychange` and on tab focus pulls fresh state via HTTP (`fetchInitialStatus()` + `fetchInitialSystemStats()`), reconciling without requiring a manual refresh. Live broadcasts resume once the underlying transport recovers.
 
+**Front-end load performance**: JS libraries are self-hosted under `static/vendor/` (socket.io 4.5.4, plotly 2.27.0) instead of loaded from a CDN — a LAN tool must not block initial paint on an external network fetch (this caused a multi-second black screen on mobile). All `<script>` tags use `defer` so HTML parses and the skeleton paints immediately; `defer` preserves execution order, so vendored libs load before the page scripts that depend on them. Static assets are cached aggressively (`SEND_FILE_MAX_AGE_DEFAULT = 30 days`) with cache-busting via the `versioned_static(filename)` Jinja helper (registered as a context processor in `rpi_dashboard.py`), which appends `?v=<file mtime>` so a changed file is re-fetched. Use `versioned_static(...)` instead of `url_for('static', ...)` for CSS/JS asset references in templates.
+
 ## Sudoers Requirements
 
 For service control and reboot functionality:
