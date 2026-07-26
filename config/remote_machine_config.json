@@ -16,6 +16,23 @@
       "enabled": true,
       "shutdown_timeout": 60,
       "post_shutdown_delay": 5
+    },
+    {
+      "id": "mf255",
+      "display_name": "Minisforum AI X1-255",
+      "host": "192.168.1.130",
+      "ssh_user": "nkrueger",
+      "ssh_port": 22,
+      "ssh_key": null,
+      "shell_type": "linux",
+      "shutdown_command": "sudo shutdown now",
+      "plug_name": "MF AI X1-255",
+      "plug_ip": "192.168.1.126",
+      "link_url": null,
+      "group": "Remote Machines",
+      "enabled": true,
+      "shutdown_timeout": 60,
+      "post_shutdown_delay": 5
     }
   ]
 }
