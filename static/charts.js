@@ -13,7 +13,7 @@ let autoRefreshEnabled = false;
 let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
 let smoothingEnabled = false;
-let maxDatapoints = 10000; // maximum datapoints per chart
+let maxDatapoints = 2000; // maximum datapoints per chart (~2x the pixel width of a typical chart)
 let downsampleAlgorithm = 'lttb'; // 'lttb' or 'average'
 let chartUpdateInProgress = false; // Guard against concurrent requests
 
@@ -622,7 +622,7 @@ function openSettingsModal() {
     document.getElementById('auto-refresh-rate-input').value = savedAutoRefreshRate;
 
     // Load max datapoints from localStorage
-    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '10000';
+    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '2000';
     document.getElementById('max-datapoints').value = savedMaxDatapoints;
     document.getElementById('max-datapoints-input').value = savedMaxDatapoints;
 }
@@ -659,7 +659,7 @@ function loadChartSettings() {
     const savedAutoRefreshRate = localStorage.getItem('autoRefreshRate') || '30';
     autoRefreshRate = parseInt(savedAutoRefreshRate) * 1000;
 
-    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '10000';
+    const savedMaxDatapoints = localStorage.getItem('maxDatapoints') || '2000';
     maxDatapoints = parseInt(savedMaxDatapoints);
 }
 
