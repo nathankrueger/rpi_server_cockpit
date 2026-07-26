@@ -122,6 +122,27 @@ def load_remote_machine_config() -> List[Dict[str, Any]]:
     return merge_configs(base_items, local_items, 'id')
 
 
+def load_device_config() -> List[Dict[str, Any]]:
+    """
+    Load device configuration with local overrides.
+
+    Devices are external networked appliances (e.g. a BluOS media player, an IP
+    camera) that the dashboard acts as a remote control / viewer for. Each
+    device has a `type` that maps to a backend command-dispatcher and a frontend
+    renderer.
+
+    Returns:
+        List of enabled device configurations
+    """
+    base_config = load_json_config('device_config.json')
+    local_config = load_json_config('device_config.local.json')
+
+    base_items = base_config.get('devices', [])
+    local_items = local_config.get('devices', [])
+
+    return merge_configs(base_items, local_items, 'id')
+
+
 def load_command_timeseries_config() -> List[Dict[str, Any]]:
     """
     Load command timeseries configuration with local overrides.
@@ -142,12 +163,14 @@ def load_command_timeseries_config() -> List[Dict[str, Any]]:
 AUTOMATIONS = load_automation_config()
 SERVICES = load_service_config()
 REMOTE_MACHINES = load_remote_machine_config()
+DEVICES = load_device_config()
 COMMAND_TIMESERIES_CONFIGS = load_command_timeseries_config()
 
 # Create lookup dictionaries
 AUTOMATION_MAP = {auto['name']: auto for auto in AUTOMATIONS}
 SERVICE_MAP = {service['id']: service for service in SERVICES}
 REMOTE_MACHINE_MAP = {rm['id']: rm for rm in REMOTE_MACHINES}
+DEVICE_MAP = {device['id']: device for device in DEVICES}
 
 
 def get_automation_config(automation_name: str) -> Dict[str, Any]:
@@ -178,3 +201,13 @@ def get_remote_machine_config(machine_id: str) -> Dict[str, Any]:
 def get_all_remote_machines() -> List[Dict[str, Any]]:
     """Get all enabled remote machines."""
     return REMOTE_MACHINES
+
+
+def get_device_config(device_id: str) -> Dict[str, Any]:
+    """Get configuration for a specific device."""
+    return DEVICE_MAP.get(device_id)
+
+
+def get_all_devices() -> List[Dict[str, Any]]:
+    """Get all enabled devices."""
+    return DEVICES

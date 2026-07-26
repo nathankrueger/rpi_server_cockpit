@@ -5,6 +5,7 @@ from .system_api import system_bp
 from .automations_api import automations_bp
 from .external_api import external_bp
 from .remote_machines_api import remote_machines_bp
+from .devices_api import devices_bp
 
 
 def register_blueprints(app):
@@ -15,3 +16,4 @@ def register_blueprints(app):
     app.register_blueprint(automations_bp)
     app.register_blueprint(external_bp)
     app.register_blueprint(remote_machines_bp)
+    app.register_blueprint(devices_bp)

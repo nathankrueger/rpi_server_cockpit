@@ -1,0 +1,17 @@
+{
+  "_comment": "Copy to device_config.json (gitignored — it holds your LAN device addresses) and edit. Each device's `type` selects its backend handler + frontend tile renderer (currently: 'bluos'). volume_max caps the slider AND is enforced server-side; volume_max_step / volume_tick_ms tune the rate-limited ('lowpass') volume slider.",
+  "devices": [
+    {
+      "id": "stereo",
+      "type": "bluos",
+      "display_name": "Living Room Stereo",
+      "host": "192.168.1.100",
+      "port": 11000,
+      "group": "Music Players",
+      "enabled": true,
+      "volume_max": 60,
+      "volume_max_step": 2,
+      "volume_tick_ms": 250
+    }
+  ]
+}

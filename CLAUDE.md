@@ -21,6 +21,44 @@ sudo systemctl restart pi-dashboard.service
 pip install -r requirements.txt
 ```
 
+## Verifying the UI headless (Chromium screenshots)
+
+Useful for checking layout/CSS without a real browser. Chromium is at
+`/usr/bin/chromium` (also `chromium-browser`).
+
+```bash
+# Screenshot a page to a PNG
+chromium --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+  --hide-scrollbars --window-size=1240,1000 \
+  --screenshot=/tmp/out.png "file:///tmp/page.html"
+
+# Dump computed layout/styles as text (read it back with grep)
+chromium --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+  --window-size=1240,1000 --dump-dom "file:///tmp/page.html"
+```
+
+Hard-won gotchas:
+- **Don't screenshot the live app directly.** The matrix-rain animation
+  (continuous `requestAnimationFrame`) + the socket.io connection never let the
+  page go idle, so the headless screenshot **hangs** (times out). Instead render
+  a **static harness**: an HTML file that `<link>`s the real `static/style.css`
+  and contains the card/tile DOM you want to check (no JS, no sockets, no
+  animation). This is also faster to iterate on.
+- **No external resources.** A remote `<img>`/font URL blocks page load → the
+  screenshot hangs. Use `data:` URIs for placeholder images.
+- **Set the theme CSS vars** the harness needs (style.css reads them, they're
+  normally injected by JS): `--theme-primary`, `--theme-primary-rgb`,
+  `--theme-bg-medium/dark/light`, and for groups `--group-color`,
+  `--group-color-rgb`. Add `class="compact-mode"` on `<body>` to test compact
+  layout (the default on mobile).
+- **Flags:** `--no-sandbox --disable-gpu --disable-dev-shm-usage` are required
+  here. **Avoid** `--single-process`/`--no-zygote` (they crash). A stray
+  `Error: unrecognized flag --no-decommit-pooled-pages` is harmless noise.
+- **Measure computed layout** by adding a `<script>` that writes
+  `getBoundingClientRect()` / `getComputedStyle()` values into a `<pre>`, then
+  read them via `--dump-dom` — far more reliable than eyeballing a screenshot
+  for "why is this element the wrong size".
+
 ## Architecture Overview
 
 This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry Pi media server.
@@ -38,12 +76,14 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 │   ├── system_api.py    # System stats endpoints
 │   ├── automations_api.py # Automation execution endpoints
 │   ├── external_api.py  # Stock/weather API proxies
-│   └── remote_machines_api.py # Remote machine power control endpoints
+│   ├── remote_machines_api.py # Remote machine power control endpoints
+│   └── devices_api.py   # Device (media player, etc.) status/command/art endpoints
 ├── background/          # Daemon threads for monitoring
 │   ├── network_monitor.py
 │   ├── system_broadcaster.py
 │   ├── service_broadcaster.py
-│   └── internet_monitor.py
+│   ├── internet_monitor.py
+│   └── device_broadcaster.py # Polls devices, broadcasts `device_status`
 ├── timeseries/          # Time-series data collection system
 │   ├── config.py        # TimeseriesBase class (auto-discovery via __init_subclass__)
 │   ├── command_timeseries.py # Config-driven timeseries that execute shell commands
@@ -72,7 +112,11 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 
 **SocketIO Sharing**: The `app_state.py` module provides `set_socketio()`/`get_socketio()` to share the SocketIO instance across modules without circular imports.
 
-**Config Merging**: Configuration files in `config/` use a base + local override pattern. Base configs (`*.json`) are version-controlled; local overrides (`*.local.json`) are gitignored and merged at runtime.
+**Config Merging**: Configuration files in `config/` use a base + local override pattern. Base configs (`*.json`) are version-controlled; local overrides (`*.local.json`) are gitignored and merged at runtime. Exception: `config/device_config.json` is itself gitignored (it holds LAN device addresses); the git-tracked schema reference is `config/device_config.json.example`.
+
+**Devices (media players, cameras, ...)**: A tile category distinct from services/automations/stats — external networked appliances the dashboard remote-controls/views, each with a bespoke interactive tile rather than the uniform on/off card. It's a thin pluggable framework: every device in `config/device_config.json` declares a `type` that maps to (a) a backend dispatcher in `utils/device_types.py` (`DEVICE_TYPES` → `get_status` + `commands`) and (b) a frontend renderer/updater registered in `static/dashboard.js` (`DEVICE_RENDERERS` / `DEVICE_UPDATERS`). Adding a new kind of device = one new `type` entry + a renderer, no other wiring. The first type is `bluos` (BluOS/Bluesound players, `utils/bluos_utils.py` — stdlib `urllib` + `xml.etree`, REST on port 11000). Endpoints live in `routes/devices_api.py`: `GET /api/devices`, `GET /api/devices/status`, `POST /api/device/<id>/command` (`play|pause|toggle|next|prev|volume|seek`), `GET /api/device/<id>/art` (artwork proxy that streams bytes from the device, keeping its address off the client). `background/device_broadcaster.py` polls devices and pushes the `device_status` event. The DEVICES separator is the section header/collapse. `#devices-section` is `display: contents`, so the **named collapsible groups** inside it are direct items of the `.dashboard` grid — they line up in the same columns (and share the same widths) as the service cards above, flowing left-to-right and wrapping. Order is render order in `init()`: **Remote Machines** first, then **Music Players** (BluOS tiles). Group name comes from each item's `group` config field; cards inside a group (tagged `.device-group`) stack in a flex column at `width: 100%`. Device groups get **no** `align-self` override — they stretch to the row height exactly like service cards and automation groups, so a collapsed device group looks identical to any other collapsed group (a thin bar would be inconsistent), and collapsing reuses the shared `.automation-group-content.collapsed` rule. The DEVICES separator + section are hidden (`.empty-hidden`) when no devices AND no remote machines are registered. Media tiles deliberately use `.device-card`/`.media-header`/`.media-name` (NOT `.service-card`/`.service-header`) so the compact-mode grid rules — which reshape service cards and would otherwise give the header `flex: 0 0 100%` (full height in a column flex) — can't break the layout. Transport icons carry the U+FE0E text-presentation selector (`ICON_PLAY`/`ICON_PAUSE`/`ICON_PREV`/`ICON_NEXT`) so iOS renders monochrome glyphs, not color emoji. Play/pause is optimistic (icon flips instantly, sends explicit `play`/`pause`, holds the optimistic state ~4s so a stale poll can't revert it). **BluOS reports `<state>stream</state>`, not `play`, for streaming sources** (TidalConnect, internet radio), so `get_status()` computes `playing = state in ('play', 'stream')` — checking only for `'play'` makes a streaming track show a yellow LED and a ▶ icon while audio is actually playing. Overflowing title/artist text scrolls via `setScrollingText()` (a gentle ping-pong marquee that only activates when the text is wider than its container).
+
+**Rate-limited volume ("lowpass")**: The media-player volume slider is slew-rate limited so an errant fling can't blast a powerful stereo. Behavior is "release stops the climb": the thumb crawls under the finger at a capped step rate (`volume_max_step` per `volume_tick_ms`) and freezes on release; incoming `device_status` only reflects into the slider when the user isn't dragging. There is also a hard cap `volume_max` (default 60) enforced both as the slider's `max` and as a server-side clamp in `utils/device_types.py` so no client (UI, stale tab, raw curl) can exceed it.
 
 **Timeseries Auto-Discovery**: New timeseries are automatically registered when a class inherits from `TimeseriesBase` - no manual registration needed.
 
@@ -86,7 +130,7 @@ This is a Flask + SocketIO dashboard for monitoring and controlling a Raspberry 
 
 **Subprocess Execution (tpool)**: All subprocess calls MUST go through `utils.subprocess_helper.run()` instead of `subprocess.run()` directly. Under eventlet, `subprocess.run()` blocks the green thread event loop because Python 3.10+ subprocess uses `selectors.EpollSelector` internally, which eventlet doesn't fully monkey-patch. The helper wraps calls in `eventlet.tpool.execute()` so they run in real OS threads and the event loop stays responsive. In debug mode (no eventlet), it falls back to plain `subprocess.run()`. This is critical — without it, any slow subprocess call (e.g. `systemctl stop tailscaled` taking several seconds) will freeze the entire webserver, blocking all HTTP requests and WebSocket broadcasts.
 
-**Remote Machine Management**: Remote machines (e.g., PCs controlled via smart plugs + SSH) are configured in `config/remote_machine_config.json` with local overrides. They appear as service-style cards in the dashboard with online/offline status (TCP port 22 check) and power toggle (Kasa smart plug + SSH shutdown). Status is broadcast via the same `service_status` WebSocket event with `rm_` prefixed IDs. The `createServiceCard()` function accepts optional `{onToggle, onDetails}` callbacks to customize behavior for remote machines vs. systemd services. Each machine has a `shell_type` config (`linux`, `wsl`, or `cmd`; default `linux`) that controls how SSH commands are sent — WSL requires piping commands via stdin because `wsl.exe` doesn't accept the `-c` flag SSH uses.
+**Remote Machine Management**: Remote machines (e.g., PCs controlled via smart plugs + SSH) are configured in `config/remote_machine_config.json` with local overrides. They appear as service-style cards rendered under the **Devices** section, inside a "Remote Machines" group (`renderRemoteMachines()` appends into `#devices-section`; `init()` clears that section once, then renders remote machines *before* the device tiles so their group comes first) with online/offline status (TCP port 22 check) and power toggle (Kasa smart plug + SSH shutdown). Status is broadcast via the same `service_status` WebSocket event with `rm_` prefixed IDs. Each `rm_*` entry also carries a `watts` field — the machine's live smart-plug draw, rendered in the card as `ONLINE (25.6 W)` / `OFFLINE (0.0 W)` (shown in both states; omitted entirely when the machine has no plug configured or no reading has landed yet). Wattage comes from a Kasa CLI call (`read_plug_wattage()`, a subprocess taking ~1s per plug), so `_remote_machine_poller()` reads it on its own slower cadence (`_WATTAGE_POLL_INTERVAL`, 15s) instead of every 3s alongside the cheap TCP online check — meaning the wattage figure can lag the online state by up to ~15s. The `createServiceCard()` function accepts optional `{onToggle, onDetails}` callbacks to customize behavior for remote machines vs. systemd services. Each machine has a `shell_type` config (`linux`, `wsl`, or `cmd`; default `linux`) that controls how SSH commands are sent — WSL requires piping commands via stdin because `wsl.exe` doesn't accept the `-c` flag SSH uses.
 
 **Chart Query Performance**: `query_range()` in `timeseries/db.py` downsamples in two stages, because materializing a whole range in Python made `max_datapoints` cap the *response* but not the *work* — a 30-day window cost the same whether you asked for 100 points or 10,000. Stage 1 buckets inside SQLite (`GROUP BY cast((timestamp-start)/width AS INT)`), emitting each bucket's **min and max** so spikes survive — a per-bucket average silently clips them (measured: a 458.9 W peak on `r16_wattage` read as 378.9 W). Extreme *values* are exact; each is paired with the bucket's first/last timestamp, so x-position can be off by at most one bucket width (~0.1 px at `_BUCKET_OVERSAMPLE = 4`). Stage 2 is the existing LTTB pass, now over a few thousand candidates. `algorithm='average'` uses per-bucket means instead, matching its requested semantics.
 
@@ -102,6 +146,7 @@ Net effect (43 series): 30-day at `max_datapoints=2000` went 6.78s → 2.75s, 7-
 
 - `system_stats` - Pushed every 2s with CPU, RAM, disk, network stats
 - `service_status` - Pushed every 5s with service running states (includes remote machine status with `rm_` prefix)
+- `device_status` - Pushed every 2s with device status (BluOS players, etc.): state, track, volume, seek position, album art URL, online flag
 - `automation_update` - Real-time output streaming from automation scripts
 - `remote_machine_progress` - Step-by-step progress during remote machine start/stop operations
 

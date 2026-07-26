@@ -112,6 +112,210 @@ h1 {
     margin-bottom: 12px;
 }
 
+/* ============================================================
+   Device tiles (media players, cameras, ...)
+   ============================================================ */
+/* Device cards are deliberately NOT .service-card, so the compact-mode and
+   group grid rules (which reshape .service-card into a 2-col grid) can't touch
+   them. They own their full card styling here. */
+.device-card {
+    background: rgba(40, 40, 50, 0.95);
+    border: 2px solid var(--theme-primary);
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.device-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.media-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.media-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.media-name {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: var(--theme-primary);
+    text-shadow: 0 0 5px var(--theme-primary);
+    letter-spacing: 1px;
+}
+
+.media-art {
+    width: 100%;
+    flex-shrink: 0;
+    aspect-ratio: 1 / 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.4);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.media-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--theme-primary);
+    text-shadow: 0 0 5px var(--theme-primary);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-artist {
+    font-size: 0.85em;
+    color: rgba(var(--theme-primary-rgb), 0.75);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 1em;
+}
+
+/* Inner span used by the overflow marquee (title/artist). When the text is
+   wider than its container, JS animates this element back and forth. */
+.media-marquee {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+}
+
+.media-seek-row,
+.media-volume-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.media-time {
+    font-size: 0.75em;
+    color: rgba(var(--theme-primary-rgb), 0.75);
+    min-width: 38px;
+    text-align: center;
+}
+
+.media-vol-icon {
+    font-size: 0.95em;
+}
+
+.media-vol-val {
+    font-size: 0.8em;
+    color: rgba(var(--theme-primary-rgb), 0.85);
+    min-width: 26px;
+    text-align: right;
+}
+
+/* Matrix-themed range sliders for seek + volume */
+.media-seek,
+.media-volume {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(var(--theme-primary-rgb), 0.25);
+    outline: none;
+    cursor: pointer;
+}
+
+.media-seek::-webkit-slider-thumb,
+.media-volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    box-shadow: 0 0 8px var(--theme-primary);
+    cursor: pointer;
+}
+
+.media-seek::-moz-range-thumb,
+.media-volume::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    box-shadow: 0 0 8px var(--theme-primary);
+    cursor: pointer;
+}
+
+.media-seek:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.media-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+}
+
+.media-btn {
+    background: transparent;
+    border: 1px solid var(--theme-primary);
+    color: var(--theme-primary);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.media-btn:hover {
+    background: rgba(var(--theme-primary-rgb), 0.15);
+    box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.6);
+}
+
+.media-btn.media-play {
+    width: 54px;
+    height: 54px;
+    font-size: 1.4em;
+}
+
+.media-glyph {
+    display: inline-block;
+    line-height: 1;
+}
+
+/* The play triangle is visually weighted to the upper-left in its glyph box, so
+   nudge it down-right to sit optically centered. Pause (not .is-play) stays put. */
+.media-play.is-play .media-glyph {
+    transform: translate(2px, 1px);
+}
+
 .service-name {
     font-size: 1.4em;
     font-weight: bold;
@@ -590,6 +794,14 @@ h1 {
     content: '▶▶▶ SERVICE CONTROL ▶▶▶';
 }
 
+.separator-devices::before {
+    content: '▼▼▼ DEVICES ▼▼▼';
+}
+
+.separator-devices.collapsed::before {
+    content: '▶▶▶ DEVICES ▶▶▶';
+}
+
 .separator-automations::before {
     content: '▼▼▼ AUTOMATIONS ▼▼▼';
 }
@@ -615,6 +827,50 @@ h1 {
 #services-section.collapsed,
 #automations-section.collapsed {
     display: none;
+}
+
+/* Devices section lays its groups out in a row (Remote Machines first, then
+   Music Players), wrapping to new rows as needed. align-items:flex-start so
+   each group hugs its cards and top-aligns instead of stretching. */
+/* Devices participate in the SAME dashboard grid as the service cards (via
+   display:contents), so each group box lines up with the service columns
+   above and shares their width. */
+#devices-section {
+    display: contents;
+}
+
+#devices-section.collapsed {
+    display: none;
+}
+
+/* Device groups are ordinary dashboard grid items: they stretch to the row
+   height like service cards and automation groups do (no align-self:start —
+   that made a collapsed group a thin bar unlike every other card). */
+.device-group {
+    margin: 0;
+}
+
+.device-group .automation-group-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Collapse behaviour is deliberately NOT customized here — device groups use the
+   same .automation-group-content.collapsed rule as every other group, so a
+   collapsed Devices group looks identical to a collapsed automation group. */
+
+/* Cards fill their group box. */
+.device-group .media-tile,
+.device-group .service-card {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Hide the Devices separator + section when nothing is registered */
+.separator-devices.empty-hidden,
+#devices-section.empty-hidden {
+    display: none !important;
 }
 
 #stats-section {

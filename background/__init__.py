@@ -5,6 +5,7 @@ from .network_monitor import network_speed_monitor
 from .system_broadcaster import system_stats_broadcaster
 from .service_broadcaster import service_status_broadcaster, start_remote_machine_poller
 from .internet_monitor import internet_connectivity_monitor
+from .device_broadcaster import device_status_broadcaster
 
 _threads = []
 
@@ -18,6 +19,7 @@ def start_all_background_threads():
         ('System Stats Broadcaster', system_stats_broadcaster),
         ('Service Status Broadcaster', service_status_broadcaster),
         ('Internet Connectivity Monitor', internet_connectivity_monitor),
+        ('Device Status Broadcaster', device_status_broadcaster),
     ]
 
     for name, target in thread_configs:

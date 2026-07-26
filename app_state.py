@@ -46,6 +46,10 @@ service_status_lock = threading.Lock()
 internet_status_cache = {'connected': False}
 internet_status_lock = threading.Lock()
 
+# Cached device status (BluOS players, etc.; updated by background thread, pushed via WebSocket)
+device_status_cache = {}
+device_status_lock = threading.Lock()
+
 # Track in-progress remote machine power operations (prevents double-clicks)
 remote_machine_operations = {}  # {machine_id: 'starting' | 'stopping'}
 remote_machine_ops_lock = threading.Lock()
@@ -55,6 +59,7 @@ SERVER_CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config', 'server_c
 SERVER_CONFIG_DEFAULTS = {
     'system_stats_interval': 2.0,  # seconds
     'service_status_interval': 5.0,  # seconds
+    'device_status_interval': 2.0,  # seconds
     'internet_check_interval': 5.0,  # seconds
     'timeseries_sampling_interval': 60.0,  # seconds
 }

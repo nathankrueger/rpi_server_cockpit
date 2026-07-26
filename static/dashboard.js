@@ -308,7 +308,9 @@ async function loadAndRenderRemoteMachines() {
 }
 
 function renderRemoteMachines() {
-    const servicesSection = document.getElementById('services-section');
+    // Remote machines live under the Devices section (appended after device
+    // tiles, which are rendered first and clear the section).
+    const servicesSection = document.getElementById('devices-section');
 
     const grouped = {};
     const ungrouped = [];
@@ -338,6 +340,7 @@ function renderRemoteMachines() {
             })
         );
         const groupContainer = createServiceGroup(groupName, null, cards);
+        groupContainer.classList.add('device-group');
         servicesSection.appendChild(groupContainer);
     });
 }
@@ -414,13 +417,18 @@ function updateRemoteMachineUI(machineId, statusData) {
         toggle.classList.remove('pending', 'disabled');
     }
 
+    // Smart-plug wattage, when the machine has a plug and a reading has landed.
+    // Polled on a slower cadence than online status, so it may lag by ~15s.
+    const watts = (statusData && typeof statusData === 'object') ? statusData.watts : null;
+    const wattsStr = (typeof watts === 'number') ? ` (${watts.toFixed(1)} W)` : '';
+
     if (isRunning) {
         indicator.className = 'status-indicator green';
-        statusText.textContent = 'ONLINE';
+        statusText.textContent = `ONLINE${wattsStr}`;
         toggle.classList.add('active');
     } else {
         indicator.className = 'status-indicator red';
-        statusText.textContent = 'OFFLINE';
+        statusText.textContent = `OFFLINE${wattsStr}`;
         toggle.classList.remove('active');
     }
 }
@@ -1082,6 +1090,476 @@ async function toggleService(service) {
     }
 }
 
+// ============================================================
+// Devices — external networked appliances (media players, cameras, ...).
+// A thin pluggable framework: each device has a `type` that maps to a renderer
+// and an updater. BluOS is the first type; add a type here + a backend handler
+// to support a new kind of device.
+// ============================================================
+let devicesConfig = [];
+
+// Transport icons with the U+FE0E text-presentation selector so iOS renders the
+// monochrome/blocky glyphs (like desktop) instead of colorful emoji.
+const ICON_PREV = '⏮︎';   // ⏮ + text selector
+const ICON_NEXT = '⏭︎';   // ⏭ + text selector
+const ICON_PLAY = '▶︎';   // ▶ + text selector
+const ICON_PAUSE = '⏸︎';  // ⏸ + text selector
+
+// Per-device volume slew state for the rate-limited ("lowpass") slider:
+//   applied  = volume actually sent to / echoed from the device
+//   intended = latest raw slider position from the user
+//   dragging = true between drag-start and release
+//   sending  = true while a volume POST is in flight (keeps steps in lockstep)
+const deviceVolumeState = {};
+
+function deviceById(id) {
+    return devicesConfig.find(d => d.id === id);
+}
+
+function formatTime(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+async function loadAndRenderDevices() {
+    try {
+        const response = await fetch('/api/devices');
+        devicesConfig = await response.json();
+        renderDevices();
+    } catch (error) {
+        console.error('Error loading devices:', error);
+    }
+}
+
+function renderDevices() {
+    const section = document.getElementById('devices-section');
+    if (!section) return;
+    // Appends into #devices-section (cleared once by the caller). Devices are
+    // grouped by their `group` field into named collapsible groups (e.g.
+    // "Music Players"), each laying its tiles out in a grid via `.device-group`.
+    const grouped = {};
+    const ungrouped = [];
+    devicesConfig.forEach(device => {
+        if (device.group) (grouped[device.group] = grouped[device.group] || []).push(device);
+        else ungrouped.push(device);
+    });
+
+    ungrouped.forEach(device => section.appendChild(buildDeviceTile(device)));
+
+    Object.keys(grouped).forEach(groupName => {
+        const cards = grouped[groupName].map(buildDeviceTile);
+        const group = createServiceGroup(groupName, null, cards);
+        group.classList.add('device-group');
+        section.appendChild(group);
+    });
+}
+
+// Hide the DEVICES separator + section entirely when nothing is registered
+// (no media devices and no remote machines).
+function updateDevicesSectionVisibility() {
+    const hasAny = (devicesConfig && devicesConfig.length > 0) ||
+                   (remoteMachinesConfig && remoteMachinesConfig.length > 0);
+    const separator = document.querySelector('.separator-devices');
+    const section = document.getElementById('devices-section');
+    if (separator) separator.classList.toggle('empty-hidden', !hasAny);
+    if (section) section.classList.toggle('empty-hidden', !hasAny);
+}
+
+// Renderer / updater registries — keyed by device `type`.
+const DEVICE_RENDERERS = { bluos: renderBluosTile };
+const DEVICE_UPDATERS = { bluos: updateBluosTile };
+
+function buildDeviceTile(device) {
+    const renderer = DEVICE_RENDERERS[device.type];
+    if (renderer) return renderer(device);
+    // Fallback for an unknown/unsupported device type
+    const card = document.createElement('div');
+    card.className = 'device-card';
+    card.textContent = `${device.display_name} (unsupported type: ${device.type})`;
+    return card;
+}
+
+function renderBluosTile(device) {
+    const id = device.id;
+    const card = document.createElement('div');
+    card.className = 'device-card media-tile';
+    card.id = `device-${id}`;
+
+    // Header: name + status dot. Uses media-specific classes (NOT service-header
+    // / service-name) so compact-mode's .service-header { flex:0 0 100% } rule —
+    // which means full *height* in our column flex — can't break the layout.
+    const header = document.createElement('div');
+    header.className = 'media-header';
+    const name = document.createElement('span');
+    name.className = 'media-name';
+    name.textContent = device.display_name;
+    const indicator = document.createElement('div');
+    indicator.className = 'status-indicator';
+    indicator.id = `device-${id}-indicator`;
+    header.appendChild(name);
+    header.appendChild(indicator);
+
+    // Album art
+    const artWrap = document.createElement('div');
+    artWrap.className = 'media-art';
+    const art = document.createElement('img');
+    art.id = `device-${id}-art`;
+    art.alt = 'Album art';
+    art.style.display = 'none';
+    artWrap.appendChild(art);
+
+    // Track info
+    const title = document.createElement('div');
+    title.className = 'media-title';
+    title.id = `device-${id}-title`;
+    title.textContent = '—';
+    const artist = document.createElement('div');
+    artist.className = 'media-artist';
+    artist.id = `device-${id}-artist`;
+    artist.textContent = '';
+
+    // Seek bar
+    const seekRow = document.createElement('div');
+    seekRow.className = 'media-seek-row';
+    const elapsed = document.createElement('span');
+    elapsed.className = 'media-time';
+    elapsed.id = `device-${id}-elapsed`;
+    elapsed.textContent = '0:00';
+    const seek = document.createElement('input');
+    seek.type = 'range';
+    seek.className = 'media-seek';
+    seek.id = `device-${id}-seek`;
+    seek.min = '0';
+    seek.max = '100';
+    seek.value = '0';
+    const total = document.createElement('span');
+    total.className = 'media-time';
+    total.id = `device-${id}-total`;
+    total.textContent = '0:00';
+    seekRow.appendChild(elapsed);
+    seekRow.appendChild(seek);
+    seekRow.appendChild(total);
+
+    // While the user drags the seek bar, suppress status overwrites; commit on release.
+    const seekStart = () => { seek.dataset.seeking = '1'; };
+    seek.addEventListener('pointerdown', seekStart);
+    seek.addEventListener('touchstart', seekStart, { passive: true });
+    seek.addEventListener('change', () => {
+        seek.dataset.seeking = '';
+        deviceCommand(id, 'seek', parseInt(seek.value, 10));
+    });
+
+    // Transport controls
+    const controls = document.createElement('div');
+    controls.className = 'media-controls';
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'media-btn';
+    prevBtn.textContent = ICON_PREV;
+    prevBtn.onclick = () => deviceCommand(id, 'prev');
+    const playBtn = document.createElement('button');
+    playBtn.className = 'media-btn media-play';
+    playBtn.id = `device-${id}-play`;
+    setPlayIcon(playBtn, false);
+    playBtn.onclick = () => toggleBluosPlay(id);
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'media-btn';
+    nextBtn.textContent = ICON_NEXT;
+    nextBtn.onclick = () => deviceCommand(id, 'next');
+    controls.appendChild(prevBtn);
+    controls.appendChild(playBtn);
+    controls.appendChild(nextBtn);
+
+    // Volume (rate-limited / lowpass, capped at volume_max)
+    const volRow = document.createElement('div');
+    volRow.className = 'media-volume-row';
+    const volIcon = document.createElement('span');
+    volIcon.className = 'media-vol-icon';
+    volIcon.textContent = '🔊';
+    const volume = document.createElement('input');
+    volume.type = 'range';
+    volume.className = 'media-volume';
+    volume.id = `device-${id}-volume`;
+    volume.min = '0';
+    volume.max = String(device.volume_max != null ? device.volume_max : 60);
+    volume.value = '0';
+    const volVal = document.createElement('span');
+    volVal.className = 'media-vol-val';
+    volVal.id = `device-${id}-vol-val`;
+    volVal.textContent = '0';
+    volRow.appendChild(volIcon);
+    volRow.appendChild(volume);
+    volRow.appendChild(volVal);
+
+    setupVolumeSlew(device, volume, volVal);
+
+    card.appendChild(header);
+    card.appendChild(artWrap);
+    card.appendChild(title);
+    card.appendChild(artist);
+    card.appendChild(seekRow);
+    card.appendChild(controls);
+    card.appendChild(volRow);
+    return card;
+}
+
+// Rate-limited ("lowpass") volume — "release stops the climb".
+// The thumb crawls under the finger at a capped step rate while dragging and
+// freezes on release, so an errant fling can't blast the volume.
+function setupVolumeSlew(device, slider, valLabel) {
+    const id = device.id;
+    const state = {
+        applied: 0,
+        intended: 0,
+        dragging: false,
+        sending: false,
+        slider,
+        valLabel,
+        maxStep: device.volume_max_step || 2,
+    };
+    deviceVolumeState[id] = state;
+
+    const startDrag = () => { state.dragging = true; };
+    slider.addEventListener('pointerdown', startDrag);
+    slider.addEventListener('touchstart', startDrag, { passive: true });
+
+    slider.addEventListener('input', () => {
+        // Capture the target only; the tick decides how fast `applied` follows.
+        state.intended = parseInt(slider.value, 10);
+    });
+
+    const endDrag = () => {
+        // Freeze the climb where it reached.
+        state.intended = state.applied;
+        state.dragging = false;
+        slider.value = state.applied;
+        valLabel.textContent = state.applied;
+    };
+    slider.addEventListener('pointerup', endDrag);
+    slider.addEventListener('touchend', endDrag);
+    slider.addEventListener('mouseup', endDrag);
+
+    const tickMs = device.volume_tick_ms || 250;
+    state.tick = setInterval(() => {
+        if (!state.dragging || state.sending) return;
+        if (state.applied === state.intended) return;
+        const dir = state.intended > state.applied ? 1 : -1;
+        const step = Math.min(state.maxStep, Math.abs(state.intended - state.applied));
+        state.applied += dir * step;
+        slider.value = state.applied;           // thumb crawls under the finger
+        valLabel.textContent = state.applied;
+        sendVolume(id);
+    }, tickMs);
+}
+
+function sendVolume(id) {
+    const state = deviceVolumeState[id];
+    if (!state || state.sending) return;
+    state.sending = true;
+    const value = state.applied;
+    fetch(`/api/device/${id}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'volume', value }),
+    }).catch(() => {}).finally(() => { state.sending = false; });
+}
+
+// Optimistic playback state so play/pause feels instant. We flip the icon
+// immediately and ignore contradicting status polls for a short hold window
+// (the device can take a moment to report its new state).
+const devicePlayback = {}; // id -> { playing: bool, holdUntil: number }
+
+// Set the play/pause glyph. The glyph lives in an inner span so the play
+// triangle (visually weighted left) can be optically nudged down-right via the
+// `.is-play` class without moving the circular button border.
+function setPlayIcon(playBtn, playing) {
+    if (!playBtn) return;
+    let g = playBtn.querySelector('.media-glyph');
+    if (!g) {
+        playBtn.textContent = '';
+        g = document.createElement('span');
+        g.className = 'media-glyph';
+        playBtn.appendChild(g);
+    }
+    g.textContent = playing ? ICON_PAUSE : ICON_PLAY;
+    playBtn.classList.toggle('is-play', !playing);
+}
+
+function setBluosPlaying(id, playing) {
+    setPlayIcon(document.getElementById(`device-${id}-play`), playing);
+    const indicator = document.getElementById(`device-${id}-indicator`);
+    if (indicator) indicator.className = 'status-indicator ' + (playing ? 'green' : 'yellow');
+}
+
+function toggleBluosPlay(id) {
+    const st = devicePlayback[id] || (devicePlayback[id] = { playing: false, holdUntil: 0 });
+    const desired = !st.playing;
+    st.playing = desired;
+    st.holdUntil = Date.now() + 4000;       // hold optimistic state briefly
+    setBluosPlaying(id, desired);           // instant feedback, no server wait
+    // Explicit play/pause (not toggle) so the device acts in a single round-trip.
+    deviceCommand(id, desired ? 'play' : 'pause');
+}
+
+async function deviceCommand(id, action, value) {
+    try {
+        const body = { action };
+        if (value !== undefined) body.value = value;
+        const response = await fetch(`/api/device/${id}/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (result && result.success) {
+            if (result.status) updateDeviceTile(id, result.status); // fast feedback
+        } else {
+            showToast(`Device ${id}: ${(result && result.error) || 'command failed'}`, 'error');
+        }
+    } catch (error) {
+        showToast(`Device ${id}: command failed`, 'error');
+    }
+}
+
+// Set text that gently scrolls back and forth (ping-pong marquee) when it's
+// wider than its container; otherwise it stays centered. Re-runs only when the
+// text actually changes, so status polls don't restart the animation.
+function setScrollingText(el, text) {
+    text = text || '';
+    let inner = el.querySelector('.media-marquee');
+    if (!inner) {
+        el.textContent = '';
+        inner = document.createElement('span');
+        inner.className = 'media-marquee';
+        el.appendChild(inner);
+    }
+    if (inner.dataset.text === text) return; // unchanged — keep current animation
+    inner.dataset.text = text;
+    inner.textContent = text;
+    if (inner._anim) { inner._anim.cancel(); inner._anim = null; }
+    inner.style.transform = 'none';
+    requestAnimationFrame(() => {
+        const overflow = inner.scrollWidth - el.clientWidth;
+        if (overflow > 4 && typeof inner.animate === 'function') {
+            el.style.textAlign = 'left';
+            const pxPerSec = 28;                 // gentle speed
+            const travel = Math.max(700, (overflow / pxPerSec) * 1000);
+            const pause = 1400;                  // dwell at each end
+            const total = (travel + pause) * 2;
+            const at = (t) => t / total;
+            inner._anim = inner.animate([
+                { transform: 'translateX(0)', offset: 0 },
+                { transform: 'translateX(0)', offset: at(pause) },
+                { transform: `translateX(${-overflow}px)`, offset: at(pause + travel) },
+                { transform: `translateX(${-overflow}px)`, offset: at(pause + travel + pause) },
+                { transform: 'translateX(0)', offset: 1 },
+            ], { duration: total, iterations: Infinity, easing: 'linear' });
+        } else {
+            el.style.textAlign = 'center';
+        }
+    });
+}
+
+function updateDeviceTile(id, status) {
+    const device = deviceById(id);
+    if (!device) return;
+    const updater = DEVICE_UPDATERS[device.type];
+    if (updater) updater(id, status, device);
+}
+
+function handleDeviceStatusUpdate(statusMap) {
+    if (!statusMap) return;
+    Object.keys(statusMap).forEach(id => updateDeviceTile(id, statusMap[id]));
+}
+
+function updateBluosTile(id, s) {
+    const indicator = document.getElementById(`device-${id}-indicator`);
+    if (!indicator) return; // tile not rendered yet
+    const titleEl = document.getElementById(`device-${id}-title`);
+    const artistEl = document.getElementById(`device-${id}-artist`);
+    const playBtn = document.getElementById(`device-${id}-play`);
+    const seek = document.getElementById(`device-${id}-seek`);
+    const elapsed = document.getElementById(`device-${id}-elapsed`);
+    const total = document.getElementById(`device-${id}-total`);
+    const art = document.getElementById(`device-${id}-art`);
+    const volume = document.getElementById(`device-${id}-volume`);
+    const volVal = document.getElementById(`device-${id}-vol-val`);
+
+    if (!s || s.online === false) {
+        indicator.className = 'status-indicator red';
+        if (titleEl) titleEl.textContent = 'OFFLINE';
+        if (artistEl) artistEl.textContent = '';
+        setPlayIcon(playBtn, false);
+        return;
+    }
+
+    // Respect the optimistic play/pause hold so a stale poll can't revert the
+    // icon right after a click; otherwise sync to the device's reported state.
+    const pb = devicePlayback[id] || (devicePlayback[id] = { playing: s.playing, holdUntil: 0 });
+    let playing = s.playing;
+    if (Date.now() < pb.holdUntil) {
+        playing = pb.playing;
+    } else {
+        pb.playing = s.playing;
+    }
+
+    indicator.className = 'status-indicator ' + (playing ? 'green' : 'yellow');
+    if (titleEl) setScrollingText(titleEl, s.title || '—');
+    if (artistEl) setScrollingText(artistEl, [s.artist, s.album].filter(Boolean).join(' — '));
+    setPlayIcon(playBtn, playing);
+
+    // Seek bar — don't fight an active drag. Disable when the source/track
+    // doesn't support seeking (BluOS reports canSeek=0).
+    if (seek) {
+        const seekable = s.can_seek !== false;
+        seek.disabled = !seekable;
+        if (seek.dataset.seeking !== '1') {
+            const totlen = s.totlen || 0;
+            const secs = s.secs || 0;
+            seek.max = String(totlen || 100);
+            seek.value = String(totlen ? Math.min(secs, totlen) : secs);
+            if (elapsed) elapsed.textContent = formatTime(secs);
+            if (total) total.textContent = formatTime(totlen);
+        }
+    }
+
+    // Album art — only swap when the track changes (avoids reload flicker)
+    if (art) {
+        const trackKey = `${s.title || ''}|${s.album || ''}|${s.image || ''}`;
+        if (art.dataset.trackKey !== trackKey) {
+            art.dataset.trackKey = trackKey;
+            if (s.image) {
+                art.src = `/api/device/${id}/art?ts=${encodeURIComponent(trackKey)}`;
+                art.style.display = '';
+            } else {
+                art.removeAttribute('src');
+                art.style.display = 'none';
+            }
+        }
+    }
+
+    // Volume — reflect the device value only when the user isn't controlling it
+    const vstate = deviceVolumeState[id];
+    if (volume && vstate && !vstate.dragging && !vstate.sending) {
+        const v = s.volume != null ? s.volume : 0;
+        vstate.applied = v;
+        vstate.intended = v;
+        volume.value = String(v);
+        if (volVal) volVal.textContent = String(v);
+    }
+}
+
+async function fetchInitialDeviceStatus() {
+    try {
+        const response = await fetch('/api/devices/status');
+        const status = await response.json();
+        handleDeviceStatusUpdate(status);
+    } catch (error) {
+        console.error('Error fetching device status:', error);
+    }
+}
+
 // Initialize WebSocket connection for real-time automation updates
 const socket = io({
     transports: ['polling', 'websocket'],
@@ -1110,6 +1588,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     fetchInitialStatus();
     fetchInitialSystemStats();
+    fetchInitialDeviceStatus();
     if (socket.disconnected) socket.connect();
 });
 
@@ -1126,6 +1605,11 @@ socket.on('system_stats', (stats) => {
 // Handle service status pushed from server
 socket.on('service_status', (status) => {
     handleServiceStatusUpdate(status);
+});
+
+// Handle device status (media players, etc.) pushed from server
+socket.on('device_status', (status) => {
+    handleDeviceStatusUpdate(status);
 });
 
 socket.on('remote_machine_progress', (data) => {
@@ -1556,7 +2040,7 @@ function toggleSection(sectionName) {
 
 // Restore collapsed states from localStorage
 function restoreCollapsedStates() {
-    const sections = ['services', 'automations', 'stats'];
+    const sections = ['services', 'devices', 'automations', 'stats'];
 
     sections.forEach(sectionName => {
         const isCollapsed = localStorage.getItem(`section-${sectionName}-collapsed`) === 'true';
@@ -1860,7 +2344,13 @@ async function init() {
 
     restoreCollapsedStates();
     await loadAndRenderServices();
+    // Devices section: clear once, then render groups top-to-bottom in this
+    // order — Remote Machines first (top), then Music Players (device tiles).
+    const devSection = document.getElementById('devices-section');
+    if (devSection) devSection.innerHTML = '';
     await loadAndRenderRemoteMachines();
+    await loadAndRenderDevices();
+    updateDevicesSectionVisibility();
     await loadAutomations();
 
     // Now that automation cards exist in the DOM, request current states
@@ -1882,6 +2372,7 @@ async function init() {
     // These calls return cached data from the server, so they're fast
     fetchInitialStatus();
     fetchInitialSystemStats();
+    fetchInitialDeviceStatus();
 }
 
 // Run initialization when DOM is ready
