@@ -13,9 +13,12 @@ from config_loader import get_all_automations
 DEBUG_MODE = os.environ.get('DEBUG_MODE') == '1'
 
 # Configuration constants
-NETWORK_INTERFACE = 'wlan0'  # Network interface to monitor
+# The monitored interface is whichever one owns the default route (see
+# get_primary_interface()); this is only the fallback when there isn't one.
+NETWORK_INTERFACE_FALLBACK = 'wlan0'
 DISK_MOUNT_POINT = '/'       # Disk mount point to monitor
 NETWORK_MONITOR_INTERVAL = 0.1  # Network speed monitoring interval in seconds (100ms)
+NETWORK_INTERFACE_RECHECK_INTERVAL = 5.0  # How often to re-detect the primary interface
 
 # Store automation state server-side - dynamically initialized from config
 # Structure: {automation_name: {'job_id': str, 'running': bool, 'output': str, 'return_code': int, 'process': subprocess.Popen}}
@@ -29,7 +32,9 @@ automation_lock = threading.Lock()
 network_stats_cache = {
     'upload_mbps': 0.0,
     'download_mbps': 0.0,
-    'network_interface': NETWORK_INTERFACE,
+    # Replaced with the real primary interface by network_speed_monitor() on its
+    # first tick (detection lives there: importing utils from here is circular).
+    'network_interface': NETWORK_INTERFACE_FALLBACK,
     'last_update': None
 }
 network_stats_lock = threading.Lock()

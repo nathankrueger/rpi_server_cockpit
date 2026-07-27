@@ -6,7 +6,7 @@ from utils.subprocess_helper import run as subprocess_run
 
 import psutil
 
-from app_state import DISK_MOUNT_POINT, NETWORK_INTERFACE, network_stats_lock, network_stats_cache
+from app_state import DISK_MOUNT_POINT, network_stats_lock, network_stats_cache
 
 # Cache for uname result
 _uname_cache = None
@@ -129,8 +129,8 @@ def get_system_stats():
     # Get hostname and IP address
     try:
         stats['hostname'] = socket.gethostname()
-        # Try to get IP for the specified interface
-        addrs = psutil.net_if_addrs().get(NETWORK_INTERFACE, [])
+        # IP of the primary interface, so it matches the speeds reported above
+        addrs = psutil.net_if_addrs().get(stats['network_interface'], [])
         ipv4_addr = next((addr.address for addr in addrs if addr.family == socket.AF_INET), 'N/A')
         stats['ip_address'] = ipv4_addr
     except Exception as e:
