@@ -62,6 +62,21 @@ const STATUS_UPDATE_INTERVAL = 5000; // 5 seconds
 const CLOCK_UPDATE_INTERVAL = 1000; // 1 second
 const DEFAULT_SENSOR_UPDATE_INTERVAL = 5; // 5 seconds (in seconds, not milliseconds)
 const DEFAULT_SENSOR_MINMAX_HOURS = 24; // 24 hours for min/max range
+const CLAUDE_USAGE_UPDATE_INTERVAL = 60 * 1000; // 1 minute
+
+// Error codes from /api/claude/usage, mapped to what the tile should say.
+const CLAUDE_USAGE_ERRORS = {
+    no_credentials: 'NO CLAUDE CREDENTIALS FOUND',
+    bad_credentials: 'CREDENTIALS UNREADABLE',
+    expired: 'AUTH EXPIRED — RUN CLAUDE CODE TO REFRESH',
+    unauthorized: 'AUTH REJECTED — RUN CLAUDE CODE TO REFRESH',
+    unreachable: 'USAGE API UNREACHABLE',
+    rate_limited: 'RATE LIMITED BY USAGE API',
+};
+
+// While the usage API is rate limiting us, the refresh button is a no-op - pressing it
+// again is what caused the lockout in the first place.
+let claudeUsageBlockedUntil = 0;
 
 // Weather settings (persistent in localStorage)
 let weatherLocation = localStorage.getItem('weatherLocation') || null;
@@ -123,6 +138,15 @@ async function initMonitor() {
 
     // Apply saved theme colors
     applyThemeColors();
+
+    // Claude usage tile: bootstrap on its own so the lookup neither delays the rest of
+    // init nor gets skipped if something later in init fails. Keeps polling only when
+    // the server reports the meter as enabled.
+    updateClaudeUsage().then(enabled => {
+        if (enabled) {
+            setInterval(updateClaudeUsage, CLAUDE_USAGE_UPDATE_INTERVAL);
+        }
+    });
 
     // Initialize inline date range selector
     initInlineDateRange();
@@ -530,6 +554,220 @@ async function updateStatus() {
 
     } catch (error) {
         console.error('Error updating status:', error);
+    }
+}
+
+/**
+ * Format how long until a limit window resets, e.g. "RESETS IN 2H 14M · 8:29 PM".
+ */
+function formatClaudeReset(resetsAt) {
+    if (!resetsAt) {
+        return '';
+    }
+
+    const resetDate = new Date(resetsAt);
+    if (isNaN(resetDate.getTime())) {
+        return '';
+    }
+
+    const clock = resetDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const minutesAway = Math.round((resetDate.getTime() - Date.now()) / 60000);
+
+    if (minutesAway <= 0) {
+        return `RESETS ${clock}`;
+    }
+
+    const days = Math.floor(minutesAway / (60 * 24));
+    const hours = Math.floor((minutesAway % (60 * 24)) / 60);
+    const minutes = minutesAway % 60;
+
+    let away;
+    if (days > 0) {
+        away = `${days}D ${hours}H`;
+    } else if (hours > 0) {
+        away = `${hours}H ${minutes}M`;
+    } else {
+        away = `${minutes}M`;
+    }
+
+    return `RESETS IN ${away} · ${clock}`;
+}
+
+/**
+ * Build one limit row (session / weekly / model-scoped weekly).
+ */
+function buildClaudeUsageItem(limit) {
+    const used = Math.max(0, Math.min(100, limit.percent_used));
+    const remaining = Math.round(limit.percent_remaining);
+
+    const item = document.createElement('div');
+    item.className = `claude-usage-item severity-${limit.severity || 'normal'}`;
+
+    const header = document.createElement('div');
+    header.className = 'claude-usage-header';
+
+    // Labels include model display names straight from the API - keep them as text.
+    const label = document.createElement('div');
+    label.className = 'claude-usage-label';
+    label.textContent = limit.label;
+
+    const remainingEl = document.createElement('div');
+    remainingEl.className = 'claude-usage-remaining';
+    remainingEl.textContent = `${remaining}% LEFT`;
+
+    header.appendChild(label);
+    header.appendChild(remainingEl);
+
+    const bar = document.createElement('div');
+    bar.className = 'claude-usage-bar';
+    const fill = document.createElement('div');
+    fill.className = 'claude-usage-bar-fill';
+    fill.style.width = `${used}%`;
+    bar.appendChild(fill);
+
+    item.appendChild(header);
+    item.appendChild(bar);
+
+    const resetText = formatClaudeReset(limit.resets_at);
+    if (resetText) {
+        const reset = document.createElement('div');
+        reset.className = 'claude-usage-reset';
+        reset.textContent = resetText;
+        item.appendChild(reset);
+    }
+
+    return item;
+}
+
+/**
+ * Update the Claude usage tile.
+ *
+ * The tile stays hidden unless the server reports the meter as enabled, so a Pi with
+ * no Claude credentials configured shows no trace of it.
+ *
+ * Returns true if the meter is enabled (used to decide whether to keep polling).
+ *
+ * Pass force to bypass the server-side cache (the refresh button).
+ */
+async function updateClaudeUsage(force = false) {
+    const card = document.getElementById('claude-usage-card');
+    const container = document.getElementById('claude-usage-content');
+
+    if (!card || !container) {
+        return false;
+    }
+
+    let data;
+    try {
+        const response = await fetch(`/api/claude/usage${force ? '?force=1' : ''}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        data = await response.json();
+    } catch (error) {
+        console.error('Error updating Claude usage:', error);
+        // Leave whatever is on screen rather than blanking the tile on a blip.
+        return card.style.display !== 'none';
+    }
+
+    if (!data.enabled) {
+        card.style.display = 'none';
+        return false;
+    }
+
+    card.style.display = '';
+    container.innerHTML = '';
+
+    // The usage API rate limits aggressively; while it is doing so, gray the button out
+    // so a frustrated click can't extend the lockout.
+    claudeUsageBlockedUntil = data.error === 'rate_limited' && data.retry_after
+        ? Date.now() + data.retry_after * 1000
+        : 0;
+    const button = document.getElementById('claude-usage-refresh');
+    if (button) {
+        button.classList.toggle('disabled', claudeUsageBlockedUntil > Date.now());
+    }
+
+    if (!data.available) {
+        const message = document.createElement('div');
+        message.className = 'claude-usage-message';
+        message.textContent = describeClaudeUsageError(data);
+        container.appendChild(message);
+        return true;
+    }
+
+    const limits = data.limits || [];
+    if (limits.length === 0) {
+        const message = document.createElement('div');
+        message.className = 'claude-usage-message';
+        message.textContent = 'NO LIMITS REPORTED';
+        container.appendChild(message);
+        return true;
+    }
+
+    limits.forEach(limit => container.appendChild(buildClaudeUsageItem(limit)));
+
+    // Server fell back to the last good reading (rate limit, network blip, ...). Numbers
+    // are real but not current, so say so rather than passing them off as live.
+    if (data.stale) {
+        const note = document.createElement('div');
+        note.className = 'claude-usage-stale';
+        const asOf = data.fetched_at
+            ? new Date(data.fetched_at * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+            : null;
+        note.textContent = `${describeClaudeUsageError(data)} · SHOWING ${asOf ? `READING FROM ${asOf}` : 'LAST READING'}`;
+        container.appendChild(note);
+    }
+
+    return true;
+}
+
+/**
+ * Turn an error payload into tile text, including the rate-limit countdown.
+ */
+function describeClaudeUsageError(data) {
+    const base = CLAUDE_USAGE_ERRORS[data.error] || 'USAGE UNAVAILABLE';
+
+    if (data.error === 'rate_limited' && data.retry_after) {
+        const seconds = Math.max(1, Math.round(data.retry_after));
+        const wait = seconds >= 60
+            ? `${Math.ceil(seconds / 60)}M`
+            : `${seconds}S`;
+        return `${base} · RETRY IN ${wait}`;
+    }
+
+    return base;
+}
+
+/**
+ * Refresh button handler: skip the server-side cache and re-render immediately.
+ *
+ * The spin runs for as long as the request takes, with a floor so a cache-warm
+ * response still reads as "something happened" rather than an imperceptible blink.
+ */
+let claudeUsageRefreshing = false;
+
+async function refreshClaudeUsage() {
+    if (claudeUsageRefreshing || Date.now() < claudeUsageBlockedUntil) {
+        return;
+    }
+
+    claudeUsageRefreshing = true;
+    const button = document.getElementById('claude-usage-refresh');
+    if (button) {
+        button.classList.add('spinning');
+    }
+
+    try {
+        await Promise.all([
+            updateClaudeUsage(true),
+            new Promise(resolve => setTimeout(resolve, 500))
+        ]);
+    } finally {
+        claudeUsageRefreshing = false;
+        if (button) {
+            button.classList.remove('spinning');
+        }
     }
 }
 

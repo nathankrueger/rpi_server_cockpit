@@ -164,6 +164,19 @@
                 </div>
             </div>
 
+            <!-- Claude Usage Section (hidden unless enabled in claude_usage_config.local.json) -->
+            <div class="monitor-card claude-usage-card" id="claude-usage-card" style="display: none;">
+                <div class="card-title">
+                    CLAUDE USAGE
+                    <div class="card-title-controls">
+                        <span class="card-settings-btn" id="claude-usage-refresh" onclick="refreshClaudeUsage()" title="Refresh now">⟳</span>
+                    </div>
+                </div>
+                <div id="claude-usage-content" class="claude-usage-container">
+                    <div class="claude-usage-message">Loading...</div>
+                </div>
+            </div>
+
             <!-- Sensor Data Section -->
             <div class="monitor-card sensor-card">
                 <div class="card-title">SENSOR DATA</div>
