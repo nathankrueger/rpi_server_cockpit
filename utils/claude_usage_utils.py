@@ -23,6 +23,10 @@ USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 _OAUTH_BETA = 'oauth-2025-04-20'
 _ANTHROPIC_VERSION = '2023-06-01'
 
+# These are the authoritative defaults: config/claude_usage_config.json is gitignored
+# and optional, so with no config file at all the meter is simply off (see
+# load_claude_usage_config()) and every other setting falls back to a value here.
+_DEFAULT_CREDENTIALS_PATH = '~/.claude/.credentials.json'
 _DEFAULT_CACHE_SECONDS = 60
 _DEFAULT_TIMEOUT = 10
 
@@ -218,7 +222,7 @@ def get_claude_usage(config, force=False):
 
     cache_seconds = float(config.get('cache_seconds', _DEFAULT_CACHE_SECONDS))
     timeout = float(config.get('request_timeout', _DEFAULT_TIMEOUT))
-    credentials_path = config.get('credentials_path', '~/.claude/.credentials.json')
+    credentials_path = config.get('credentials_path', _DEFAULT_CREDENTIALS_PATH)
     force_min_interval = float(config.get('force_min_interval', _DEFAULT_FORCE_MIN_INTERVAL))
 
     with _cache_lock:

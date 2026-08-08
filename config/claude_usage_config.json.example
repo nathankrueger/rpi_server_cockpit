@@ -1,7 +1,9 @@
 {
     "_comment": [
-        "Copy to claude_usage_config.local.json to show the CLAUDE USAGE tile on the",
-        "monitor page. The tile is hidden entirely unless enabled is true.",
+        "Copy to claude_usage_config.json (gitignored) to show the CLAUDE USAGE tile on",
+        "the monitor page. The file is optional: with no file the meter is off, and every",
+        "value below is already the built-in default, so a real config only needs the",
+        "keys it actually changes - usually just enabled.",
         "",
         "credentials_path points at the OAuth credentials Claude Code writes for the",
         "logged-in account. Only the access token is read, and it never leaves the",
