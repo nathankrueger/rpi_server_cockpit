@@ -143,6 +143,26 @@ def load_device_config() -> List[Dict[str, Any]]:
     return merge_configs(base_items, local_items, 'id')
 
 
+def load_claude_usage_config() -> Dict[str, Any]:
+    """
+    Load Claude usage configuration with local overrides.
+
+    Unlike the other loaders this one merges a single settings object rather than a
+    list of items, so the local file only needs to name the keys it changes.
+
+    Returns:
+        Settings dict for the Claude usage meter (always includes 'enabled')
+    """
+    base_config = load_json_config('claude_usage_config.json')
+    local_config = load_json_config('claude_usage_config.local.json')
+
+    settings = dict(base_config.get('claude_usage', {}))
+    settings.update(local_config.get('claude_usage', {}))
+    settings.setdefault('enabled', False)
+
+    return settings
+
+
 def load_command_timeseries_config() -> List[Dict[str, Any]]:
     """
     Load command timeseries configuration with local overrides.
@@ -165,6 +185,7 @@ SERVICES = load_service_config()
 REMOTE_MACHINES = load_remote_machine_config()
 DEVICES = load_device_config()
 COMMAND_TIMESERIES_CONFIGS = load_command_timeseries_config()
+CLAUDE_USAGE_CONFIG = load_claude_usage_config()
 
 # Create lookup dictionaries
 AUTOMATION_MAP = {auto['name']: auto for auto in AUTOMATIONS}
@@ -211,3 +232,8 @@ def get_device_config(device_id: str) -> Dict[str, Any]:
 def get_all_devices() -> List[Dict[str, Any]]:
     """Get all enabled devices."""
     return DEVICES
+
+
+def get_claude_usage_config() -> Dict[str, Any]:
+    """Get settings for the Claude usage meter."""
+    return CLAUDE_USAGE_CONFIG

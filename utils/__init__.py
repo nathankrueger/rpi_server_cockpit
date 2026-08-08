@@ -9,6 +9,7 @@ from .service_utils import (
 from .system_utils import get_uname, get_top_cpu_processes, get_system_stats
 from .network_utils import check_internet_connectivity
 from .data_utils import lttb_downsample
+from .claude_usage_utils import get_claude_usage
 from .remote_machine_utils import (
     resolve_host,
     check_machine_online,

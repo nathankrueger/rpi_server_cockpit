@@ -1,0 +1,33 @@
+{
+    "_comment": [
+        "Copy to claude_usage_config.local.json to show the CLAUDE USAGE tile on the",
+        "monitor page. The tile is hidden entirely unless enabled is true.",
+        "",
+        "credentials_path points at the OAuth credentials Claude Code writes for the",
+        "logged-in account. Only the access token is read, and it never leaves the",
+        "server: the dashboard exchanges it for usage percentages and returns only",
+        "those to the browser. The file must be readable by the user running the",
+        "dashboard (it is mode 600, so that normally means the same user).",
+        "",
+        "Claude Code refreshes that token roughly daily. The dashboard deliberately",
+        "does NOT refresh it (doing so would rotate the refresh token out from under",
+        "Claude Code) - if the token expires, the tile reports AUTH EXPIRED until",
+        "Claude Code is run again on this machine.",
+        "",
+        "cache_seconds bounds how often the Anthropic API is called regardless of how",
+        "many browser tabs are open.",
+        "",
+        "The usage endpoint is itself rate limited (429 with a multi-minute Retry-After).",
+        "force_min_interval is the floor between forced refreshes from the tile's button,",
+        "so repeated presses serve the cache instead of tripping that limit. A 429 is",
+        "honored on top of this: the dashboard stops calling until Retry-After elapses,",
+        "keeps showing the last good reading marked stale, and disables the button."
+    ],
+    "claude_usage": {
+        "enabled": true,
+        "credentials_path": "~/.claude/.credentials.json",
+        "cache_seconds": 60,
+        "request_timeout": 10,
+        "force_min_interval": 15
+    }
+}

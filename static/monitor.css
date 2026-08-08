@@ -517,6 +517,123 @@
     font-style: italic;
 }
 
+/* Claude Usage Card */
+.claude-usage-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 6px 0;
+}
+
+.claude-usage-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.claude-usage-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.claude-usage-label {
+    color: var(--theme-primary-dim);
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.claude-usage-remaining {
+    color: var(--theme-primary);
+    font-size: 1.1em;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(var(--theme-primary-rgb), 0.5);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* The bar fills as the limit is consumed, so it doubles as the "used" readout. */
+.claude-usage-bar {
+    height: 10px;
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.claude-usage-bar-fill {
+    height: 100%;
+    background: var(--theme-primary);
+    box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.6);
+    transition: width 0.5s ease;
+}
+
+/* Severity comes from the API, so a nearly-exhausted window reads as a warning
+   even on a green theme. */
+.claude-usage-item.severity-warning .claude-usage-bar-fill {
+    background: #ffaa00;
+    box-shadow: 0 0 8px rgba(255, 170, 0, 0.6);
+}
+
+.claude-usage-item.severity-warning .claude-usage-remaining {
+    color: #ffaa00;
+    text-shadow: 0 0 5px rgba(255, 170, 0, 0.5);
+}
+
+.claude-usage-item.severity-critical .claude-usage-bar-fill {
+    background: #ff4444;
+    box-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+}
+
+.claude-usage-item.severity-critical .claude-usage-remaining {
+    color: #ff4444;
+    text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+}
+
+.claude-usage-reset {
+    color: var(--theme-primary-dim);
+    font-size: 0.75em;
+    opacity: 0.8;
+}
+
+/* Rate limited upstream - clicking again would only extend the lockout */
+#claude-usage-refresh.disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.claude-usage-stale {
+    color: var(--theme-primary-dim);
+    font-size: 0.7em;
+    opacity: 0.75;
+    text-align: center;
+    padding-top: 2px;
+}
+
+#claude-usage-refresh.spinning {
+    animation: claude-usage-spin 0.8s linear infinite;
+    /* Spin about the glyph itself, not the inline box */
+    display: inline-block;
+}
+
+@keyframes claude-usage-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.claude-usage-message {
+    color: var(--theme-primary-dim);
+    font-size: 0.9em;
+    text-align: center;
+    padding: 20px 0;
+}
+
 /* Force all text to use theme color */
 .weather-condition,
 .weather-location,
