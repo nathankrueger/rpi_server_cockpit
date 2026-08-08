@@ -145,10 +145,13 @@ def load_device_config() -> List[Dict[str, Any]]:
 
 def load_claude_usage_config() -> Dict[str, Any]:
     """
-    Load Claude usage configuration with local overrides.
+    Load Claude usage configuration.
 
     Unlike the other loaders this one merges a single settings object rather than a
-    list of items, so the local file only needs to name the keys it changes.
+    list of items, so a config file only needs to name the keys it changes. The file
+    itself is gitignored and entirely optional (see claude_usage_config.json.example)
+    - with no file the meter is off, and every other setting falls back to the
+    defaults in utils/claude_usage_utils.py.
 
     Returns:
         Settings dict for the Claude usage meter (always includes 'enabled')

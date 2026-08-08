@@ -1,9 +1,0 @@
-{
-    "claude_usage": {
-        "enabled": false,
-        "credentials_path": "~/.claude/.credentials.json",
-        "cache_seconds": 60,
-        "request_timeout": 10,
-        "force_min_interval": 15
-    }
-}
