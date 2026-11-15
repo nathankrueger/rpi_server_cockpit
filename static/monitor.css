@@ -358,11 +358,17 @@
     transition: all 0.3s ease;
     height: 70px;
     overflow: hidden;
+    position: relative;   /* anchors the corner drag handle */
 }
 
 .sensor-item:hover {
     border-color: var(--theme-primary);
     box-shadow: 0 0 10px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.sensor-trend[hidden],
+.sensor-minmax[hidden] {
+    display: none;
 }
 
 .sensor-name {

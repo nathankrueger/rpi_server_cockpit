@@ -8,7 +8,7 @@
 // State management
 let availableTimeseries = [];
 let availableTimeseriesMap = {}; // id -> metadata for quick lookup
-let chartConfigs = []; // Array of {id, name, seriesIds, nameManuallySet}
+let chartConfigs = []; // Array of {id, name, seriesIds, nameManuallySet, collapsed?} in display order
 let autoRefreshEnabled = false;
 let autoRefreshInterval = null;
 let autoRefreshRate = 30000; // milliseconds
@@ -438,11 +438,9 @@ function buildChartConfig(chartConfig, seriesDataList) {
     const unitSet = new Set(seriesDataList.map(ts => ts.units));
     const yAxisTitle = unitSet.size === 1 ? [...unitSet][0] : '';
 
+    // The chart name lives in the HTML header bar (.chart-header), not in
+    // Plotly, so it stays visible when the chart is collapsed.
     const layout = {
-        title: {
-            text: chartConfig.name,
-            font: { color: getComputedStyle(document.body).getPropertyValue('--foreground-color') || '#00ff41' }
-        },
         paper_bgcolor: 'rgba(0, 0, 0, 0)',
         plot_bgcolor: 'rgba(0, 0, 0, 0.5)',
         xaxis: {
@@ -471,23 +469,177 @@ function buildChartConfig(chartConfig, seriesDataList) {
             orientation: 'h',
             tracegroupgap: 10
         },
-        margin: { l: 60, r: 40, t: 50, b: 95 },
+        margin: { l: 60, r: 40, t: 20, b: 95 },
         autosize: true
     };
 
     return { traces, layout };
 }
 
-// Track current chart IDs for detecting structure changes
+// Track current chart IDs (in DOM order) for detecting structure changes
 let currentChartIds = [];
+
+// Latest data, kept so a collapsed chart can be drawn when it's expanded
+let lastDataBySeriesId = {};
+
+// Drag-to-reorder controller for #charts-container (static/sortable.js)
+let chartSorter = null;
+
+// A render requested mid-drag is deferred until the drag ends, so an
+// auto-refresh can't rebuild the container out from under the user's finger.
+let pendingRender = null;
+
+const PLOTLY_OPTIONS = {
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    displaylogo: false
+};
+
+function seriesDataFor(config, dataBySeriesId) {
+    return config.seriesIds.map(id => dataBySeriesId[id]).filter(Boolean);
+}
+
+function chartWrapperFor(chartId) {
+    return document.getElementById(`chart-${chartId}`);
+}
+
+function chartPlotFor(chartId) {
+    return document.getElementById(`chart-plot-${chartId}`);
+}
+
+// Draw (or redraw) one chart's plot. Collapsed charts are skipped entirely —
+// their plot div is display:none and Plotly work there is wasted — and marked
+// stale so expanding them redraws from lastDataBySeriesId.
+function plotChart(config, dataBySeriesId) {
+    const plotDiv = chartPlotFor(config.id);
+    if (!plotDiv) return;
+    if (config.collapsed) {
+        plotDiv.dataset.stale = '1';
+        return;
+    }
+    const { traces, layout } = buildChartConfig(config, seriesDataFor(config, dataBySeriesId));
+    if (plotDiv.dataset.plotted === '1') {
+        Plotly.react(plotDiv, traces, layout);
+    } else {
+        Plotly.newPlot(plotDiv, traces, layout, PLOTLY_OPTIONS);
+        plotDiv.dataset.plotted = '1';
+    }
+    delete plotDiv.dataset.stale;
+}
+
+function setCollapsedClass(wrapper, collapsed) {
+    wrapper.classList.toggle('collapsed', !!collapsed);
+    const btn = wrapper.querySelector('.chart-collapse-btn');
+    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+
+// Collapse/expand a chart; the state is persisted on its chart config.
+function toggleChartCollapsed(chartId) {
+    const config = chartConfigs.find(c => c.id === chartId);
+    const wrapper = chartWrapperFor(chartId);
+    if (!config || !wrapper) return;
+    config.collapsed = !config.collapsed;
+    saveChartConfigs();
+    setCollapsedClass(wrapper, config.collapsed);
+    if (!config.collapsed) {
+        const plotDiv = chartPlotFor(chartId);
+        if (plotDiv.dataset.plotted !== '1' || plotDiv.dataset.stale === '1') {
+            plotChart(config, lastDataBySeriesId);
+        }
+        // The plot was display:none; size it to its now-visible box.
+        requestAnimationFrame(() => Plotly.Plots.resize(plotDiv));
+    }
+}
+
+function createChartElement(config) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'chart-wrapper';
+    wrapper.id = `chart-${config.id}`;
+    wrapper.dataset.sortId = config.id;
+
+    const header = document.createElement('div');
+    header.className = 'chart-header';
+
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'drag-handle';
+    handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-label', 'Drag to reorder chart');
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'chart-collapse-btn';
+    collapseBtn.title = 'Collapse / expand';
+    collapseBtn.addEventListener('click', () => toggleChartCollapsed(config.id));
+
+    const arrow = document.createElement('span');
+    arrow.className = 'collapse-arrow';
+    arrow.textContent = '▾';
+
+    const title = document.createElement('span');
+    title.className = 'chart-title';
+    title.textContent = config.name;  // user-provided: never innerHTML
+
+    collapseBtn.append(arrow, title);
+    header.append(collapseBtn);
+
+    const plotDiv = document.createElement('div');
+    plotDiv.className = 'chart-plot';
+    plotDiv.id = `chart-plot-${config.id}`;
+
+    // The handle sits in the wrapper's corner, not on the title row
+    wrapper.append(handle, header, plotDiv);
+    setCollapsedClass(wrapper, config.collapsed);
+    addFullscreenToggle(wrapper, plotDiv);
+    return wrapper;
+}
+
+// Persist a drag-reorder. Only charts with data are on screen, so apply the
+// new on-screen order to the full config list without moving hidden charts.
+function onChartsReordered(visibleIds) {
+    const fullIds = chartConfigs.map(c => c.id);
+    const newIds = Sortable.utils.reorderSubset(fullIds, visibleIds);
+    const byId = new Map(chartConfigs.map(c => [c.id, c]));
+    chartConfigs = newIds.map(id => byId.get(id));
+    currentChartIds = visibleIds.slice();
+    saveChartConfigs();
+}
+
+function ensureChartSorter(container) {
+    if (chartSorter) return;
+    chartSorter = Sortable.attach(container, {
+        itemSelector: '.chart-wrapper',
+        handleSelector: '.drag-handle',
+        getId: el => el.dataset.sortId,
+        onReorder: onChartsReordered,
+        onDragEnd: () => {
+            if (pendingRender) {
+                // Render the *current* chartConfigs: the drop just replaced the
+                // array with the new order, and rendering the one captured
+                // mid-drag would silently undo the user's reorder.
+                const data = pendingRender;
+                pendingRender = null;
+                renderCharts(chartConfigs, data);
+            }
+        }
+    });
+}
 
 // Render charts based on chart configs
 function renderCharts(configs, dataBySeriesId) {
+    lastDataBySeriesId = dataBySeriesId;
+    const container = document.getElementById('charts-container');
+    ensureChartSorter(container);
+    if (chartSorter.isDragging()) {
+        pendingRender = dataBySeriesId;
+        return;
+    }
+
     // Clear any error banner from a previous failed update
     const banner = document.getElementById('chart-error-banner');
     if (banner) banner.remove();
 
-    const container = document.getElementById('charts-container');
     const scrollY = window.scrollY;
 
     // Filter to configs that have data
@@ -504,14 +656,13 @@ function renderCharts(configs, dataBySeriesId) {
     if (canUpdateInPlace && newIds.length > 0) {
         // Update charts in-place using Plotly.react (no blink)
         activeConfigs.forEach(config => {
-            const chartDiv = document.getElementById(`chart-${config.id}`);
-            if (chartDiv) {
-                const seriesDataList = config.seriesIds
-                    .map(id => dataBySeriesId[id])
-                    .filter(Boolean);
-                const { traces, layout } = buildChartConfig(config, seriesDataList);
-                Plotly.react(chartDiv.id, traces, layout);
-            }
+            const wrapper = chartWrapperFor(config.id);
+            if (!wrapper) return;
+            // A rename in MANAGE CHARTS doesn't change structure
+            const title = wrapper.querySelector('.chart-title');
+            if (title && title.textContent !== config.name) title.textContent = config.name;
+            setCollapsedClass(wrapper, config.collapsed);
+            plotChart(config, dataBySeriesId);
         });
     } else {
         // Structure changed - need full rebuild
@@ -523,29 +674,13 @@ function renderCharts(configs, dataBySeriesId) {
             document.body.classList.remove('chart-fullscreen-active');
         }
 
+        container.querySelectorAll('.chart-plot').forEach(div => Plotly.purge(div));
         container.innerHTML = '';
         currentChartIds = newIds;
 
         activeConfigs.forEach(config => {
-            const seriesDataList = config.seriesIds
-                .map(id => dataBySeriesId[id])
-                .filter(Boolean);
-
-            const chartDiv = document.createElement('div');
-            chartDiv.className = 'chart-wrapper';
-            chartDiv.id = `chart-${config.id}`;
-            container.appendChild(chartDiv);
-
-            const { traces, layout } = buildChartConfig(config, seriesDataList);
-
-            Plotly.newPlot(chartDiv.id, traces, layout, {
-                responsive: true,
-                displayModeBar: true,
-                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-                displaylogo: false
-            });
-
-            addFullscreenToggle(chartDiv);
+            container.appendChild(createChartElement(config));
+            plotChart(config, dataBySeriesId);
         });
 
         // Show message if no data
@@ -556,11 +691,11 @@ function renderCharts(configs, dataBySeriesId) {
         // Restore fullscreen state if applicable
         if (fullscreenChartId) {
             const chartToRestore = document.getElementById(fullscreenChartId);
-            if (chartToRestore) {
+            if (chartToRestore && !chartToRestore.classList.contains('collapsed')) {
                 chartToRestore.classList.add('chart-fullscreen');
                 document.body.classList.add('chart-fullscreen-active');
                 requestAnimationFrame(() => {
-                    Plotly.Plots.resize(chartToRestore);
+                    Plotly.Plots.resize(chartToRestore.querySelector('.chart-plot'));
                 });
             }
         }
@@ -970,8 +1105,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Add double-tap to fullscreen functionality for a chart
-function addFullscreenToggle(chartDiv) {
+// Add double-tap to fullscreen functionality for a chart. Listeners go on the
+// plot area only, so tapping the header (collapse toggle, drag handle) never
+// counts toward a double-tap.
+function addFullscreenToggle(chartDiv, plotDiv) {
     let lastTap = 0;
 
     // Handle double-tap for both mouse and touch
@@ -990,37 +1127,31 @@ function addFullscreenToggle(chartDiv) {
     };
 
     // Add mouse double-click listener
-    chartDiv.addEventListener('dblclick', () => {
+    plotDiv.addEventListener('dblclick', () => {
         toggleFullscreen(chartDiv);
     });
 
     // Add touch double-tap listener for mobile
-    chartDiv.addEventListener('touchend', handleDoubleTap);
+    plotDiv.addEventListener('touchend', handleDoubleTap);
 }
 
-// Toggle fullscreen mode for a chart
+// Toggle fullscreen mode for a chart (chartDiv is the .chart-wrapper)
 function toggleFullscreen(chartDiv) {
+    const plotDiv = chartDiv.querySelector('.chart-plot');
     if (chartDiv.classList.contains('chart-fullscreen')) {
         // Exit fullscreen
         chartDiv.classList.remove('chart-fullscreen');
         document.body.classList.remove('chart-fullscreen-active');
-
-        // Resize chart to fit container (CSS constrains to a fixed height)
-        Plotly.Plots.resize(chartDiv);
-        setTimeout(() => {
-            Plotly.Plots.resize(chartDiv);
-        }, 350);
     } else {
         // Enter fullscreen
         chartDiv.classList.add('chart-fullscreen');
         document.body.classList.add('chart-fullscreen-active');
-
-        // Resize chart to fill screen
-        Plotly.Plots.resize(chartDiv);
-        setTimeout(() => {
-            Plotly.Plots.resize(chartDiv);
-        }, 350);
     }
+    // Resize the plot to its new box (again after the CSS animation settles)
+    Plotly.Plots.resize(plotDiv);
+    setTimeout(() => {
+        Plotly.Plots.resize(plotDiv);
+    }, 350);
 }
 
 // Exit fullscreen or close modals on Escape key

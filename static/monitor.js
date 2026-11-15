@@ -88,6 +88,7 @@ let sensorUpdateInterval = DEFAULT_SENSOR_UPDATE_INTERVAL; // in seconds
 let sensorMinmaxHours = DEFAULT_SENSOR_MINMAX_HOURS; // hours for min/max range
 let sensorIntervalId = null;
 let sensorUpdateInProgress = false; // Guard against concurrent requests
+let sensorSorter = null; // drag-to-reorder controller (static/sortable.js)
 
 /**
  * Load sensor settings from localStorage
@@ -789,6 +790,130 @@ async function loadAvailableTimeseries() {
 }
 
 /**
+ * Turn one API sensor record into the plain values a tile displays.
+ */
+function buildSensorView(sensor, minmax, rangeLabel) {
+    const view = { id: sensor.id, name: sensor.name, units: sensor.units || '', hasData: false };
+    if (!sensor.data || sensor.data.length === 0) return view;
+
+    const latestValue = sensor.data[sensor.data.length - 1].value;
+    view.hasData = true;
+    view.value = typeof latestValue === 'number' ? latestValue.toFixed(2) : String(latestValue);
+
+    // Trend arrow based on slope over the min/max window
+    if (minmax && minmax.oldest !== null && typeof latestValue === 'number') {
+        const slope = latestValue - minmax.oldest;
+        view.trend = slope > 0.01 ? 'up' : slope < -0.01 ? 'down' : 'flat';
+    }
+    if (minmax) {
+        view.minmax = [
+            `${rangeLabel} Min: ${minmax.min.toFixed(2)}`,
+            `${rangeLabel} Max: ${minmax.max.toFixed(2)}`,
+        ];
+    }
+    return view;
+}
+
+const TREND_ARROWS = { up: '↑', down: '↓', flat: '→' };
+
+function createSensorTile(id) {
+    const item = document.createElement('div');
+    item.className = 'sensor-item';
+    item.dataset.sortId = id;
+    item.innerHTML = `
+        <button type="button" class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder sensor"></button>
+        <span class="sensor-name"></span>
+        <div class="sensor-value-row">
+            <span class="sensor-value"></span>
+            <div class="sensor-trend"></div>
+            <div class="sensor-minmax"></div>
+        </div>`;
+    return item;
+}
+
+/** Write a view's values into an existing tile (text only — names come from config). */
+function updateSensorTile(item, view) {
+    const label = `${view.name}:`;
+    const nameEl = item.querySelector('.sensor-name');
+    nameEl.textContent = label;
+    nameEl.title = view.name;
+
+    const valueText = view.hasData ? `${view.value} ${view.units}`.trim() : 'No data';
+    item.querySelector('.sensor-value').textContent = valueText;
+
+    const trendEl = item.querySelector('.sensor-trend');
+    trendEl.className = 'sensor-trend' + (view.trend ? ` trend-${view.trend}` : '');
+    trendEl.textContent = view.trend ? TREND_ARROWS[view.trend] : '';
+    trendEl.hidden = !view.trend;
+
+    const minmaxEl = item.querySelector('.sensor-minmax');
+    minmaxEl.replaceChildren(...(view.minmax || []).map(line => {
+        const div = document.createElement('div');
+        div.textContent = line;
+        return div;
+    }));
+    minmaxEl.hidden = !view.minmax;
+
+    item.classList.toggle('sensor-no-data', !view.hasData);
+}
+
+function onSensorsReordered(ids) {
+    selectedSensorIds = new Set(Sortable.utils.reorderSubset([...selectedSensorIds], ids));
+    saveSensorSettings();
+}
+
+/**
+ * Reconcile the sensor grid with fresh views, keyed by sensor id: tiles are
+ * created/updated/removed in place (never rebuilt wholesale), so a periodic
+ * refresh can't interrupt a drag. Display order is the
+ * user's saved order (selectedSensorIds). While a drag is in progress only
+ * values are updated — the user's finger owns the order.
+ */
+function renderSensorTiles(container, views) {
+    if (!sensorSorter) {
+        sensorSorter = Sortable.attach(container, {
+            itemSelector: '.sensor-item',
+            handleSelector: '.drag-handle',
+            getId: el => el.dataset.sortId,
+            onReorder: onSensorsReordered,
+        });
+    }
+
+    const existing = new Map();
+    container.querySelectorAll(':scope > .sensor-item').forEach(el => existing.set(el.dataset.sortId, el));
+
+    if (sensorSorter.isDragging()) {
+        views.forEach(view => {
+            const item = existing.get(view.id);
+            if (item) updateSensorTile(item, view);
+        });
+        return;
+    }
+
+    if (views.length === 0) {
+        container.innerHTML = '<div class="sensor-data-empty">No sensor data available</div>';
+        return;
+    }
+
+    // Drop placeholders ("Loading", "Error", ...) and tiles no longer selected
+    const wanted = new Set(views.map(v => v.id));
+    Array.from(container.children).forEach(el => {
+        if (!el.classList.contains('sensor-item') || !wanted.has(el.dataset.sortId)) el.remove();
+    });
+
+    const ordered = Sortable.utils.sortByOrder(views, [...selectedSensorIds], v => v.id);
+    ordered.forEach((view, i) => {
+        let item = existing.get(view.id);
+        if (!item) item = createSensorTile(view.id);
+        updateSensorTile(item, view);
+        // Only move a tile that's out of place: moving a node drops keyboard
+        // focus from its drag handle, and this runs every refresh.
+        const slot = container.children[i] || null;
+        if (slot !== item) container.insertBefore(item, slot);
+    });
+}
+
+/**
  * Update the sensor data display with latest values
  */
 async function updateSensorDisplay() {
@@ -845,54 +970,8 @@ async function updateSensorDisplay() {
             ? `${Math.floor(sensorMinmaxHours / 24)}D`
             : `${sensorMinmaxHours}H`;
 
-        // Build the sensor display HTML
-        let html = '';
-        for (const sensor of sensorData) {
-            if (sensor.data && sensor.data.length > 0) {
-                const latestValue = sensor.data[sensor.data.length - 1].value;
-                const formattedValue = typeof latestValue === 'number' ? latestValue.toFixed(2) : latestValue;
-                const minmax = minmaxData[sensor.id];
-
-                // Calculate trend arrow based on slope
-                let trendHtml = '';
-                if (minmax && minmax.oldest !== null && typeof latestValue === 'number') {
-                    const slope = latestValue - minmax.oldest;
-                    let arrowClass = 'trend-flat';
-                    let arrowChar = '→';
-                    if (slope > 0.01) {
-                        arrowClass = 'trend-up';
-                        arrowChar = '↑';
-                    } else if (slope < -0.01) {
-                        arrowClass = 'trend-down';
-                        arrowChar = '↓';
-                    }
-                    trendHtml = `<div class="sensor-trend ${arrowClass}">${arrowChar}</div>`;
-                }
-
-                const minmaxHtml = minmax
-                    ? `<div class="sensor-minmax"><div>${rangeLabel} Min: ${minmax.min.toFixed(2)}</div><div>${rangeLabel} Max: ${minmax.max.toFixed(2)}</div></div>`
-                    : '';
-                html += `
-                    <div class="sensor-item">
-                        <span class="sensor-name" title="${sensor.name}">${sensor.name}:</span>
-                        <div class="sensor-value-row">
-                            <span class="sensor-value">${formattedValue} ${sensor.units || ''}</span>
-                            ${trendHtml}
-                            ${minmaxHtml}
-                        </div>
-                    </div>
-                `;
-            } else {
-                html += `
-                    <div class="sensor-item sensor-no-data">
-                        <span class="sensor-name" title="${sensor.name}">${sensor.name}:</span>
-                        <span class="sensor-value">No data</span>
-                    </div>
-                `;
-            }
-        }
-
-        container.innerHTML = html || '<div class="sensor-data-empty">No sensor data available</div>';
+        const views = sensorData.map(sensor => buildSensorView(sensor, minmaxData[sensor.id], rangeLabel));
+        renderSensorTiles(container, views);
 
     } catch (error) {
         console.error('Error updating sensor display:', error);
@@ -1065,13 +1144,12 @@ function saveSettings() {
     }
 
     // Save sensor settings
-    const sensorCheckboxes = document.querySelectorAll('.sensor-checkbox');
-    selectedSensorIds.clear();
-    sensorCheckboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            selectedSensorIds.add(checkbox.dataset.sensorId);
-        }
-    });
+    // Keep the user's drag order: still-selected sensors stay put, newly
+    // checked ones are appended (checkbox order is category order, not theirs).
+    const checkedIds = Array.from(document.querySelectorAll('.sensor-checkbox'))
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.dataset.sensorId);
+    selectedSensorIds = new Set(Sortable.utils.mergeSelectionOrder([...selectedSensorIds], checkedIds));
     
     // Save sensor update interval
     const sensorIntervalInput = document.getElementById('sensor-update-interval');

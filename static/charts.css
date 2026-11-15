@@ -362,16 +362,71 @@
     background: rgba(0, 0, 0, 0.7);
     border: 2px solid var(--foreground-color, var(--chart-green));
     border-radius: 8px;
-    padding: 20px;
+    padding: 10px 20px 20px;
     box-shadow: 0 0 20px rgba(var(--foreground-color-rgb, var(--chart-green-rgb)), 0.3);
     height: 400px;
     overflow: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
-.chart-wrapper > div {
-    width: 100% !important;
-    height: 100% !important;
+/* Header bar: collapse toggle carrying the chart name (the drag handle is
+   absolutely positioned in the wrapper corner, off this row). The name
+   is here rather than in Plotly so a collapsed chart still shows it. */
+.chart-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.chart-collapse-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    cursor: pointer;
+    color: var(--foreground-color, var(--chart-green));
+    font-family: 'Courier New', monospace;
+    text-align: left;
+}
+
+.chart-title {
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.chart-plot {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+
+/* Collapsed: just the header bar */
+.chart-wrapper.collapsed {
+    height: auto;
+    padding-bottom: 10px;
+}
+
+.chart-wrapper.collapsed .chart-plot {
+    display: none;
+}
+
+/* No reordering/collapsing from inside a fullscreen chart */
+.chart-fullscreen .drag-handle,
+.chart-fullscreen .collapse-arrow {
+    display: none;
 }
 
 /* Messages */
@@ -510,7 +565,7 @@ body.chart-fullscreen-active {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.chart-wrapper:not(.chart-fullscreen):hover {
+.chart-wrapper:not(.chart-fullscreen):not(.sort-placeholder):not(.sort-ghost):hover {
     transform: scale(1.01);
     box-shadow: 0 0 30px rgba(var(--foreground-color-rgb, var(--chart-green-rgb)), 0.5);
 }
